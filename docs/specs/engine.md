@@ -1,7 +1,8 @@
 # The engine — spec
 
-Status: proposed for round 3 («Generalise», [plan](../plan.md) §4). When round 3 lands, this
-describes `packages/consequitur`. Words as in the [glossary](../glossary.md).
+Status: settled, built in round 3 («Generalise», [plan](../plan.md) §4). This describes
+`packages/consequitur`; where the build had to add to what was proposed, the text says so in place.
+Words as in the [glossary](../glossary.md).
 
 What does not change from the ported engine is not repeated here: the line and its envelope
 (`canonical`, `stamp`, `verify`, `inOrder`), reading order, in force and revoking, the three
@@ -48,14 +49,18 @@ The base kinds:
 | `set` | `{ [set: string]: string[] }`, each list sorted with `<` | `{ assignees: ['lbianchi', 'mrossi'] }` |
 
 `emptyState(schema)` gives `{ lines: [], handles }` with each kind's empty handle, and a `set`
-handle holding an empty list for every set the schema declares.
+handle holding an empty list for every set the schema declares. `start` takes the schema so that
+the reading's expectation (`Reading.expected`) holds those empty lists too, and has the shape of
+the handles it is compared with.
 
 ```ts
 export interface HandleKind {
   kind: string;
   empty(schema: Schema): Json;
+  /** The roles its answers are recorded as: the schema's `records` names a gist for each. */
+  roles: string[];
   /** A fresh accumulator for one reduction. */
-  start(): unknown;
+  start(schema: Schema): unknown;
   /** The thread's expectation, read out of the accumulator, as a handle of this kind. */
   expected(acc: unknown): Json;
   /** Every difference, in a fixed order. */
@@ -117,16 +122,20 @@ then member).
 ```ts
 export interface RuleKind {
   rule: string;
+  /** The handle kinds its expectations go into: a kit that lacks one cannot hold the rule. */
+  handles: string[];
   /** The binding as typed, or a problem in English. Unknown keys are a problem. */
   read(binding: Record<string, unknown>, schema: SchemaHead): RuleBinding | string;
-  /** Why a payload cannot carry this binding, in English, or nothing. */
+  /** Why a payload cannot carry this binding, in English and without the gist, or nothing. */
   admit(binding: RuleBinding, payload: Payload): string | undefined;
-  /** Whether a goal's empty-or-given outcome payload satisfies this binding (a `required` key). */
-  asks(binding: RuleBinding, payload: Payload): boolean;
   /** States what the line expects, into the accumulators of the handle kinds. */
   expect(binding: RuleBinding, line: EventLine, acc: (kind: string) => unknown): void;
 }
 ```
+
+`admit` is asked of a draft and of a goal's outcome payload alike («a draft and a goal's outcome
+are held to the same checks»), so there is no second method for the goal. `handles` lets the
+reader refuse, when the schema is read, a rule that states into a handle kind the kit lacks.
 
 ## 5 · The schema
 
@@ -154,8 +163,12 @@ export interface RuleKind {
 ```
 
 - `opening`: the gist of the opening rule. `authority`: the writer of the records. `judged`: the
-  kins whose lines the laws judge. `records`: one gist per role; each must be a gist of the schema
-  whose writers include the authority's kin (and `goal` for `warning`).
+  kins whose lines the laws judge (none if left out). `sets`: the names of the sets (none if left
+  out). `records`: one gist per role; each must be a gist of the schema whose writers include the
+  authority's kin (and `goal` for `warning`). Every role of every handle kind of the kit must be
+  named; `warning` may be left out, and then the thread expects no warnings and no check is
+  judged. A schema that uses fewer handle kinds is read against a smaller kit.
+- `laws`: optional; a schema with none judges nothing.
 - `when`: `{ checks?, in?: <set>, values?: { [key]: Json } }` — `in` and `values` replace
   `assignee` and `metadata`.
 
@@ -163,9 +176,11 @@ export interface RuleKind {
 export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems: string[] };
 ```
 
-Like `readGists`: never throws; a gist schema or law that fails is left out and named, the rest
-kept; a schema whose head (`opening`, `authority`, `sets`, `records`, `judged`) fails gives an
-empty schema and the problems. A rule or law naming a kind the kit lacks is a problem.
+Never throws; a gist schema or law that fails is left out and named, the rest kept; a schema whose
+head (`opening`, `authority`, `sets`, `records`, `judged`) fails gives an empty schema and the
+problems. So does a head that names a gist the reader did not keep: an opening gist, or a record
+gist, with no schema, or whose writers do not fit. A rule or law naming a kind the kit lacks is a
+problem. `readGists(value, kit, head)` and `readLaws(value, kit, head)` read the two lists alone.
 
 ## 6 · Laws
 
@@ -178,17 +193,27 @@ export interface LawKind {
 ```
 
 `keeps-set { set, while? }`: broken when, after, every value in `while` holds and the set is
-empty. `keeps-goals` and `settles` as now. Laws come from the schema; `dryRun` and `post` judge
-them for drafts whose writer's kin is in `judged`.
+empty; its detail says so in the schema's own words for the set and the values, never in a
+domain's. `keeps-goals` and `settles` as now. Laws come from the schema; `dryRun` and `post` judge
+them for drafts whose writer's kin is in `judged`. The same law may appear again with other keys
+(one `keeps-set` per set); the same law with the same keys twice is a problem, as a gist twice is.
 
 ## 7 · Posting, the policy, the diff
 
 ```ts
-export function dryRun(state, draft, schema, now): Promise<DryRun>;
+export function dryRun(state, draft, schema, now, options?: { policy?: Policy }): Promise<DryRun>;
 export function post(state, draft, schema, now, options?: { confirmed?: boolean; policy?: Policy }): Promise<PostResult>;
 export function settle(state, schema, now, policy?: Policy): Promise<{ state; reading; rounds }>;
+export function answer(reading: Reading, handles: Handles, policy?: Policy): Denunciation[];
 export function diff(before: Handles, after: Handles, kit: Kit): Change[];
 ```
+
+`dryRun` takes the policy too, so a preview is the post it previews.
+
+`reduce`, `admit`, `reconcile`, `payloadProblem`, `whenHolds` and `offers` take the schema where the
+ported engine took the gist schemas, since the kinds they ask live in its kit; `inForce` still takes
+the list of gist schemas, as it reads nothing else. `reconcile` writes each record as the schema's
+`authority`, under the gist its `records` gives the answer's role.
 
 **The policy** is the authority's, not the schema's: a list of entries, each a denunciation
 pattern and an optional condition, «leave this unanswered when that holds»:
@@ -200,8 +225,11 @@ export type Policy = Array<{
 }>;
 ```
 
-`settle` answers every denunciation except `thread` and those a policy entry leaves; a reading
-whose only denunciations are left by the policy counts as settled for the cap. Example:
+`settle` answers every denunciation `answer` returns: all but those of the thread and those a
+policy entry leaves. The condition is read on the handles as they stand at the start of each
+round. A reading whose only denunciations are left by the policy counts as settled (`settled:
+true`, the denunciations still listed): the cap stops being reached, and the law `settles` does
+not refuse the line. Example:
 `{ leave: { kind: 'set', key: 'assignees' }, while: { values: { status: 'closed' } } }` — SIBAR's
 «quits on a done activity are not answered».
 
@@ -210,7 +238,9 @@ after? }`; `set` gives `{ kind: 'set', key, member, change: 'join' | 'leave' }`.
 
 ## 8 · Offers
 
-`offers` computes the expectations once per call, not once per gist. Same result.
+`offers` computes the expectations once per call, not once per gist. Same result. Admission and
+the menu still ask one question: `whenHolds(lines, writer, gist, schema)` computes the
+expectations for its one gist, and `offers` asks the same part of them (`holds`) for each.
 
 ## 9 · The SIBAR case
 

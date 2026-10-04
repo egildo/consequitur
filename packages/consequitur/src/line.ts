@@ -5,14 +5,17 @@
 // must agree on an order whatever their locale.
 
 import type { EventLine, GistSchema, Json, LineDraft, LineId } from './types.ts';
+import { compare } from './util.ts';
 
-/** The one gist the mechanic reserves: a thread opens with it. */
-export const CREATE_GIST = 'create';
-
-/** The gist a goal writes, once per check, when the thread holds nothing the check could match. */
-export const WARNING_GIST = 'goal_warning';
-
-const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+/**
+ * What a gist's revoke binding says, or nothing when it has none: only the first
+ * is read. Revoking is a mechanic, so the engine reads it, not a kind.
+ */
+export function revokeOf(gist: GistSchema | undefined): { from: string; gists: string[] } | undefined {
+  const binding = gist?.rules.find((r) => r.rule === 'revoke');
+  if (!binding || typeof binding.from !== 'string' || !Array.isArray(binding.gists)) return undefined;
+  return { from: binding.from, gists: binding.gists.filter((g): g is string => typeof g === 'string') };
+}
 
 /** `JSON.stringify` with every object's keys sorted, at every depth, so equal values give one string. */
 export function canonical(value: Json): string {
@@ -31,7 +34,7 @@ async function hashOf(line: Omit<EventLine, 'id'>): Promise<LineId> {
 }
 
 /**
- * The server's envelope for a draft. The id is computed here, once, and stored:
+ * The authority's envelope for a draft. The id is computed here, once, and stored:
  * nothing else recomputes it but `verify`. A timestamp never repeats inside a
  * thread, because the reading order depends on it.
  */
@@ -91,8 +94,8 @@ export function inForce(lines: EventLine[], gists: GistSchema[]): { inForce: Eve
       continue;
     }
     standing.push(line);
-    const binding = schemaOf(line.gist)?.rules.find((r) => r.rule === 'revoke');
-    if (binding?.rule !== 'revoke') continue;
+    const binding = revokeOf(schemaOf(line.gist));
+    if (!binding) continue;
     const target = line.payload[binding.from];
     if (typeof target !== 'string') continue;
     const at = position.get(target);

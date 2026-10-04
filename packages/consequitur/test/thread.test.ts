@@ -1,17 +1,12 @@
 // The activity thread (sibardoc-prototype, docs/next/activity-threads-round.md): a line's envelope
 // and stored id, the reading order, and revoking by gist. Pure: no HTTP layer.
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  BASE_GISTS,
-  BASE_GIST_DATA,
-  BASE_LAWS,
-  BASE_LAW_DATA,
-  CREATE_GIST,
+  BASE_KIT,
   MAX_ROUNDS,
-  SYSTEM_WRITER,
   admit,
   canonical,
   dryRun,
@@ -24,6 +19,7 @@ import {
   post,
   readGists,
   readLaws,
+  readSchema,
   reconcile,
   reduce,
   settle,
@@ -31,22 +27,31 @@ import {
   validChecks,
   verify,
   whenHolds,
+  type Denunciation,
   type EventLine,
   type GistSchema,
+  type HandleDenunciation,
   type Handles,
   type Json,
-  type Law,
   type LineDraft,
   type Offer,
   type Payload,
   type Reading,
   type Refusal,
+  type Schema,
   type ThreadState,
   type When,
   type Writer,
 } from '../src/index.ts';
+import { HEAD, PLAIN, RECORD_GISTS, SIBAR, SIBAR_JSON, SYSTEM_WRITER, custom, emptyHandles, hold, membersOf, sibar, unchecked, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
+
+/** One word for a denunciation: its handle kind and key (and member), or its sort. */
+const labelOf = (d: Denunciation): string => (d.sort === 'handle' ? [d.kind, d.key, d.member].filter((p) => p !== undefined).join(' ') : d.sort);
+
+/** The denunciations of one handle kind, in the order they come. */
+const ofKind = (reading: Reading, kind: string) => reading.denunciations.filter((d): d is HandleDenunciation => d.sort === 'handle' && d.kind === kind);
 
 const GISTS: GistSchema[] = [
   { gist: 'note', writers: ['user'], rules: [] },
@@ -235,45 +240,45 @@ describe('inForce', () => {
   });
 });
 
-describe('the reserved gist', () => {
-  it('is create', () => {
-    expect(CREATE_GIST).toBe('create');
+describe('the opening gist', () => {
+  it('is named by the schema: in the case, create', () => {
+    expect(SIBAR.opening).toBe('create');
   });
 });
 
 describe('reduce', () => {
-  // gist schemas of the reduction, written here: the base gists belong to a later step
-  const RULES: GistSchema[] = [
+  // gist schemas of the reduction, written here: the case's gists belong to a later step
+  const RULES = custom([
     {
       gist: 'create',
       writers: ['user'],
       rules: [
-        { rule: 'metadata', key: 'name', from: 'name', required: true },
-        { rule: 'metadata', key: 'status', value: 'open' },
-        { rule: 'assign', from: 'assignTo', required: true },
+        { rule: 'value', key: 'name', from: 'name', required: true },
+        { rule: 'value', key: 'status', value: 'open' },
+        { rule: 'join', set: 'assignees', from: 'assignTo', required: true },
       ],
     },
-    { gist: 'memo', writers: ['user'], rules: [{ rule: 'assign', from: 'assignTo' }] },
+    { gist: 'memo', writers: ['user'], rules: [{ rule: 'join', set: 'assignees', from: 'assignTo' }] },
     { gist: 'memo_revoke', writers: ['user'], rules: [{ rule: 'revoke', from: 'target', gists: ['memo'] }] },
     { gist: 'memo_restore', writers: ['user'], rules: [{ rule: 'revoke', from: 'target', gists: ['memo_revoke'] }] },
-    { gist: 'setk', writers: ['user'], rules: [{ rule: 'metadata', key: 'k', from: 'v' }] },
+    { gist: 'setk', writers: ['user'], rules: [{ rule: 'value', key: 'k', from: 'v' }] },
     { gist: 'setk_revoke', writers: ['user'], rules: [{ rule: 'revoke', from: 'target', gists: ['setk'] }] },
-    { gist: 'quit', writers: ['user'], rules: [{ rule: 'release' }] },
+    { gist: 'quit', writers: ['user'], rules: [{ rule: 'leave', set: 'assignees' }] },
     { gist: 'got_it', writers: ['user'], rules: [] },
     { gist: 'proof', writers: ['user'], rules: [] },
     { gist: 'proof_revoke', writers: ['user'], rules: [{ rule: 'revoke', from: 'target', gists: ['proof'] }] },
     { gist: 'fact', writers: ['system'], rules: [] },
     { gist: 'goal', writers: ['user'], rules: [{ rule: 'goal' }] },
-    { gist: 'done', writers: ['goal', 'user'], rules: [{ rule: 'metadata', key: 'status', value: 'closed' }] },
-  ];
+    { gist: 'done', writers: ['goal', 'user'], rules: [{ rule: 'value', key: 'status', value: 'closed' }] },
+  ]);
 
   const by = (writer: Writer, gist: string, payload: LineDraft['payload']): LineDraft => ({ gist, writer, payload });
   const mrossi = (gist: string, payload: LineDraft['payload']) => by('user::mrossi', gist, payload);
   const lbianchi = (gist: string, payload: LineDraft['payload']) => by('user::lbianchi', gist, payload);
   const create = mrossi('create', { name: 'Parere', assignTo: ['mrossi'] });
 
-  const empty: Handles = { metadata: {}, assignees: [] };
-  const agreeing: Handles = { metadata: { name: 'Parere', status: 'open' }, assignees: ['mrossi'] };
+  const empty: Handles = emptyHandles();
+  const agreeing: Handles = hold({ name: 'Parere', status: 'open' }, ['mrossi']);
   const read = (lines: EventLine[], handles: Handles = empty): Reading => reduce(lines, handles, RULES);
   const add = async (lines: EventLine[], draft: LineDraft): Promise<EventLine[]> => [...lines, await stamp(draft, lines, NOW)];
   const last = (lines: EventLine[]) => lines[lines.length - 1];
@@ -282,9 +287,9 @@ describe('reduce', () => {
     const [c] = await thread([create]);
     const reading = read([c]);
     expect(reading.denunciations).toStrictEqual([
-      { sort: 'metadata', key: 'name', expected: 'Parere', line: c.id },
-      { sort: 'metadata', key: 'status', expected: 'open', line: c.id },
-      { sort: 'assignment', user: 'mrossi', expected: true, line: c.id },
+      { sort: 'handle', kind: 'value', key: 'name', expected: 'Parere', line: c.id },
+      { sort: 'handle', kind: 'value', key: 'status', expected: 'open', line: c.id },
+      { sort: 'handle', kind: 'set', key: 'assignees', member: 'mrossi', expected: true, line: c.id },
     ]);
     expect(reading.settled).toBe(false);
     expect(reading.expected).toEqual(agreeing);
@@ -298,46 +303,46 @@ describe('reduce', () => {
 
   it('is both ways: what no line expects is denounced, with no line and nothing expected', async () => {
     const lines = await thread([create]);
-    const reading = read(lines, { metadata: { ...agreeing.metadata, stray: 1 }, assignees: ['mrossi', 'zed'] });
+    const reading = read(lines, hold({ ...valuesOf(agreeing), stray: 1 }, ['mrossi', 'zed']));
     expect(reading.denunciations).toStrictEqual([
-      { sort: 'metadata', key: 'stray', found: 1 },
-      { sort: 'assignment', user: 'zed', expected: false },
+      { sort: 'handle', kind: 'value', key: 'stray', found: 1 },
+      { sort: 'handle', kind: 'set', key: 'assignees', member: 'zed', expected: false },
     ]);
   });
 
   it('a differing value carries both sides and the line that expects it', async () => {
     const lines = await thread([create]);
-    const reading = read(lines, { metadata: { name: 'Altro', status: 'open' }, assignees: ['mrossi'] });
-    expect(reading.denunciations).toStrictEqual([{ sort: 'metadata', key: 'name', expected: 'Parere', found: 'Altro', line: lines[0].id }]);
+    const reading = read(lines, hold({ name: 'Altro', status: 'open' }, ['mrossi']));
+    expect(reading.denunciations).toStrictEqual([{ sort: 'handle', kind: 'value', key: 'name', expected: 'Parere', found: 'Altro', line: lines[0].id }]);
   });
 
   it('the later line wins, and a reversed array reads the same', async () => {
     const lines = await thread([create, mrossi('setk', { v: 1 }), mrossi('setk', { v: 2 })]);
     const reading = read(lines);
-    expect(reading.expected.metadata.k).toBe(2);
-    expect(reading.denunciations).toContainEqual({ sort: 'metadata', key: 'k', expected: 2, line: lines[2].id });
+    expect(valuesOf(reading.expected).k).toBe(2);
+    expect(reading.denunciations).toContainEqual({ sort: 'handle', kind: 'value', key: 'k', expected: 2, line: lines[2].id });
     expect(read([...lines].reverse())).toEqual(reading);
   });
 
-  it('a metadata value can be a number or an object; the same object in another key order agrees', async () => {
+  it('a value can be a number or an object; the same object in another key order agrees', async () => {
     const lines = await thread([create, mrossi('setk', { v: { b: [1, { y: 1, x: 2 }], a: 2.5 } })]);
-    const agree: Handles = { ...agreeing, metadata: { ...agreeing.metadata, k: { a: 2.5, b: [1, { x: 2, y: 1 }] } } };
+    const agree = hold({ ...valuesOf(agreeing), k: { a: 2.5, b: [1, { x: 2, y: 1 }] } }, ['mrossi']);
     expect(read(lines, agree).settled).toBe(true);
-    const other: Handles = { ...agreeing, metadata: { ...agreeing.metadata, k: { a: 2.5, b: [{ x: 2, y: 1 }, 1] } } };
+    const other = hold({ ...valuesOf(agreeing), k: { a: 2.5, b: [{ x: 2, y: 1 }, 1] } }, ['mrossi']);
     expect(read(lines, other).settled).toBe(false);
     const number = await add([lines[0]], mrossi('setk', { v: 7 }));
-    expect(read(number).expected.metadata.k).toBe(7);
+    expect(valuesOf(read(number).expected).k).toBe(7);
   });
 
-  it('a metadata key that holds null is a value; an absent key states nothing', async () => {
+  it('a value key that holds null is a value; an absent key states nothing', async () => {
     const lines = await thread([create, mrossi('setk', { v: null }), mrossi('setk', { other: 1 })]);
-    expect(read(lines).expected.metadata.k).toBeNull();
-    expect(read(lines, { ...agreeing, metadata: { ...agreeing.metadata, k: null } }).settled).toBe(true);
+    expect(valuesOf(read(lines).expected).k).toBeNull();
+    expect(read(lines, hold({ ...valuesOf(agreeing), k: null }, ['mrossi'])).settled).toBe(true);
     const absent = await thread([create, mrossi('setk', { other: 1 })]);
-    expect('k' in read(absent).expected.metadata).toBe(false);
+    expect('k' in valuesOf(read(absent).expected)).toBe(false);
   });
 
-  it('assign reads a string and a list of strings; a number or a mixed list states nothing', async () => {
+  it('join reads a string and a list of strings; a number or a mixed list states nothing', async () => {
     const lines = await thread([
       create,
       mrossi('memo', { assignTo: 'lbianchi' }),
@@ -347,58 +352,58 @@ describe('reduce', () => {
       mrossi('memo', { assignTo: null }),
       mrossi('memo', {}),
     ]);
-    expect(read(lines).expected.assignees).toEqual(['abc', 'def', 'lbianchi', 'mrossi']);
+    expect(membersOf(read(lines).expected)).toEqual(['abc', 'def', 'lbianchi', 'mrossi']);
   });
 
   it('a user keeps the line that asked first', async () => {
     const lines = await thread([create, mrossi('memo', { assignTo: ['mrossi', 'lbianchi'] })]);
-    const asking = read(lines).denunciations.filter((d) => d.sort === 'assignment');
+    const asking = ofKind(read(lines), 'set');
     expect(asking).toEqual([
-      { sort: 'assignment', user: 'lbianchi', expected: true, line: lines[1].id },
-      { sort: 'assignment', user: 'mrossi', expected: true, line: lines[0].id },
+      { sort: 'handle', kind: 'set', key: 'assignees', member: 'lbianchi', expected: true, line: lines[1].id },
+      { sort: 'handle', kind: 'set', key: 'assignees', member: 'mrossi', expected: true, line: lines[0].id },
     ]);
   });
 
   it('revoking a line withdraws its expectations; revoking that revoke restores them', async () => {
     const withMemo = await thread([create, mrossi('memo', { assignTo: ['lbianchi'] })]);
     const memo = last(withMemo);
-    expect(read(withMemo).expected.assignees).toEqual(['lbianchi', 'mrossi']);
+    expect(membersOf(read(withMemo).expected)).toEqual(['lbianchi', 'mrossi']);
 
     const revoked = await add(withMemo, mrossi('memo_revoke', { target: memo.id }));
-    expect(read(revoked).expected.assignees).toEqual(['mrossi']);
+    expect(membersOf(read(revoked).expected)).toEqual(['mrossi']);
     expect(read(revoked).revoked).toEqual([memo.id]);
 
     const restored = await add(revoked, mrossi('memo_restore', { target: last(revoked).id }));
-    expect(read(restored).expected.assignees).toEqual(['lbianchi', 'mrossi']);
+    expect(membersOf(read(restored).expected)).toEqual(['lbianchi', 'mrossi']);
     expect(read(restored).revoked).toEqual([last(revoked).id]);
   });
 
-  it('revoking a line that set metadata withdraws its value, and the earlier one stands again', async () => {
+  it('revoking a line that set a value withdraws its value, and the earlier one stands again', async () => {
     const lines = await thread([create, mrossi('setk', { v: 1 }), mrossi('setk', { v: 2 })]);
-    expect(read(lines).expected.metadata.k).toBe(2);
+    expect(valuesOf(read(lines).expected).k).toBe(2);
     const revoked = await add(lines, mrossi('setk_revoke', { target: lines[2].id }));
-    expect(read(revoked).expected.metadata.k).toBe(1);
+    expect(valuesOf(read(revoked).expected).k).toBe(1);
     const both = await add(revoked, mrossi('setk_revoke', { target: lines[1].id }));
-    expect('k' in read(both).expected.metadata).toBe(false);
+    expect('k' in valuesOf(read(both).expected)).toBe(false);
   });
 
-  it('release removes the line writer and nobody else; a later assign asks for them again', async () => {
+  it('leave removes the line writer and nobody else; a later join asks for them again', async () => {
     const asked = await thread([create, mrossi('memo', { assignTo: ['lbianchi'] })]);
     const quit = await add(asked, lbianchi('quit', {}));
-    expect(read(quit).expected.assignees).toEqual(['mrossi']);
-    expect(read(quit, { ...agreeing, assignees: ['mrossi', 'lbianchi'] }).denunciations).toEqual([
-      { sort: 'assignment', user: 'lbianchi', expected: false },
+    expect(membersOf(read(quit).expected)).toEqual(['mrossi']);
+    expect(read(quit, hold(valuesOf(agreeing), ['mrossi', 'lbianchi'])).denunciations).toEqual([
+      { sort: 'handle', kind: 'set', key: 'assignees', member: 'lbianchi', expected: false },
     ]);
 
     const again = await add(quit, mrossi('memo', { assignTo: ['lbianchi'] }));
-    expect(read(again).expected.assignees).toEqual(['lbianchi', 'mrossi']);
-    expect(read(again).denunciations).toContainEqual({ sort: 'assignment', user: 'lbianchi', expected: true, line: last(again).id });
+    expect(membersOf(read(again).expected)).toEqual(['lbianchi', 'mrossi']);
+    expect(read(again).denunciations).toContainEqual({ sort: 'handle', kind: 'set', key: 'assignees', member: 'lbianchi', expected: true, line: last(again).id });
   });
 
-  it('a writer with no separator releases nobody', async () => {
+  it('a writer with no separator leaves nobody', async () => {
     const lines = await thread([create]);
     const odd = await stamp({ gist: 'quit', writer: 'mrossi' as Writer, payload: {} }, lines, NOW);
-    expect(read([...lines, odd]).expected.assignees).toEqual(['mrossi']);
+    expect(membersOf(read([...lines, odd]).expected)).toEqual(['mrossi']);
   });
 
   describe('goals', () => {
@@ -409,7 +414,7 @@ describe('reduce', () => {
     const goalLine = mrossi('goal', { name: 'closing', then: 'done', checks });
     const gotIt = lbianchi('got_it', {});
     const fact = by('system::sibardoc', 'fact', { document: '34', signedAt: 'x' });
-    const closed: Handles = { metadata: { name: 'Parere', status: 'closed' }, assignees: ['mrossi'] };
+    const closed: Handles = hold({ name: 'Parere', status: 'closed' }, ['mrossi']);
 
     it('is unmet with one check found and met with both', async () => {
       const lines = await thread([create, goalLine]);
@@ -564,13 +569,13 @@ describe('reduce', () => {
   });
 
   describe('the rest', () => {
-    it('no create, and two creates, each denounce one-create with the count', async () => {
+    it('no opening line, and two, each denounce one-opening with the count', async () => {
       const none = await thread([mrossi('memo', { assignTo: ['mrossi'] })]);
-      expect(read(none).denunciations[0]).toStrictEqual({ sort: 'thread', rule: 'one-create', found: 0 });
-      expect(read([]).denunciations).toStrictEqual([{ sort: 'thread', rule: 'one-create', found: 0 }]);
+      expect(read(none).denunciations[0]).toStrictEqual({ sort: 'thread', rule: 'one-opening', found: 0 });
+      expect(read([]).denunciations).toStrictEqual([{ sort: 'thread', rule: 'one-opening', found: 0 }]);
 
       const two = await thread([create, create]);
-      expect(read(two, agreeing).denunciations).toStrictEqual([{ sort: 'thread', rule: 'one-create', found: 2 }]);
+      expect(read(two, agreeing).denunciations).toStrictEqual([{ sort: 'thread', rule: 'one-opening', found: 2 }]);
     });
 
     it('a line whose gist has no schema is in force and states nothing', async () => {
@@ -580,86 +585,89 @@ describe('reduce', () => {
       expect(reading.settled).toBe(true);
     });
 
-    it('lists denunciations in the fixed order: thread, line, metadata, assignment', async () => {
+    it('lists denunciations in the fixed order: thread, line, then each handle kind in the kit\'s order', async () => {
       const lines = await thread([
         mrossi('goal', { name: 'b', then: 'done', checks: [{ gist: 'got_it' }] }),
         mrossi('goal', { name: 'a', then: 'done', checks: [{ gist: 'got_it' }] }),
         lbianchi('got_it', {}),
       ]);
-      const reading = read(lines, { metadata: { z: 1, a: 1 }, assignees: ['z', 'a'] });
-      expect(reading.denunciations.map((d) => d.sort)).toEqual(['thread', 'line', 'line', 'metadata', 'metadata', 'assignment', 'assignment']);
+      const reading = read(lines, hold({ z: 1, a: 1 }, ['z', 'a']));
+      expect(reading.denunciations.map((d) => (d.sort === 'handle' ? d.kind : d.sort))).toEqual(['thread', 'line', 'line', 'value', 'value', 'set', 'set']);
       expect(reading.denunciations.filter((d) => d.sort === 'line').map((d) => d.line)).toEqual([lines[1].id, lines[0].id]);
-      expect(reading.denunciations.filter((d) => d.sort === 'metadata').map((d) => d.key)).toEqual(['a', 'z']);
-      expect(reading.denunciations.filter((d) => d.sort === 'assignment').map((d) => d.user)).toEqual(['a', 'z']);
+      expect(ofKind(reading, 'value').map((d) => d.key)).toEqual(['a', 'z']);
+      expect(ofKind(reading, 'set').map((d) => d.member)).toEqual(['a', 'z']);
     });
 
-    it('sorts expected assignees with <, not by locale', async () => {
+    it('sorts the expected members of a set with <, not by locale', async () => {
       const lines = await thread([create, mrossi('memo', { assignTo: ['b', 'B', 'a', 'Z'] })]);
-      expect(read(lines).expected.assignees).toEqual(['B', 'Z', 'a', 'b', 'mrossi']);
+      expect(membersOf(read(lines).expected)).toEqual(['B', 'Z', 'a', 'b', 'mrossi']);
     });
 
     it('changes none of its arguments, and a reversed array reads the same', async () => {
       const lines = await thread([create, mrossi('memo', { assignTo: ['lbianchi'] }), mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'create' }] })]);
-      const handles: Handles = { metadata: { stray: { a: 1 } }, assignees: ['z'] };
+      const handles: Handles = hold({ stray: { a: 1 } }, ['z']);
       const linesCopy = structuredClone(lines);
       const handlesCopy = structuredClone(handles);
-      const gists = structuredClone(RULES);
-      const reading = reduce(lines, handles, gists);
+      // the kit holds functions, which cannot be cloned: the gists are what the reduction reads
+      const gists = structuredClone(RULES.gists);
+      const reading = reduce(lines, handles, { ...RULES, gists });
       expect(lines).toEqual(linesCopy);
       expect(handles).toEqual(handlesCopy);
-      expect(gists).toEqual(RULES);
+      expect(gists).toEqual(RULES.gists);
       expect(reduce([...lines].reverse(), handles, RULES)).toEqual(reading);
     });
   });
 });
 
-describe('metadata that collects, and where', () => {
+describe('a value that collects, and where', () => {
   const by = (writer: Writer, gist: string, payload: LineDraft['payload']): LineDraft => ({ gist, writer, payload });
   const mrossi = (gist: string, payload: LineDraft['payload']) => by('user::mrossi', gist, payload);
   const create = mrossi('create', { name: 'A', assignTo: ['mrossi'] });
-  const settledHandles = (extra: Handles['metadata']): Handles => ({ metadata: { name: 'A', status: 'open', ...extra }, assignees: ['mrossi'] });
-  const none: Handles = { metadata: {}, assignees: [] };
-  const expectedOf = (lines: EventLine[], gists: GistSchema[] = BASE_GISTS) => reduce(lines, none, gists).expected.metadata;
+  const settledHandles = (extra: Record<string, Json>): Handles => hold({ name: 'A', status: 'open', ...extra }, ['mrossi']);
+  const none: Handles = hold({}, []);
+  const expectedOf = (lines: EventLine[], schema: Schema = PLAIN) => valuesOf(reduce(lines, none, schema).expected);
   const ref = (document: Json | undefined, direction?: string) =>
     mrossi('doc_ref', { ...(document === undefined ? {} : { document }), ...(direction ? { direction } : {}) });
 
   // test-only gists: what a later binding does to a collected key, and `where` on the other forms
-  const TEST: GistSchema[] = [
-    ...BASE_GISTS,
-    { gist: 'setk', writers: ['user'], rules: [{ rule: 'metadata', key: 'documents', from: 'v' }] },
-    { gist: 'setv', writers: ['user'], rules: [{ rule: 'metadata', key: 'documents', value: 'fixed' }] },
+  const TEST = sibar({
+    laws: [],
+    add: [
+    { gist: 'setk', writers: ['user'], rules: [{ rule: 'value', key: 'documents', from: 'v' }] },
+    { gist: 'setv', writers: ['user'], rules: [{ rule: 'value', key: 'documents', value: 'fixed' }] },
     {
       gist: 'tag',
       writers: ['user'],
       rules: [
-        { rule: 'metadata', key: 'tag', value: 'x', where: { kind: 'a' } },
-        { rule: 'metadata', key: 'copy', from: 'v', where: { kind: 'a' } },
-        { rule: 'metadata', key: 'deep', value: 1, where: { meta: { a: 1, b: 2 }, kind: 'a' } },
+        { rule: 'value', key: 'tag', value: 'x', where: { kind: 'a' } },
+        { rule: 'value', key: 'copy', from: 'v', where: { kind: 'a' } },
+        { rule: 'value', key: 'deep', value: 1, where: { meta: { a: 1, b: 2 }, kind: 'a' } },
       ],
     },
-  ];
+    ],
+  });
 
   it('three references, one inbound and two outbound, give three lists in reading order; a reversed array reads the same', async () => {
     const lines = await thread([create, ref('1', 'inbound'), ref('2', 'outbound'), ref('3', 'outbound')]);
     const copy = structuredClone(lines);
-    const reading = reduce(lines, none, BASE_GISTS);
-    expect(reading.expected.metadata).toEqual({
+    const reading = reduce(lines, none, PLAIN);
+    expect(valuesOf(reading.expected)).toEqual({
       name: 'A',
       status: 'open',
       documents: ['1', '2', '3'],
       documents_in: ['1'],
       documents_out: ['2', '3'],
     });
-    expect(reduce([...lines].reverse(), none, BASE_GISTS)).toEqual(reading);
+    expect(reduce([...lines].reverse(), none, PLAIN)).toEqual(reading);
     expect(lines).toEqual(copy);
-    expect(reduce(lines, settledHandles({ documents: ['1', '2', '3'], documents_in: ['1'], documents_out: ['2', '3'] }), BASE_GISTS).settled).toBe(true);
+    expect(reduce(lines, settledHandles({ documents: ['1', '2', '3'], documents_in: ['1'], documents_out: ['2', '3'] }), PLAIN).settled).toBe(true);
   });
 
   it('an array is compared by its canonical form: the order counts', async () => {
     const lines = await thread([create, ref('1', 'outbound'), ref('2', 'outbound')]);
     const handles = settledHandles({ documents: ['2', '1'], documents_out: ['1', '2'] });
-    const { denunciations } = reduce(lines, handles, BASE_GISTS);
-    expect(denunciations).toStrictEqual([{ sort: 'metadata', key: 'documents', expected: ['1', '2'], found: ['2', '1'], line: lines[2].id }]);
+    const { denunciations } = reduce(lines, handles, PLAIN);
+    expect(denunciations).toStrictEqual([{ sort: 'handle', kind: 'value', key: 'documents', expected: ['1', '2'], found: ['2', '1'], line: lines[2].id }]);
   });
 
   it('the same document referenced twice appears once, and the denunciation carries the last line that added', async () => {
@@ -668,7 +676,7 @@ describe('metadata that collects, and where', () => {
     expect(expected.documents).toEqual(['1', '2']);
     expect(expected.documents_in).toEqual(['1']);
     expect(expected.documents_out).toEqual(['1']);
-    const lineOf = (key: string) => reduce(lines, none, BASE_GISTS).denunciations.find((d) => d.sort === 'metadata' && d.key === key);
+    const lineOf = (key: string) => reduce(lines, none, PLAIN).denunciations.find((d) => d.sort === 'handle' && d.kind === 'value' && d.key === key);
     // the second reference to document 1 added nothing to `documents`, so line 2 stands
     expect(lineOf('documents')).toMatchObject({ line: lines[2].id });
     expect(lineOf('documents_in')).toMatchObject({ line: lines[1].id });
@@ -686,7 +694,7 @@ describe('metadata that collects, and where', () => {
   it('a key no line in force states is not expected, never an empty list', async () => {
     const expected = expectedOf(await thread([create]));
     expect('documents' in expected).toBe(false);
-    expect(reduce(await thread([create]), settledHandles({}), BASE_GISTS).settled).toBe(true);
+    expect(reduce(await thread([create]), settledHandles({}), PLAIN).settled).toBe(true);
   });
 
   it('an absent payload key adds nothing, and null is a value', async () => {
@@ -716,17 +724,17 @@ describe('metadata that collects, and where', () => {
   });
 
   it('revoking the only reference leaves no documents key expected, and the reconciliation removes it from the handles', async () => {
-    const empty: ThreadState = { lines: [], handles: { metadata: {}, assignees: [] } };
-    const created = await post(empty, create, BASE_GISTS, NOW);
-    const referenced = await post(created.state, ref('1', 'inbound'), BASE_GISTS, NOW);
+    const empty: ThreadState = { lines: [], handles: hold({}, []) };
+    const created = await post(empty, create, PLAIN, NOW);
+    const referenced = await post(created.state, ref('1', 'inbound'), PLAIN, NOW);
     expect(referenced.refusal).toBeUndefined();
-    expect(referenced.state.handles.metadata).toEqual({ name: 'A', status: 'open', documents: ['1'], documents_in: ['1'] });
+    expect(valuesOf(referenced.state.handles)).toEqual({ name: 'A', status: 'open', documents: ['1'], documents_in: ['1'] });
 
     const target = referenced.state.lines.find((l) => l.gist === 'doc_ref')!.id;
-    const revoked = await post(referenced.state, mrossi('doc_ref_revoke', { target }), BASE_GISTS, NOW);
+    const revoked = await post(referenced.state, mrossi('doc_ref_revoke', { target }), PLAIN, NOW);
     expect(revoked.refusal).toBeUndefined();
-    expect(revoked.reading.expected.metadata).toEqual({ name: 'A', status: 'open' });
-    expect(revoked.state.handles.metadata).toEqual({ name: 'A', status: 'open' });
+    expect(valuesOf(revoked.reading.expected)).toEqual({ name: 'A', status: 'open' });
+    expect(valuesOf(revoked.state.handles)).toEqual({ name: 'A', status: 'open' });
     expect(revoked.reading.settled).toBe(true);
     const records = revoked.state.lines.slice(referenced.state.lines.length);
     expect(records.map((l) => l.gist)).toEqual(['doc_ref_revoke', 'metadata_set', 'metadata_set']);
@@ -736,7 +744,7 @@ describe('metadata that collects, and where', () => {
   it('a later from binding replaces a collected list with one value, and a collect after it starts a new list', async () => {
     const lines = await thread([create, ref('1'), ref('2'), mrossi('setk', { v: 'one' })]);
     expect(expectedOf(lines, TEST).documents).toBe('one');
-    expect(reduce(lines, none, TEST).denunciations).toContainEqual({ sort: 'metadata', key: 'documents', expected: 'one', line: lines[3].id });
+    expect(reduce(lines, none, TEST).denunciations).toContainEqual({ sort: 'handle', kind: 'value', key: 'documents', expected: 'one', line: lines[3].id });
     const again = await thread([create, ref('1'), ref('2'), mrossi('setk', { v: 'one' }), ref('3'), ref('4')]);
     expect(expectedOf(again, TEST).documents).toEqual(['3', '4']);
     // a from binding whose key is absent states nothing, so the list stands
@@ -783,10 +791,8 @@ describe('metadata that collects, and where', () => {
   });
 
   it('never throws on a binding or a payload it cannot read', async () => {
-    const odd: GistSchema[] = [
-      ...BASE_GISTS,
-      { gist: 'odd', writers: ['user'], rules: [{ rule: 'metadata', key: 'k', collect: 'v', where: null as unknown as Payload }] },
-    ];
+    // the reader would refuse this binding, so the schema is built without it
+    const odd = unchecked([...PLAIN.gists, { gist: 'odd', writers: ['user'], rules: [{ rule: 'value', key: 'k', collect: 'v', where: null }] }]);
     const lines = await thread([create, mrossi('odd', { v: 1 })]);
     expect(() => reduce(lines, none, odd)).not.toThrow();
     expect('k' in expectedOf(lines, odd)).toBe(false);
@@ -796,32 +802,36 @@ describe('metadata that collects, and where', () => {
 describe('readGists', () => {
   const good = { gist: 'memo', writers: ['user'], rules: [] };
   const other = (rules: unknown[], extra: Record<string, unknown> = {}) => ({ gist: 'other', writers: ['user'], rules, ...extra });
+  const readOf = (value: unknown) => readGists(value, BASE_KIT, HEAD);
 
-  it('reads the base data: nineteen gists, no problem', () => {
-    const { gists, problems } = readGists(BASE_GIST_DATA);
+  it('reads the case: nineteen gists, no problem', () => {
+    const { gists, problems } = readOf(SIBAR_JSON.gists);
     expect(problems).toEqual([]);
     expect(gists).toHaveLength(19);
-    expect(gists).toEqual(BASE_GIST_DATA);
-    expect(BASE_GISTS).toEqual(gists);
+    expect(gists).toEqual(SIBAR_JSON.gists);
+    expect(SIBAR.gists).toEqual(gists);
   });
 
   const bad: Array<[string, unknown]> = [
     ['a rule word that does not exist', other([{ rule: 'compare' }])],
-    ['a binding with a key it does not have', other([{ rule: 'release', from: 'x' }])],
-    ['a binding without a key it needs', other([{ rule: 'assign' }])],
-    ['a binding that is not an object', other(['assign'])],
-    ['a metadata binding with both from and value', other([{ rule: 'metadata', key: 'k', from: 'v', value: 1 }])],
-    ['a metadata binding with neither', other([{ rule: 'metadata', key: 'k' }])],
-    ['a metadata binding with required beside value', other([{ rule: 'metadata', key: 'k', value: 1, required: true }])],
-    ['a metadata binding with both collect and from', other([{ rule: 'metadata', key: 'k', collect: 'v', from: 'v' }])],
-    ['a metadata binding with both collect and value', other([{ rule: 'metadata', key: 'k', collect: 'v', value: 1 }])],
-    ['a metadata collect that is not a string', other([{ rule: 'metadata', key: 'k', collect: 1 }])],
-    ['a metadata binding with an empty where', other([{ rule: 'metadata', key: 'k', collect: 'v', where: {} }])],
-    ['a metadata where that is a list', other([{ rule: 'metadata', key: 'k', value: 1, where: ['a'] }])],
-    ['a metadata where that holds something that is not JSON', other([{ rule: 'metadata', key: 'k', from: 'v', where: { a: undefined } }])],
-    ['a where on a binding that is not metadata', other([{ rule: 'assign', from: 'x', where: { a: 1 } }])],
-    ['a metadata value that is not JSON', other([{ rule: 'metadata', key: 'k', value: undefined }])],
-    ['a required that is not a boolean', other([{ rule: 'assign', from: 'x', required: 'yes' }])],
+    ['a binding with a key it does not have', other([{ rule: 'leave', set: 'assignees', from: 'x' }])],
+    ['a binding without a key it needs', other([{ rule: 'join' }])],
+    ['a binding that is not an object', other(['join'])],
+    ['a join that names a set the schema does not declare', other([{ rule: 'join', set: 'owners', from: 'x' }])],
+    ['a leave that names a set the schema does not declare', other([{ rule: 'leave', set: 'owners' }])],
+    ['a join whose set is not a string', other([{ rule: 'join', set: 1, from: 'x' }])],
+    ['a value binding with both from and value', other([{ rule: 'value', key: 'k', from: 'v', value: 1 }])],
+    ['a value binding with neither', other([{ rule: 'value', key: 'k' }])],
+    ['a value binding with required beside value', other([{ rule: 'value', key: 'k', value: 1, required: true }])],
+    ['a value binding with both collect and from', other([{ rule: 'value', key: 'k', collect: 'v', from: 'v' }])],
+    ['a value binding with both collect and value', other([{ rule: 'value', key: 'k', collect: 'v', value: 1 }])],
+    ['a value collect that is not a string', other([{ rule: 'value', key: 'k', collect: 1 }])],
+    ['a value binding with an empty where', other([{ rule: 'value', key: 'k', collect: 'v', where: {} }])],
+    ['a value where that is a list', other([{ rule: 'value', key: 'k', value: 1, where: ['a'] }])],
+    ['a value where that holds something that is not JSON', other([{ rule: 'value', key: 'k', from: 'v', where: { a: undefined } }])],
+    ['a where on a binding that is not a value rule', other([{ rule: 'join', set: 'assignees', from: 'x', where: { a: 1 } }])],
+    ['a value value that is not JSON', other([{ rule: 'value', key: 'k', value: undefined }])],
+    ['a required that is not a boolean', other([{ rule: 'join', set: 'assignees', from: 'x', required: 'yes' }])],
     ['a revoke with an empty gists', other([{ rule: 'revoke', from: 'target', gists: [] }])],
     ['a revoke that lists a gist the array lacks', other([{ rule: 'revoke', from: 'target', gists: ['absent'] }])],
     ['a revoke that lists something that is not a string', other([{ rule: 'revoke', from: 'target', gists: [1] }])],
@@ -834,10 +844,12 @@ describe('readGists', () => {
     ['a gist name of thirty-three characters', { gist: 'a'.repeat(33), writers: ['user'], rules: [] }],
     ['a key the schema does not have', other([], { label: 'x' })],
     ['a when with a key it does not have', other([], { when: { after: 'x' } })],
-    ['a when whose assignee is false', other([], { when: { assignee: false } })],
-    ['a when whose metadata is empty', other([], { when: { metadata: {} } })],
-    ['a when whose metadata is not an object', other([], { when: { metadata: ['open'] } })],
-    ['a when whose metadata holds something that is not JSON', other([], { when: { metadata: { status: undefined } } })],
+    ['a when whose in is not a name', other([], { when: { in: false } })],
+    ['a when whose in names a set the schema does not declare', other([], { when: { in: 'owners' } })],
+    ['a when whose values are empty', other([], { when: { values: {} } })],
+    ['a when whose values are not an object', other([], { when: { values: ['open'] } })],
+    ['a when whose values hold something that is not JSON', other([], { when: { values: { status: undefined } } })],
+    ['the old words of a when', other([], { when: { assignee: true } })],
     ['a when with checks that are empty', other([], { when: { checks: [] } })],
     ['a when with a check that states nothing', other([], { when: { checks: [{}] } })],
     ['a when that is a list', other([], { when: [] })],
@@ -848,67 +860,67 @@ describe('readGists', () => {
   ];
 
   it.each(bad)('%s: one problem, and the good schema is kept', (_, element) => {
-    const { gists, problems } = readGists([good, element]);
+    const { gists, problems } = readOf([good, element]);
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatch(/^[A-Za-z]/);
     expect(gists).toEqual([good]);
   });
 
   it('names the gist the problem is about', () => {
-    expect(readGists([good, other([{ rule: 'compare' }])]).problems[0]).toContain('other');
+    expect(readOf([good, other([{ rule: 'compare' }])]).problems[0]).toContain('other');
   });
 
   it('the same gist twice: the first is kept, the second is a problem', () => {
     const second = { gist: 'memo', writers: ['system'], rules: [] };
-    const { gists, problems } = readGists([good, second]);
+    const { gists, problems } = readOf([good, second]);
     expect(gists).toEqual([good]);
     expect(problems).toHaveLength(1);
   });
 
   it('a revoke may list a gist that comes later in the array', () => {
     const revoke = { gist: 'memo_revoke', writers: ['user'], rules: [{ rule: 'revoke', from: 'target', gists: ['memo'] }] };
-    expect(readGists([revoke, good])).toEqual({ gists: [revoke, good], problems: [] });
+    expect(readOf([revoke, good])).toEqual({ gists: [revoke, good], problems: [] });
   });
 
   it('the first of two schemas of one gist is the one that stands, even when it failed', () => {
-    const { gists, problems } = readGists([{ gist: 'memo', writers: [], rules: [] }, good]);
+    const { gists, problems } = readOf([{ gist: 'memo', writers: [], rules: [] }, good]);
     expect(gists).toEqual([]);
     expect(problems).toHaveLength(2);
   });
 
   it('accepts the shapes a binding may have', () => {
     const ok = other([
-      { rule: 'metadata', key: 'a', value: null },
-      { rule: 'metadata', key: 'b', value: { deep: [1, 'x', false] } },
-      { rule: 'metadata', key: 'c', from: 'c', required: false },
-      { rule: 'metadata', key: 'd', collect: 'd', required: true },
-      { rule: 'metadata', key: 'e', collect: 'e', where: { direction: 'inbound', n: [1, null] } },
-      { rule: 'metadata', key: 'f', from: 'f', required: true, where: { kind: 'x' } },
-      { rule: 'metadata', key: 'g', value: 1, where: { kind: 'x' } },
-      { rule: 'assign', from: 'who', required: true },
-      { rule: 'release' },
+      { rule: 'value', key: 'a', value: null },
+      { rule: 'value', key: 'b', value: { deep: [1, 'x', false] } },
+      { rule: 'value', key: 'c', from: 'c', required: false },
+      { rule: 'value', key: 'd', collect: 'd', required: true },
+      { rule: 'value', key: 'e', collect: 'e', where: { direction: 'inbound', n: [1, null] } },
+      { rule: 'value', key: 'f', from: 'f', required: true, where: { kind: 'x' } },
+      { rule: 'value', key: 'g', value: 1, where: { kind: 'x' } },
+      { rule: 'join', set: 'assignees', from: 'who', required: true },
+      { rule: 'leave', set: 'assignees' },
       { rule: 'goal' },
     ]);
-    expect(readGists([ok])).toEqual({ gists: [ok], problems: [] });
+    expect(readOf([ok])).toEqual({ gists: [ok], problems: [] });
   });
 
   it('accepts a when with any of its three parts, or none', () => {
     const whens = [
       {},
-      { assignee: true },
-      { metadata: { status: 'open', n: 1, deep: { k: [null] } } },
+      { in: 'assignees' },
+      { values: { status: 'open', n: 1, deep: { k: [null] } } },
       { checks: [{ gist: 'memo' }, { kin: 'system', payload: { x: 1 } }] },
-      { checks: [{ gist: 'memo' }], assignee: true, metadata: { status: 'open' } },
+      { checks: [{ gist: 'memo' }], in: 'assignees', values: { status: 'open' } },
     ];
     for (const when of whens) {
       const ok = other([], { when });
-      expect(readGists([ok])).toEqual({ gists: [ok], problems: [] });
+      expect(readOf([ok])).toEqual({ gists: [ok], problems: [] });
     }
   });
 
   it('a value that is not an array gives no gist and one problem', () => {
     for (const value of ['memo', 7, null, undefined, {}, { gist: 'memo', writers: ['user'], rules: [] }]) {
-      const { gists, problems } = readGists(value);
+      const { gists, problems } = readOf(value);
       expect(gists).toEqual([]);
       expect(problems).toHaveLength(1);
     }
@@ -916,20 +928,20 @@ describe('readGists', () => {
 
   it('never throws, whatever it is given', () => {
     const odd = [undefined, 3, [], { gist: {} }, { gist: 'x', writers: ['u'], rules: [null] }, { gist: 'y', writers: ['u'], rules: [{ rule: {} }] }];
-    const { gists, problems } = readGists(odd);
+    const { gists, problems } = readOf(odd);
     expect(gists).toEqual([]);
     expect(problems).toHaveLength(odd.length);
   });
 
   it('changes nothing it is given', () => {
-    const value = structuredClone(BASE_GIST_DATA);
-    readGists(value);
-    expect(value).toEqual(BASE_GIST_DATA);
+    const value = structuredClone(SIBAR_JSON.gists);
+    readOf(value);
+    expect(value).toEqual(SIBAR_JSON.gists);
   });
 });
 
 describe('posting to a thread', () => {
-  const EMPTY: ThreadState = { lines: [], handles: { metadata: {}, assignees: [] } };
+  const EMPTY: ThreadState = { lines: [], handles: hold({}, []) };
   const by = (writer: Writer, gist: string, payload: LineDraft['payload']): LineDraft => ({ gist, writer, payload });
   const mrossi = (gist: string, payload: LineDraft['payload']) => by('user::mrossi', gist, payload);
   const lbianchi = (gist: string, payload: LineDraft['payload']) => by('user::lbianchi', gist, payload);
@@ -944,7 +956,7 @@ describe('posting to a thread', () => {
       const out: Posted[] = [];
       let state = EMPTY;
       const step = async (draft: LineDraft): Promise<void> => {
-        const posted = await post(state, draft, BASE_GISTS, NOW);
+        const posted = await post(state, draft, PLAIN, NOW);
         out.push(posted);
         state = posted.state;
       };
@@ -974,33 +986,33 @@ describe('posting to a thread', () => {
       const [create, memo, link, goal, gotIt, quit, memoAgain, signed] = await replay();
       for (const posted of [create, memo, link, goal, gotIt, quit, memoAgain, signed]) {
         expect('refusal' in posted).toBe(false);
-        expect(posted.reading).toEqual(reduce(posted.state.lines, posted.state.handles, BASE_GISTS));
+        expect(posted.reading).toEqual(reduce(posted.state.lines, posted.state.handles, PLAIN));
       }
 
       // 1. name and status open; mrossi; two metadata_set and one assigned
-      expect(create.state.handles).toEqual({ metadata: { name: 'Richiesta parere', status: 'open' }, assignees: ['mrossi'] });
+      expect(create.state.handles).toEqual(hold({ name: 'Richiesta parere', status: 'open' }, ['mrossi']));
       expect(create.reading.settled).toBe(true);
       expect(gistsOf(create.state.lines)).toEqual(['create', 'metadata_set', 'metadata_set', 'assigned']);
       expect(create.state.lines.slice(1).map((l) => [l.writer, l.payload])).toEqual([
         [SYSTEM_WRITER, { key: 'name', value: 'Richiesta parere' }],
         [SYSTEM_WRITER, { key: 'status', value: 'open' }],
-        [SYSTEM_WRITER, { user: 'mrossi', line: create.state.lines[0].id }],
+        [SYSTEM_WRITER, { set: 'assignees', member: 'mrossi', line: create.state.lines[0].id }],
       ]);
 
       // 2. lbianchi and mrossi
-      expect(memo.state.handles.assignees).toEqual(['lbianchi', 'mrossi']);
+      expect(membersOf(memo.state.handles)).toEqual(['lbianchi', 'mrossi']);
       expect(memo.reading.settled).toBe(true);
       expect(gistsOf(memo.state.lines.slice(4))).toEqual(['memo', 'assigned']);
-      expect(memo.state.lines[5].payload).toEqual({ user: 'lbianchi', line: memo.state.lines[4].id });
+      expect(memo.state.lines[5].payload).toEqual({ set: 'assignees', member: 'lbianchi', line: memo.state.lines[4].id });
 
       // 3. metadata documents and documents_out, and no documents_in
-      expect(link.state.handles.metadata).toEqual({
+      expect(valuesOf(link.state.handles)).toEqual({
         name: 'Richiesta parere',
         status: 'open',
         documents: ['34132412'],
         documents_out: ['34132412'],
       });
-      expect('documents_in' in link.state.handles.metadata).toBe(false);
+      expect('documents_in' in valuesOf(link.state.handles)).toBe(false);
       expect(link.reading.settled).toBe(true);
       expect(gistsOf(link.state.lines.slice(6))).toEqual(['doc_ref', 'metadata_set', 'metadata_set']);
       expect(link.state.lines.slice(7).map((l) => l.payload)).toEqual([
@@ -1019,21 +1031,21 @@ describe('posting to a thread', () => {
 
       // 5. acknowledged; unmet, one check found
       const memoId = memo.state.lines[4].id;
-      expect(gotIt.state.handles.metadata.acknowledged).toBe(memoId);
+      expect(valuesOf(gotIt.state.handles).acknowledged).toBe(memoId);
       expect(gotIt.reading.goals[0].met).toBe(false);
       expect(gotIt.reading.goals[0].checks.map((c) => c.foundIn)).toEqual([gotIt.state.lines[10].id, undefined]);
       expect(gotIt.reading.settled).toBe(true);
 
       // 6. mrossi alone; the record is unassigned
-      expect(quit.state.handles.assignees).toEqual(['mrossi']);
+      expect(membersOf(quit.state.handles)).toEqual(['mrossi']);
       expect(gistsOf(quit.state.lines.slice(12))).toEqual(['quit', 'unassigned']);
-      expect(quit.state.lines[13].payload).toEqual({ user: 'lbianchi' });
+      expect(quit.state.lines[13].payload).toEqual({ set: 'assignees', member: 'lbianchi' });
       expect(quit.reading.settled).toBe(true);
 
       // 7. lbianchi again; a new assigned record
-      expect(memoAgain.state.handles.assignees).toEqual(['lbianchi', 'mrossi']);
+      expect(membersOf(memoAgain.state.handles)).toEqual(['lbianchi', 'mrossi']);
       expect(gistsOf(memoAgain.state.lines.slice(14))).toEqual(['memo', 'assigned']);
-      expect(memoAgain.state.lines[15].payload).toEqual({ user: 'lbianchi', line: memoAgain.state.lines[14].id });
+      expect(memoAgain.state.lines[15].payload).toEqual({ set: 'assignees', member: 'lbianchi', line: memoAgain.state.lines[14].id });
       expect(memoAgain.reading.settled).toBe(true);
 
       // 8. the goal is met; a closed line by the goal; status closed; both stay; settled
@@ -1044,8 +1056,8 @@ describe('posting to a thread', () => {
       expect(signed.reading.goals[0].checks.every((c) => 'foundIn' in c)).toBe(true);
       expect(closed.writer).toBe(`goal::${goalId}`);
       expect(closed.payload).toEqual({});
-      expect(signed.state.handles.metadata.status).toBe('closed');
-      expect(signed.state.handles.assignees).toEqual(['lbianchi', 'mrossi']);
+      expect(valuesOf(signed.state.handles).status).toBe('closed');
+      expect(membersOf(signed.state.handles)).toEqual(['lbianchi', 'mrossi']);
       expect(signed.reading.settled).toBe(true);
       expect(signed.reading.denunciations).toEqual([]);
       expect(gistsOf(signed.state.lines.slice(16))).toEqual(['doc_signed', 'closed', 'metadata_set']);
@@ -1064,21 +1076,21 @@ describe('posting to a thread', () => {
 
     it('reduce on the final state is settled; with the handles emptied it denounces each, and settle brings them back', async () => {
       const { state } = (await replay()).at(-1)!;
-      expect(reduce(state.lines, state.handles, BASE_GISTS).settled).toBe(true);
+      expect(reduce(state.lines, state.handles, PLAIN).settled).toBe(true);
 
-      const emptied: ThreadState = { lines: state.lines, handles: { metadata: {}, assignees: [] } };
-      const reading = reduce(emptied.lines, emptied.handles, BASE_GISTS);
-      expect(reading.denunciations.map((d) => (d.sort === 'metadata' ? `metadata ${d.key}` : d.sort === 'assignment' ? `assignment ${d.user}` : d.sort))).toEqual([
-        'metadata acknowledged',
-        'metadata documents',
-        'metadata documents_out',
-        'metadata name',
-        'metadata status',
-        'assignment lbianchi',
-        'assignment mrossi',
+      const emptied: ThreadState = { lines: state.lines, handles: hold({}, []) };
+      const reading = reduce(emptied.lines, emptied.handles, PLAIN);
+      expect(reading.denunciations.map(labelOf)).toEqual([
+        'value acknowledged',
+        'value documents',
+        'value documents_out',
+        'value name',
+        'value status',
+        'set assignees lbianchi',
+        'set assignees mrossi',
       ]);
 
-      const back = await settle(emptied, BASE_GISTS, NOW);
+      const back = await settle(emptied, PLAIN, NOW);
       expect(back.reading.settled).toBe(true);
       expect(back.state.handles).toEqual(state.handles);
       expect(back.state.lines).toHaveLength(state.lines.length + 7);
@@ -1088,9 +1100,9 @@ describe('posting to a thread', () => {
     it('a memo_revoke of the memo, from the state after the second line, takes lbianchi off', async () => {
       const [, memo] = await replay();
       const target = memo.state.lines[4].id;
-      const out = await post(memo.state, mrossi('memo_revoke', { target }), BASE_GISTS, NOW);
+      const out = await post(memo.state, mrossi('memo_revoke', { target }), PLAIN, NOW);
       expect(out.refusal).toBeUndefined();
-      expect(out.state.handles.assignees).toEqual(['mrossi']);
+      expect(membersOf(out.state.handles)).toEqual(['mrossi']);
       expect(gistsOf(out.state.lines.slice(6))).toEqual(['memo_revoke', 'unassigned']);
       expect(out.reading.revoked).toEqual([target]);
       expect(out.reading.settled).toBe(true);
@@ -1104,16 +1116,16 @@ describe('posting to a thread', () => {
         const goal = gistNamed(state.lines, 'set_goal')[0];
         const closed = gistNamed(state.lines, 'closed')[0];
 
-        const first = await post(state, mrossi('set_goal_revoke', { target: goal.id }), BASE_GISTS, NOW);
+        const first = await post(state, mrossi('set_goal_revoke', { target: goal.id }), PLAIN, NOW);
         expect(first.refusal).toBeUndefined();
         expect(first.reading.goals).toEqual([]);
         // a line that no goal expects is never denounced: the closed line stands
-        expect(first.state.handles.metadata.status).toBe('closed');
+        expect(valuesOf(first.state.handles).status).toBe('closed');
         expect(first.reading.settled).toBe(true);
 
-        const second = await post(first.state, mrossi('closed_revoke', { target: closed.id }), BASE_GISTS, NOW);
+        const second = await post(first.state, mrossi('closed_revoke', { target: closed.id }), PLAIN, NOW);
         expect(second.refusal).toBeUndefined();
-        expect(second.state.handles.metadata.status).toBe('open');
+        expect(valuesOf(second.state.handles).status).toBe('open');
         expect(second.reading.settled).toBe(true);
       });
 
@@ -1121,9 +1133,9 @@ describe('posting to a thread', () => {
         const state = await finalOf();
         const closed = gistNamed(state.lines, 'closed')[0];
 
-        const out = await post(state, mrossi('closed_revoke', { target: closed.id }), BASE_GISTS, NOW);
+        const out = await post(state, mrossi('closed_revoke', { target: closed.id }), PLAIN, NOW);
         expect(out.refusal).toBeUndefined();
-        expect(out.state.handles.metadata.status).toBe('open');
+        expect(valuesOf(out.state.handles).status).toBe('open');
         expect(out.reading.settled).toBe(true);
         expect(out.reading.denunciations).toEqual([]);
         expect(out.reading.revoked).toEqual([closed.id]);
@@ -1135,16 +1147,16 @@ describe('posting to a thread', () => {
         const state = await finalOf();
         const goal = gistNamed(state.lines, 'set_goal')[0];
         const closed = gistNamed(state.lines, 'closed')[0];
-        const reopened = await post(state, mrossi('set_goal_revoke', { target: goal.id }), BASE_GISTS, NOW);
-        const open = await post(reopened.state, mrossi('closed_revoke', { target: closed.id }), BASE_GISTS, NOW);
-        expect(open.state.handles.metadata.status).toBe('open');
+        const reopened = await post(state, mrossi('set_goal_revoke', { target: goal.id }), PLAIN, NOW);
+        const open = await post(reopened.state, mrossi('closed_revoke', { target: closed.id }), PLAIN, NOW);
+        expect(valuesOf(open.state.handles).status).toBe('open');
 
-        const again = await post(open.state, { ...mrossi('set_goal', goal.payload) }, BASE_GISTS, NOW);
+        const again = await post(open.state, { ...mrossi('set_goal', goal.payload) }, PLAIN, NOW);
         expect(again.refusal).toBeUndefined();
         const renewed = gistNamed(again.state.lines, 'closed').filter((l) => l.id !== closed.id);
         expect(renewed).toHaveLength(1);
         expect(renewed[0].writer).toBe(`goal::${gistNamed(again.state.lines, 'set_goal').at(-1)!.id}`);
-        expect(again.state.handles.metadata.status).toBe('closed');
+        expect(valuesOf(again.state.handles).status).toBe('closed');
         expect(again.reading.settled).toBe(true);
         expect(again.reading.goals[0]).toMatchObject({ met: true, outcome: renewed[0].id });
         expect(again.reading.goals[0].outcomeRevoked).toBeUndefined();
@@ -1157,7 +1169,7 @@ describe('posting to a thread', () => {
         const out: Posted[] = [];
         let state = from;
         for (const draft of drafts) {
-          const posted = await post(state, draft, BASE_GISTS, NOW);
+          const posted = await post(state, draft, PLAIN, NOW);
           out.push(posted);
           state = posted.state;
         }
@@ -1173,28 +1185,28 @@ describe('posting to a thread', () => {
         it('the goal closes the activity, and the closed line cannot be revoked', async () => {
           const state = await finalOf();
           const closed = gistNamed(state.lines, 'closed')[0];
-          expect(state.handles.metadata.status).toBe('closed');
+          expect(valuesOf(state.handles).status).toBe('closed');
           expect(lockedBy(closed, state.lines)).toBe(gistNamed(state.lines, 'set_goal')[0].id);
-          expect(reduce(state.lines, state.handles, BASE_GISTS).goals[0]).toMatchObject({ final: true, met: true, outcome: closed.id });
+          expect(reduce(state.lines, state.handles, PLAIN).goals[0]).toMatchObject({ final: true, met: true, outcome: closed.id });
           // not offered, and posted anyway it is refused
-          expect(names(offers(state.lines, 'user::mrossi', BASE_GISTS))).toEqual(['comment', 'set_goal_revoke', 'quit']);
+          expect(names(offers(state.lines, 'user::mrossi', PLAIN))).toEqual(['comment', 'set_goal_revoke', 'quit']);
           const before = structuredClone(state);
-          const out = await post(state, mrossi('closed_revoke', { target: closed.id }), BASE_GISTS, NOW);
+          const out = await post(state, mrossi('closed_revoke', { target: closed.id }), PLAIN, NOW);
           expect(out.refusal?.code).toBe('not-revocable');
           expect(out.refusal?.detail).toMatch(/written by a final goal/);
           expect(out.state).toEqual(before);
-          expect(admit(state.lines, mrossi('closed_revoke', { target: closed.id }), BASE_GISTS)?.code).toBe('not-revocable');
+          expect(admit(state.lines, mrossi('closed_revoke', { target: closed.id }), PLAIN)?.code).toBe('not-revocable');
         });
 
         it('a revoke already in the thread, stamped past admission, revokes nothing', async () => {
           const state = await finalOf();
           const closed = gistNamed(state.lines, 'closed')[0];
           const lines = [...state.lines, await stamp(mrossi('closed_revoke', { target: closed.id }), state.lines, NOW)];
-          const reading = reduce(lines, state.handles, BASE_GISTS);
+          const reading = reduce(lines, state.handles, PLAIN);
           expect(reading.inForce).toContain(closed.id);
           expect(reading.inForce).toContain(lines[lines.length - 1].id);
           expect(reading.revoked).not.toContain(closed.id);
-          expect(reading.expected.metadata.status).toBe('closed');
+          expect(valuesOf(reading.expected).status).toBe('closed');
           expect(reading.goals[0].outcomeRevoked).toBeUndefined();
           expect(reading.settled).toBe(true);
         });
@@ -1203,14 +1215,14 @@ describe('posting to a thread', () => {
           const state = await finalOf();
           const goal = gistNamed(state.lines, 'set_goal')[0];
           const closed = gistNamed(state.lines, 'closed')[0];
-          const out = await post(state, mrossi('set_goal_revoke', { target: goal.id }), BASE_GISTS, NOW);
+          const out = await post(state, mrossi('set_goal_revoke', { target: goal.id }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
           expect(out.reading.goals).toEqual([]);
           expect(out.reading.revoked).toEqual([goal.id]);
           expect(lockedBy(closed, out.state.lines)).toBe(goal.id);
-          expect(names(offers(out.state.lines, 'user::mrossi', BASE_GISTS))).not.toContain('closed_revoke');
-          expect((await post(out.state, mrossi('closed_revoke', { target: closed.id }), BASE_GISTS, NOW)).refusal?.code).toBe('not-revocable');
-          expect(out.state.handles.metadata.status).toBe('closed');
+          expect(names(offers(out.state.lines, 'user::mrossi', PLAIN))).not.toContain('closed_revoke');
+          expect((await post(out.state, mrossi('closed_revoke', { target: closed.id }), PLAIN, NOW)).refusal?.code).toBe('not-revocable');
+          expect(valuesOf(out.state.handles).status).toBe('closed');
         });
 
         it('only a line a final goal wrote is locked', async () => {
@@ -1240,15 +1252,15 @@ describe('posting to a thread', () => {
           const [memo] = gistNamed(out.state.lines, 'memo');
           expect(memo.writer).toBe(`goal::${goal.id}`);
           expect(memo.payload).toEqual({ text: 'Protocolla', assignTo: ['gverdi'] });
-          expect(out.state.handles.assignees).toEqual(['gverdi', 'mrossi']);
+          expect(membersOf(out.state.handles)).toEqual(['gverdi', 'mrossi']);
           expect(out.reading.settled).toBe(true);
           expect(out.reading.goals[0]).toMatchObject({ met: true, outcome: memo.id, with: { text: 'Protocolla', assignTo: ['gverdi'] }, final: false });
         });
 
-        it('a goal that writes a stage sets the metadata', async () => {
+        it('a goal that writes a stage sets the value', async () => {
           const [, out] = await run([...opening, goalPost({ then: 'stage', with: { stage: 'firma' } })]);
           expect(out.refusal).toBeUndefined();
-          expect(out.state.handles.metadata).toEqual({ name: 'A', status: 'open', stage: 'firma' });
+          expect(valuesOf(out.state.handles)).toEqual({ name: 'A', status: 'open', stage: 'firma' });
           expect(gistNamed(out.state.lines, 'stage')[0].payload).toEqual({ stage: 'firma' });
           expect(out.reading.settled).toBe(true);
         });
@@ -1275,7 +1287,7 @@ describe('posting to a thread', () => {
         ])('refuses %s', async (_label, payload) => {
           const [created] = await run(opening);
           const before = structuredClone(created.state);
-          const out = await post(created.state, goalPost(payload), BASE_GISTS, NOW);
+          const out = await post(created.state, goalPost(payload), PLAIN, NOW);
           expect(out.refusal?.code).toBe('invalid-payload');
           expect(out.state).toEqual(before);
         });
@@ -1283,11 +1295,11 @@ describe('posting to a thread', () => {
         it('a goal that states a `with` or a `final` it cannot, reads as no goal', async () => {
           for (const payload of [{ with: 'x' }, { with: null }, { with: [] }]) {
             const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], ...payload })]);
-            expect(reduce(lines, { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] }, BASE_GISTS).goals).toEqual([]);
+            expect(reduce(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN).goals).toEqual([]);
           }
           // `final` is read only when it is exactly true
           const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], final: 1 })]);
-          expect(reduce(lines, { metadata: {}, assignees: [] }, BASE_GISTS).goals[0].final).toBe(false);
+          expect(reduce(lines, hold({}, []), PLAIN).goals[0].final).toBe(false);
         });
       });
 
@@ -1295,22 +1307,22 @@ describe('posting to a thread', () => {
         const schema = (rules: GistSchema['rules']): GistSchema => ({ gist: 'g', writers: ['user'], rules });
 
         it('is undefined for a payload the rules accept, and free keys are accepted', () => {
-          expect(payloadProblem(schema([]), { any: 1 })).toBeUndefined();
-          expect(payloadProblem(schema([{ rule: 'assign', from: 'to', required: true }]), { to: ['a'], free: null })).toBeUndefined();
-          expect(payloadProblem(schema([{ rule: 'metadata', key: 'k', value: 1 }]), {})).toBeUndefined();
+          expect(payloadProblem(PLAIN, schema([]), { any: 1 })).toBeUndefined();
+          expect(payloadProblem(PLAIN, schema([{ rule: 'join', set: 'assignees', from: 'to', required: true }]), { to: ['a'], free: null })).toBeUndefined();
+          expect(payloadProblem(PLAIN, schema([{ rule: 'value', key: 'k', value: 1 }]), {})).toBeUndefined();
         });
 
         it('says in English which key is wrong', () => {
-          expect(payloadProblem(schema([{ rule: 'assign', from: 'to', required: true }]), {})).toBe('The key "to" is required in a "g" line.');
-          expect(payloadProblem(schema([{ rule: 'assign', from: 'to' }]), { to: 3 })).toBe('The key "to" must hold a string or a list of strings in a "g" line.');
-          expect(payloadProblem(schema([{ rule: 'metadata', key: 'k', from: 'v', required: true }]), {})).toBe('The key "v" is required in a "g" line.');
-          expect(payloadProblem(schema([{ rule: 'revoke', from: 'target', gists: ['x'] }]), { target: 3 })).toBe('The key "target" must hold a line id in a "g" line.');
+          expect(payloadProblem(PLAIN, schema([{ rule: 'join', set: 'assignees', from: 'to', required: true }]), {})).toBe('The key "to" is required in a "g" line.');
+          expect(payloadProblem(PLAIN, schema([{ rule: 'join', set: 'assignees', from: 'to' }]), { to: 3 })).toBe('The key "to" must hold a string or a list of strings in a "g" line.');
+          expect(payloadProblem(PLAIN, schema([{ rule: 'value', key: 'k', from: 'v', required: true }]), {})).toBe('The key "v" is required in a "g" line.');
+          expect(payloadProblem(PLAIN, schema([{ rule: 'revoke', from: 'target', gists: ['x'] }]), { target: 3 })).toBe('The key "target" must hold a line id in a "g" line.');
         });
 
         it('does not ask for a key whose `where` the payload does not match', () => {
-          const rules: GistSchema['rules'] = [{ rule: 'metadata', key: 'k', collect: 'v', required: true, where: { d: 'in' } }];
-          expect(payloadProblem(schema(rules), { d: 'out' })).toBeUndefined();
-          expect(payloadProblem(schema(rules), { d: 'in' })).toMatch(/"v" is required/);
+          const rules: GistSchema['rules'] = [{ rule: 'value', key: 'k', collect: 'v', required: true, where: { d: 'in' } }];
+          expect(payloadProblem(PLAIN, schema(rules), { d: 'out' })).toBeUndefined();
+          expect(payloadProblem(PLAIN, schema(rules), { d: 'in' })).toMatch(/"v" is required/);
         });
       });
 
@@ -1331,7 +1343,7 @@ describe('posting to a thread', () => {
           const state = await afterGoal();
           const reference = gistNamed(state.lines, 'doc_ref')[0];
           const goal = goalOf(state);
-          const out = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), BASE_GISTS, NOW);
+          const out = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
           expect(documentCheck(out.reading)).toMatchObject({ orphan: true });
           expect('orphan' in out.reading.goals[0].checks[0]).toBe(false);
@@ -1347,15 +1359,15 @@ describe('posting to a thread', () => {
         it('an anchored check is not orphaned again, and an orphaned one writes nothing more', async () => {
           const state = await afterGoal();
           const reference = gistNamed(state.lines, 'doc_ref')[0];
-          const orphaned = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), BASE_GISTS, NOW);
+          const orphaned = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
 
-          const anchoredAgain = await post(orphaned.state, lbianchi('doc_ref', { document: '34132412', direction: 'outbound' }), BASE_GISTS, NOW);
+          const anchoredAgain = await post(orphaned.state, lbianchi('doc_ref', { document: '34132412', direction: 'outbound' }), PLAIN, NOW);
           expect(anchoredAgain.refusal).toBeUndefined();
           expect('orphan' in documentCheck(anchoredAgain.reading)).toBe(false);
           expect(warningsOf(anchoredAgain.state.lines)).toHaveLength(1);
 
           const second = gistNamed(anchoredAgain.state.lines, 'doc_ref').at(-1)!;
-          const orphanedAgain = await post(anchoredAgain.state, mrossi('doc_ref_revoke', { target: second.id }), BASE_GISTS, NOW);
+          const orphanedAgain = await post(anchoredAgain.state, mrossi('doc_ref_revoke', { target: second.id }), PLAIN, NOW);
           expect(documentCheck(orphanedAgain.reading)).toMatchObject({ orphan: true });
           expect(warningsOf(orphanedAgain.state.lines)).toHaveLength(1);
           expect(orphanedAgain.reading.settled).toBe(true);
@@ -1364,19 +1376,19 @@ describe('posting to a thread', () => {
         it('a revoked warning is still written once: nothing writes it again', async () => {
           const state = await afterGoal();
           const reference = gistNamed(state.lines, 'doc_ref')[0];
-          const orphaned = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), BASE_GISTS, NOW);
+          const orphaned = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
           const before = orphaned.state.lines.length;
-          const again = await settle(orphaned.state, BASE_GISTS, NOW);
+          const again = await settle(orphaned.state, PLAIN, NOW);
           expect(again.state.lines).toHaveLength(before);
-          expect(BASE_GISTS.find((g) => g.gist === 'goal_warning')!.rules.some((r) => r.rule === 'revoke')).toBe(false);
+          expect(PLAIN.gists.find((g) => g.gist === 'goal_warning')!.rules.some((r) => r.rule === 'revoke')).toBe(false);
         });
 
         it('revoking the memo a check names orphans it, when no line in force holds its id any more', async () => {
           const [created, memo] = await run([...opening, mrossi('memo', { text: 'Serve un parere', assignTo: ['lbianchi'] })]);
           const id = gistNamed(memo.state.lines, 'memo')[0].id;
-          const goalSet = await post(memo.state, mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'got_it', writer: 'user::lbianchi', payload: { about: id } }] }), BASE_GISTS, NOW);
+          const goalSet = await post(memo.state, mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'got_it', writer: 'user::lbianchi', payload: { about: id } }] }), PLAIN, NOW);
           expect('orphan' in goalSet.reading.goals[0].checks[0]).toBe(false);
-          const revoked = await post(goalSet.state, mrossi('memo_revoke', { target: id }), BASE_GISTS, NOW);
+          const revoked = await post(goalSet.state, mrossi('memo_revoke', { target: id }), PLAIN, NOW);
           expect(created.refusal).toBeUndefined();
           expect(memo.refusal).toBeUndefined();
           expect('orphan' in revoked.reading.goals[0].checks[0]).toBe(true);
@@ -1388,7 +1400,7 @@ describe('posting to a thread', () => {
           // in the scenario the reference names the memo under `about`; revoking the memo still orphans the check
           const posted = await replay();
           const memoId = gistNamed(posted[1].state.lines, 'memo')[0].id;
-          const out = await post(posted[3].state, mrossi('memo_revoke', { target: memoId }), BASE_GISTS, NOW);
+          const out = await post(posted[3].state, mrossi('memo_revoke', { target: memoId }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
           expect(out.reading.goals[0].checks[0]).toMatchObject({ orphan: true });
           expect(warningsOf(out.state.lines).map((l) => l.payload)).toEqual([{ check: 0 }]);
@@ -1397,9 +1409,9 @@ describe('posting to a thread', () => {
         it('a value that is no line id is held by any line in force holding it under the same key, whatever its gist', async () => {
           // a memo whose payload names the document keeps the document check anchored once the reference goes
           const state = await afterGoal();
-          const withMemo = await post(state, mrossi('memo', { text: 'Vedi #34132412', document: '34132412' }), BASE_GISTS, NOW);
+          const withMemo = await post(state, mrossi('memo', { text: 'Vedi #34132412', document: '34132412' }), PLAIN, NOW);
           const reference = gistNamed(withMemo.state.lines, 'doc_ref')[0];
-          const out = await post(withMemo.state, mrossi('doc_ref_revoke', { target: reference.id }), BASE_GISTS, NOW);
+          const out = await post(withMemo.state, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
           expect('orphan' in documentCheck(out.reading)).toBe(false);
           expect(warningsOf(out.state.lines)).toEqual([]);
@@ -1410,7 +1422,7 @@ describe('posting to a thread', () => {
           const out = await post(
             state,
             mrossi('set_goal', { name: 'firme', then: 'closed', checks: [{ gist: 'doc_signed', kin: 'system', payload: { document: '34132412', by: 'lbianchi' } }] }),
-            BASE_GISTS,
+            PLAIN,
             NOW,
           );
           const g = out.reading.goals.find((x) => x.name === 'firme')!;
@@ -1429,7 +1441,7 @@ describe('posting to a thread', () => {
           const out = await post(
             other.state,
             mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ payload: { target: goalOf(other.state).id } }, { payload: { document: 'zzz' } }] }),
-            BASE_GISTS,
+            PLAIN,
             NOW,
           );
           const g = out.reading.goals.find((x) => x.name === 'g')!;
@@ -1439,9 +1451,11 @@ describe('posting to a thread', () => {
         });
 
         it('expects none where the gists have no goal_warning', async () => {
-          const bare = BASE_GISTS.filter((g) => g.gist !== 'goal_warning');
+          // a schema that names no gist for the warning expects none
+          const { warning: _warning, ...records } = SIBAR_JSON.records;
+          const bare = sibar({ drop: ['goal_warning'], laws: [], head: { records } });
           const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ payload: { document: 'zzz' } }] })]);
-          const reading = reduce(lines, { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] }, bare);
+          const reading = reduce(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), bare);
           expect(reading.goals[0].checks).toEqual([{ check: { payload: { document: 'zzz' } } }]);
           expect(reading.denunciations).toEqual([]);
           const out = await post(EMPTY, opening[0], bare, NOW);
@@ -1449,7 +1463,7 @@ describe('posting to a thread', () => {
           expect(gistNamed(goalled.state.lines, 'goal_warning')).toEqual([]);
         });
 
-        it('denounces in order: a goal at a time by name, its warnings by check index, then metadata and assignment', async () => {
+        it('denounces in order: a goal at a time by name, its warnings by check index, then the value and the set', async () => {
           // checks 0 and 2 name the id of goal b, a line no check can rest on
           const goalB = mrossi('set_goal', { name: 'b', then: 'closed', checks: [{ gist: 'create' }] });
           const b = (await thread([opening[0], goalB]))[1].id;
@@ -1459,10 +1473,15 @@ describe('posting to a thread', () => {
             mrossi('set_goal', { name: 'a', then: 'closed', checks: [{ payload: { x: b } }, { gist: 'got_it' }, { payload: { y: b } }] }),
           ]);
           expect(lines[1].id).toBe(b);
-          const reading = reduce(lines, { metadata: {}, assignees: [] }, BASE_GISTS);
-          expect(
-            reading.denunciations.map((d) => (d.sort === 'line' ? `line ${d.gist} ${JSON.stringify(d.payload)}` : d.sort === 'metadata' ? `metadata ${d.key}` : d.sort === 'assignment' ? `assignment ${d.user}` : d.sort)),
-          ).toEqual(['line goal_warning {"check":0}', 'line goal_warning {"check":2}', 'line closed {}', 'metadata name', 'metadata status', 'assignment mrossi']);
+          const reading = reduce(lines, hold({}, []), PLAIN);
+          expect(reading.denunciations.map((d) => (d.sort === 'line' ? `line ${d.gist} ${JSON.stringify(d.payload)}` : labelOf(d)))).toEqual([
+            'line goal_warning {"check":0}',
+            'line goal_warning {"check":2}',
+            'line closed {}',
+            'value name',
+            'value status',
+            'set assignees mrossi',
+          ]);
         });
       });
 
@@ -1470,12 +1489,12 @@ describe('posting to a thread', () => {
         it('writes the denunciation\'s writer and payload', async () => {
           const lines = await thread([opening[0]]);
           const reading: Reading = {
-            ...reduce(lines, { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] }, BASE_GISTS),
+            ...reduce(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN),
             denunciations: [{ sort: 'line', gist: 'memo', writer: 'goal::abc', line: 'abc', payload: { text: 't', assignTo: ['x'] } }],
           };
-          const out = reconcile(reading, { metadata: {}, assignees: [] });
+          const out = reconcile(reading, hold({}, []), PLAIN);
           expect(out.drafts).toEqual([{ gist: 'memo', writer: 'goal::abc', payload: { text: 't', assignTo: ['x'] } }]);
-          expect(out.handles).toEqual({ metadata: {}, assignees: [] });
+          expect(out.handles).toEqual(hold({}, []));
         });
       });
     });
@@ -1490,9 +1509,9 @@ describe('posting to a thread', () => {
       it('leaves the state given unchanged, and gives what post gives with no options', async () => {
         const state = (await replay())[6].state;
         const copy = structuredClone(state);
-        const dry = await dryRun(state, signing, BASE_GISTS, NOW);
+        const dry = await dryRun(state, signing, PLAIN, NOW);
         expect(state).toEqual(copy);
-        const posted = await post(state, signing, BASE_GISTS, NOW);
+        const posted = await post(state, signing, PLAIN, NOW);
         expect(dry.refusal).toBeUndefined();
         expect(dry.state).toEqual(posted.state);
         expect(dry.reading).toEqual(posted.reading);
@@ -1504,54 +1523,54 @@ describe('posting to a thread', () => {
 
       it('records the denunciations each round answered: the goal\'s closing, then the status', async () => {
         const state = (await replay())[6].state;
-        const { added, rounds } = await dryRun(state, signing, BASE_GISTS, NOW);
+        const { added, rounds } = await dryRun(state, signing, PLAIN, NOW);
         expect(gistsOf(added)).toEqual(['doc_signed', 'closed', 'metadata_set']);
         expect(rounds).toHaveLength(2);
         expect(rounds[0]).toMatchObject([{ sort: 'line', gist: 'closed', line: goalLine(state).id }]);
-        expect(rounds[1]).toMatchObject([{ sort: 'metadata', key: 'status', expected: 'closed' }]);
+        expect(rounds[1]).toMatchObject([{ sort: 'handle', kind: 'value', key: 'status', expected: 'closed' }]);
         expect(rounds.flat()).toHaveLength(added.length - 1);
       });
 
       it('settle records no round when nothing is denounced', async () => {
         const state = (await replay()).at(-1)!.state;
-        expect((await settle(state, BASE_GISTS, NOW)).rounds).toEqual([]);
+        expect((await settle(state, PLAIN, NOW)).rounds).toEqual([]);
       });
 
-      describe('keeps-assignee', () => {
+      describe('keeps-set', () => {
         const quit = mrossi('quit', {});
 
         it('is broken by the last assignee leaving an open activity, and post refuses it', async () => {
           const state = await afterQuit();
-          expect(state.handles.assignees).toEqual(['mrossi']);
-          const dry = await dryRun(state, quit, BASE_GISTS, NOW, BASE_LAWS);
+          expect(membersOf(state.handles)).toEqual(['mrossi']);
+          const dry = await dryRun(state, quit, SIBAR, NOW);
           expect(dry.verdicts).toEqual([
-            { law: 'keeps-assignee', strength: 'refuse', detail: 'The activity would stay open with no assignee.' },
+            { law: 'keeps-set', strength: 'refuse', detail: 'The set "assignees" would be empty while status is "open".' },
           ]);
-          const out = await post(state, quit, BASE_GISTS, NOW, { laws: BASE_LAWS });
+          const out = await post(state, quit, SIBAR, NOW);
           expect(out.refusal?.code).toBe('law');
           expect(out.refusal?.verdicts).toEqual(dry.verdicts);
           expect(out.state).toBe(state);
           expect(out.added).toEqual([]);
           expect(out.rounds).toEqual([]);
           // a refusal that is not confirmable stays one when confirmed
-          expect((await post(state, quit, BASE_GISTS, NOW, { laws: BASE_LAWS, confirmed: true })).refusal?.code).toBe('law');
+          expect((await post(state, quit, SIBAR, NOW, { confirmed: true })).refusal?.code).toBe('law');
         });
 
         it('passes without laws, as before', async () => {
           const state = await afterQuit();
-          const out = await post(state, quit, BASE_GISTS, NOW);
+          const out = await post(state, quit, PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
-          expect(out.state.handles.assignees).toEqual([]);
+          expect(membersOf(out.state.handles)).toEqual([]);
           expect(gistsOf(out.added)).toEqual(['quit', 'unassigned']);
         });
 
         it('gives no verdict on a closed activity', async () => {
           const state = (await replay()).at(-1)!.state;
-          expect(state.handles.metadata.status).toBe('closed');
-          const only = (await post(state, lbianchi('quit', {}), BASE_GISTS, NOW)).state;
-          const dry = await dryRun(only, quit, BASE_GISTS, NOW, BASE_LAWS);
+          expect(valuesOf(state.handles).status).toBe('closed');
+          const only = (await post(state, lbianchi('quit', {}), PLAIN, NOW)).state;
+          const dry = await dryRun(only, quit, SIBAR, NOW);
           expect(dry.refusal).toBeUndefined();
-          expect(dry.state.handles.assignees).toEqual([]);
+          expect(membersOf(dry.state.handles)).toEqual([]);
           expect(dry.verdicts).toEqual([]);
         });
       });
@@ -1561,7 +1580,7 @@ describe('posting to a thread', () => {
 
         it('is broken by a line that orphans a check of a goal in force, one verdict per check', async () => {
           const state = await afterGoal();
-          const dry = await dryRun(state, revoke(state), BASE_GISTS, NOW, BASE_LAWS);
+          const dry = await dryRun(state, revoke(state), SIBAR, NOW);
           expect(dry.verdicts).toEqual([
             { law: 'keeps-goals', strength: 'confirm', detail: 'The check 1 of goal "done" would be orphaned.', goal: goalLine(state).id, check: 1 },
           ]);
@@ -1569,13 +1588,13 @@ describe('posting to a thread', () => {
 
         it('asks for confirmation, and with it the line passes and the warning is written', async () => {
           const state = await afterGoal();
-          const dry = await dryRun(state, revoke(state), BASE_GISTS, NOW, BASE_LAWS);
-          const asked = await post(state, revoke(state), BASE_GISTS, NOW, { laws: BASE_LAWS });
+          const dry = await dryRun(state, revoke(state), SIBAR, NOW);
+          const asked = await post(state, revoke(state), SIBAR, NOW);
           expect(asked.refusal?.code).toBe('unconfirmed');
           expect(asked.refusal?.verdicts).toEqual(dry.verdicts);
           expect(asked.state).toBe(state);
 
-          const out = await post(state, revoke(state), BASE_GISTS, NOW, { laws: BASE_LAWS, confirmed: true });
+          const out = await post(state, revoke(state), SIBAR, NOW, { confirmed: true });
           expect(out.refusal).toBeUndefined();
           expect(gistNamed(out.state.lines, 'goal_warning')).toHaveLength(1);
           expect(gistNamed(out.added, 'goal_warning')[0].payload).toEqual({ check: 1 });
@@ -1583,8 +1602,8 @@ describe('posting to a thread', () => {
 
         it('gives no verdict for a check that was already orphaned', async () => {
           const state = await afterGoal();
-          const orphaned = await post(state, revoke(state), BASE_GISTS, NOW);
-          const dry = await dryRun(orphaned.state, mrossi('comment', { text: 'ok' }), BASE_GISTS, NOW, BASE_LAWS);
+          const orphaned = await post(state, revoke(state), PLAIN, NOW);
+          const dry = await dryRun(orphaned.state, mrossi('comment', { text: 'ok' }), SIBAR, NOW);
           expect(dry.refusal).toBeUndefined();
           expect(dry.verdicts).toEqual([]);
         });
@@ -1592,15 +1611,15 @@ describe('posting to a thread', () => {
 
       it('does not judge a fact', async () => {
         const drop: GistSchema = { gist: 'drop', writers: ['system'], rules: [{ rule: 'revoke', from: 'target', gists: ['doc_ref'] }] };
-        const gists = [...BASE_GISTS, drop];
+        const schema = sibar({ add: [drop] });
         const state = await afterGoal();
         const draft = by(SYSTEM_WRITER, 'drop', { target: reference(state).id });
-        const dry = await dryRun(state, draft, gists, NOW, BASE_LAWS);
+        const dry = await dryRun(state, draft, schema, NOW);
         expect(dry.refusal).toBeUndefined();
         expect(dry.verdicts).toEqual([]);
         // the reading still shows it: the check is orphaned
         expect(dry.reading.goals[0].checks[1]).toMatchObject({ orphan: true });
-        const out = await post(state, draft, gists, NOW, { laws: BASE_LAWS });
+        const out = await post(state, draft, schema, NOW);
         expect(out.refusal).toBeUndefined();
         expect(gistNamed(out.state.lines, 'goal_warning')).toHaveLength(1);
       });
@@ -1610,9 +1629,10 @@ describe('posting to a thread', () => {
           { gist: 'start', writers: ['user'], rules: [] },
           { gist: 'step_a', writers: ['goal'], rules: [] },
           { gist: 'step_b', writers: ['goal'], rules: [] },
-          { gist: 'step_c', writers: ['goal'], rules: [{ rule: 'metadata', key: 'reached', value: 'yes' }] },
+          { gist: 'step_c', writers: ['goal'], rules: [{ rule: 'value', key: 'reached', value: 'yes' }] },
         ];
-        const gists = [...BASE_GISTS, ...extra];
+        const withLaws = sibar({ add: extra });
+        const withoutLaws = sibar({ add: extra, laws: [] });
         let state = EMPTY;
         for (const draft of [
           mrossi('create', { name: 'Catena', assignTo: ['mrossi'] }),
@@ -1620,37 +1640,39 @@ describe('posting to a thread', () => {
           mrossi('set_goal', { name: 'b', then: 'step_b', checks: [{ gist: 'step_a' }] }),
           mrossi('set_goal', { name: 'c', then: 'step_c', checks: [{ gist: 'step_b' }] }),
         ]) {
-          state = (await post(state, draft, gists, NOW)).state;
+          state = (await post(state, draft, withoutLaws, NOW)).state;
         }
         const start = mrossi('start', {});
-        const dry = await dryRun(state, start, gists, NOW, BASE_LAWS);
+        const dry = await dryRun(state, start, withLaws, NOW);
         expect(dry.reading.settled).toBe(false);
         expect(dry.rounds).toHaveLength(3);
         expect(dry.verdicts).toEqual([{ law: 'settles', strength: 'refuse', detail: 'The thread would not settle.' }]);
-        expect((await post(state, start, gists, NOW, { laws: BASE_LAWS })).refusal?.code).toBe('law');
-        expect((await post(state, start, gists, NOW)).reading.settled).toBe(false);
+        expect((await post(state, start, withLaws, NOW)).refusal?.code).toBe('law');
+        expect((await post(state, start, withoutLaws, NOW)).reading.settled).toBe(false);
       });
 
       it('gives verdicts in the order of the laws', async () => {
         const state = await afterQuit();
-        const laws: Law[] = [
-          { law: 'settles', strength: 'refuse' },
-          { law: 'keeps-assignee', strength: 'confirm' },
-        ];
-        const dry = await dryRun(state, mrossi('quit', {}), BASE_GISTS, NOW, laws);
-        expect(dry.verdicts.map((v) => [v.law, v.strength])).toEqual([['keeps-assignee', 'confirm']]);
+        const schema = sibar({
+          laws: [
+            { law: 'settles', strength: 'refuse' },
+            { law: 'keeps-set', set: 'assignees', while: { status: 'open' }, strength: 'confirm' },
+          ],
+        });
+        const dry = await dryRun(state, mrossi('quit', {}), schema, NOW);
+        expect(dry.verdicts.map((v) => [v.law, v.strength])).toEqual([['keeps-set', 'confirm']]);
       });
 
       it('answers an admission refusal before any law: no verdicts, nothing added', async () => {
         const state = await afterQuit();
         for (const draft of [mrossi('doc_signed', { document: '1' }), mrossi('nothing', {}), mrossi('create', { name: 'x', assignTo: ['mrossi'] })]) {
-          const dry = await dryRun(state, draft, BASE_GISTS, NOW, BASE_LAWS);
+          const dry = await dryRun(state, draft, SIBAR, NOW);
           expect(dry.refusal).toBeDefined();
           expect(dry.verdicts).toEqual([]);
           expect(dry.added).toEqual([]);
           expect(dry.rounds).toEqual([]);
           expect(dry.state).toBe(state);
-          expect(dry.reading).toEqual(reduce(state.lines, state.handles, BASE_GISTS));
+          expect(dry.reading).toEqual(reduce(state.lines, state.handles, PLAIN));
         }
       });
     });
@@ -1674,39 +1696,39 @@ describe('posting to a thread', () => {
         ];
         for (const [label, state, draft] of table) {
           const before = structuredClone(state);
-          const out = await post(state, draft, BASE_GISTS, NOW);
+          const out = await post(state, draft, PLAIN, NOW);
           expect(out.refusal?.code, label).toBe('not-now');
           expect(out.refusal?.detail, label).toMatch(/^[A-Za-z]/);
           expect(out.state, label).toEqual(before);
           expect(state, label).toEqual(before);
-          expect(out.reading, label).toEqual(reduce(before.lines, before.handles, BASE_GISTS));
+          expect(out.reading, label).toEqual(reduce(before.lines, before.handles, PLAIN));
         }
       });
 
       it('comes after the writer and before the payload', async () => {
         const { final } = await states();
         // the wrong kin on a closed thread: the writer is refused first
-        expect(admit(final.lines, by(SYSTEM_WRITER, 'memo', { assignTo: ['x'] }), BASE_GISTS)?.code).toBe('writer-not-allowed');
+        expect(admit(final.lines, by(SYSTEM_WRITER, 'memo', { assignTo: ['x'] }), PLAIN)?.code).toBe('writer-not-allowed');
         // a bad payload on a closed thread: the moment is refused first
-        expect(admit(final.lines, mrossi('memo', { assignTo: 5 }), BASE_GISTS)?.code).toBe('not-now');
-        expect((await post(final, mrossi('memo', { assignTo: 5 }), BASE_GISTS, NOW)).refusal?.code).toBe('not-now');
+        expect(admit(final.lines, mrossi('memo', { assignTo: 5 }), PLAIN)?.code).toBe('not-now');
+        expect((await post(final, mrossi('memo', { assignTo: 5 }), PLAIN, NOW)).refusal?.code).toBe('not-now');
       });
 
       it('does not stop the lines settle writes: a goal writes its line whatever that when says', async () => {
         const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }] })]);
-        const closed = BASE_GISTS.find((g) => g.gist === 'closed')!;
-        expect(whenHolds(lines, `goal::${lines[1].id}`, closed, BASE_GISTS)).toBe(false);
-        const state: ThreadState = { lines, handles: { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] } };
-        const out = await settle(state, BASE_GISTS, NOW);
+        const closed = PLAIN.gists.find((g) => g.gist === 'closed')!;
+        expect(whenHolds(lines, `goal::${lines[1].id}`, closed, PLAIN)).toBe(false);
+        const state: ThreadState = { lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) };
+        const out = await settle(state, PLAIN, NOW);
         expect(out.reading.settled).toBe(true);
         expect(gistNamed(out.state.lines, 'closed')[0]).toMatchObject({ writer: `goal::${lines[1].id}` });
-        expect(out.state.handles.metadata.status).toBe('closed');
+        expect(valuesOf(out.state.handles).status).toBe('closed');
       });
 
       describe('whenHolds', () => {
         const probe = (when?: When): GistSchema => ({ gist: 'probe', writers: ['user'], rules: [], ...(when ? { when } : {}) });
-        const conf: GistSchema = { gist: 'conf', writers: ['user'], rules: [{ rule: 'metadata', key: 'conf', from: 'conf' }] };
-        const all = [...BASE_GISTS, conf];
+        const conf: GistSchema = { gist: 'conf', writers: ['user'], rules: [{ rule: 'value', key: 'conf', from: 'conf' }] };
+        const all = sibar({ add: [conf], laws: [] });
         const open = () => thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', { assignTo: ['lbianchi'] })]);
 
         it('holds when the schema has no when, or an empty one, whoever writes', async () => {
@@ -1718,9 +1740,9 @@ describe('posting to a thread', () => {
           expect(whenHolds([], 'user::mrossi', probe(), all)).toBe(true);
         });
 
-        it('assignee: the writer after the first :: is an expected assignee, whatever the kin', async () => {
+        it('in: the writer after the first :: is an expected assignee, whatever the kin', async () => {
           const lines = await open();
-          const when = probe({ assignee: true });
+          const when = probe({ in: 'assignees' });
           expect(whenHolds(lines, 'user::mrossi', when, all)).toBe(true);
           expect(whenHolds(lines, 'user::lbianchi', when, all)).toBe(true);
           expect(whenHolds(lines, 'system::lbianchi', when, all)).toBe(true);
@@ -1729,32 +1751,32 @@ describe('posting to a thread', () => {
           expect(whenHolds([], 'user::mrossi', when, all)).toBe(false);
         });
 
-        it('assignee follows what the thread expects: a quit and a revoked memo take an assignee away', async () => {
+        it('in follows what the thread expects: a quit and a revoked memo take an assignee away', async () => {
           const lines = await open();
           const quit = await thread([...lines, by('user::lbianchi', 'quit', {})]);
-          expect(whenHolds(quit, 'user::lbianchi', probe({ assignee: true }), all)).toBe(false);
+          expect(whenHolds(quit, 'user::lbianchi', probe({ in: 'assignees' }), all)).toBe(false);
           const revoked = await thread([...lines, mrossi('memo_revoke', { target: lines[1].id })]);
-          expect(whenHolds(revoked, 'user::lbianchi', probe({ assignee: true }), all)).toBe(false);
-          expect(whenHolds(revoked, 'user::mrossi', probe({ assignee: true }), all)).toBe(true);
+          expect(whenHolds(revoked, 'user::lbianchi', probe({ in: 'assignees' }), all)).toBe(false);
+          expect(whenHolds(revoked, 'user::mrossi', probe({ in: 'assignees' }), all)).toBe(true);
         });
 
-        it('metadata: each key is expected, and equals the value by its canonical form', async () => {
+        it('values: each key is expected, and equals the value by its canonical form', async () => {
           const lines = await thread([...(await open()), mrossi('conf', { conf: { b: 2, a: [1, null] } })]);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { status: 'open' } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { status: 'open', name: 'A' } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { conf: { a: [1, null], b: 2 } } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { status: 'closed' } }), all)).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { status: 'open', name: 'B' } }), all)).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { conf: { a: [null, 1], b: 2 } } }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open', name: 'A' } }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { conf: { a: [1, null], b: 2 } } }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'closed' } }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open', name: 'B' } }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { conf: { a: [null, 1], b: 2 } } }), all)).toBe(false);
           // a key the thread does not expect fails, even if it is asked to be null
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { absent: null } }), all)).toBe(false);
-          expect(whenHolds([], 'user::mrossi', probe({ metadata: { status: 'open' } }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { absent: null } }), all)).toBe(false);
+          expect(whenHolds([], 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(false);
         });
 
-        it('metadata reads the thread, not the handles', async () => {
+        it('values read the thread, not the handles', async () => {
           const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-          expect(reduce(lines, { metadata: {}, assignees: [] }, all).settled).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', probe({ metadata: { status: 'open' } }), all)).toBe(true);
+          expect(reduce(lines, hold({}, []), all).settled).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(true);
         });
 
         it('checks: each finds a line in force, as a goal check does', async () => {
@@ -1771,10 +1793,10 @@ describe('posting to a thread', () => {
 
         it('all three parts must hold', async () => {
           const lines = await open();
-          const when = (over: When = {}) => probe({ checks: [{ gist: 'memo' }], assignee: true, metadata: { status: 'open' }, ...over });
+          const when = (over: When = {}) => probe({ checks: [{ gist: 'memo' }], in: 'assignees', values: { status: 'open' }, ...over });
           expect(whenHolds(lines, 'user::lbianchi', when(), all)).toBe(true);
           expect(whenHolds(lines, 'user::gverdi', when(), all)).toBe(false);
-          expect(whenHolds(lines, 'user::lbianchi', when({ metadata: { status: 'closed' } }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::lbianchi', when({ values: { status: 'closed' } }), all)).toBe(false);
           expect(whenHolds(lines, 'user::lbianchi', when({ checks: [{ gist: 'got_it' }] }), all)).toBe(false);
         });
 
@@ -1784,32 +1806,32 @@ describe('posting to a thread', () => {
             mrossi('memo', { assignTo: 7 }),
             by('nobody' as Writer, 'mystery', { a: null }),
           ]);
-          const when = probe({ checks: [{ gist: 'memo' }], assignee: true, metadata: { status: 'open' } });
-          const copies = [structuredClone(odd), structuredClone(when), structuredClone(all)] as const;
+          const when = probe({ checks: [{ gist: 'memo' }], in: 'assignees', values: { status: 'open' } });
+          const copies = [structuredClone(odd), structuredClone(when), structuredClone(all.gists)] as const;
           expect(whenHolds(odd, 'user::mrossi', when, all)).toBe(false);
           expect(whenHolds(odd, 'user' as Writer, when, all)).toBe(false);
-          expect([odd, when, all]).toEqual(copies);
+          expect([odd, when, all.gists]).toEqual(copies);
         });
       });
 
       describe('offers', () => {
-        it('on an empty thread a user may only create, and the system nothing', () => {
-          expect(offers([], 'user::mrossi', BASE_GISTS)).toEqual([{ gist: 'create' }]);
-          expect(offers([], 'system::sibardoc', BASE_GISTS)).toEqual([]);
+        it('on an empty thread a user may only open, and the system nothing', () => {
+          expect(offers([], 'user::mrossi', PLAIN)).toEqual([{ gist: 'create' }]);
+          expect(offers([], 'system::sibardoc', PLAIN)).toEqual([]);
         });
 
-        it('after the create: the creator, a stranger and the system', async () => {
+        it('after the opening line: the creator, a stranger and the system', async () => {
           const { afterCreate } = await states();
           const { lines } = afterCreate;
-          expect(names(offers(lines, 'user::mrossi', BASE_GISTS))).toEqual(['memo', 'comment', 'doc_ref', 'set_goal', 'stage', 'closed', 'quit']);
-          expect(offers(lines, 'user::gverdi', BASE_GISTS)).toEqual([]);
-          expect(names(offers(lines, 'system::sibardoc', BASE_GISTS))).toEqual(['doc_signed', 'doc_created', 'assigned', 'unassigned', 'metadata_set']);
+          expect(names(offers(lines, 'user::mrossi', PLAIN))).toEqual(['memo', 'comment', 'doc_ref', 'set_goal', 'stage', 'closed', 'quit']);
+          expect(offers(lines, 'user::gverdi', PLAIN)).toEqual([]);
+          expect(names(offers(lines, 'system::sibardoc', PLAIN))).toEqual(['doc_signed', 'doc_created', 'assigned', 'unassigned', 'metadata_set']);
         });
 
         it('after the memo to lbianchi: a revoking gist comes with its targets, the others with none', async () => {
           const { afterMemo } = await states();
           const memo = afterMemo.lines[4];
-          const list = offers(afterMemo.lines, 'user::lbianchi', BASE_GISTS);
+          const list = offers(afterMemo.lines, 'user::lbianchi', PLAIN);
           expect(names(list)).toEqual(['memo', 'memo_revoke', 'comment', 'got_it', 'doc_ref', 'set_goal', 'stage', 'closed', 'quit']);
           expect(list.find((o) => o.gist === 'memo_revoke')).toEqual({ gist: 'memo_revoke', targets: [memo.id] });
           // a member that does not apply is left out, not set to undefined
@@ -1821,29 +1843,29 @@ describe('posting to a thread', () => {
           const afterRef = posted[2].state;
           const reference = afterRef.lines.find((l) => l.gist === 'doc_ref')!;
           for (const writer of ['user::mrossi', 'user::lbianchi'] as Writer[]) {
-            const list = offers(afterRef.lines, writer, BASE_GISTS);
+            const list = offers(afterRef.lines, writer, PLAIN);
             expect(list.find((o) => o.gist === 'doc_ref_revoke')).toEqual({ gist: 'doc_ref_revoke', targets: [reference.id] });
             expect(names(list)).toContain('doc_ref');
           }
-          expect(names(offers(afterRef.lines, 'user::lbianchi', BASE_GISTS))).toEqual([
+          expect(names(offers(afterRef.lines, 'user::lbianchi', PLAIN))).toEqual([
             'memo', 'memo_revoke', 'comment', 'got_it', 'doc_ref', 'doc_ref_revoke', 'set_goal', 'stage', 'closed', 'quit',
           ]);
           // none before the reference, and none once it is revoked
-          expect(names(offers(posted[1].state.lines, 'user::lbianchi', BASE_GISTS))).not.toContain('doc_ref_revoke');
-          const revoked = await post(afterRef, lbianchi('doc_ref_revoke', { target: reference.id }), BASE_GISTS, NOW);
+          expect(names(offers(posted[1].state.lines, 'user::lbianchi', PLAIN))).not.toContain('doc_ref_revoke');
+          const revoked = await post(afterRef, lbianchi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
           expect(revoked.refusal).toBeUndefined();
-          expect(names(offers(revoked.state.lines, 'user::lbianchi', BASE_GISTS))).not.toContain('doc_ref_revoke');
+          expect(names(offers(revoked.state.lines, 'user::lbianchi', PLAIN))).not.toContain('doc_ref_revoke');
           // and not on a closed thread
-          expect(names(offers(posted[7].state.lines, 'user::mrossi', BASE_GISTS))).not.toContain('doc_ref_revoke');
-          expect(admit(afterRef.lines, lbianchi('doc_ref_revoke', { target: reference.id }), BASE_GISTS)).toBeUndefined();
-          expect(admit(posted[7].state.lines, mrossi('doc_ref_revoke', { target: reference.id }), BASE_GISTS)?.code).toBe('not-now');
+          expect(names(offers(posted[7].state.lines, 'user::mrossi', PLAIN))).not.toContain('doc_ref_revoke');
+          expect(admit(afterRef.lines, lbianchi('doc_ref_revoke', { target: reference.id }), PLAIN)).toBeUndefined();
+          expect(admit(posted[7].state.lines, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN)?.code).toBe('not-now');
         });
 
         it('on the closed thread: only what undoes it, and quit', async () => {
           const { final } = await states();
           const goal = gistNamed(final.lines, 'set_goal')[0];
           const closed = gistNamed(final.lines, 'closed')[0];
-          expect(offers(final.lines, 'user::mrossi', BASE_GISTS)).toEqual([
+          expect(offers(final.lines, 'user::mrossi', PLAIN)).toEqual([
             { gist: 'comment' },
             { gist: 'set_goal_revoke', targets: [goal.id] },
             { gist: 'closed_revoke', targets: [closed.id] },
@@ -1866,19 +1888,19 @@ describe('posting to a thread', () => {
             quit: {},
             doc_signed: { document: '1' },
             doc_created: { document: '1' },
-            assigned: { user: 'x' },
-            unassigned: { user: 'x' },
+            assigned: { set: 'assignees', member: 'x' },
+            unassigned: { set: 'assignees', member: 'x' },
             metadata_set: { key: 'k' },
           };
           let offered = 0;
           for (const [label, state] of Object.entries(s)) {
             for (const writer of writers) {
-              for (const offer of offers(state.lines, writer, BASE_GISTS)) {
+              for (const offer of offers(state.lines, writer, PLAIN)) {
                 const payload = offer.targets ? { target: offer.targets[0] } : payloads[offer.gist];
                 expect(payload, `${label} ${writer} ${offer.gist}: a payload is tabled`).toBeDefined();
                 const draft: LineDraft = { gist: offer.gist, writer, payload };
-                expect(admit(state.lines, draft, BASE_GISTS), `${label} ${writer} ${offer.gist}`).toBeUndefined();
-                expect((await post(state, draft, BASE_GISTS, NOW)).refusal, `${label} ${writer} ${offer.gist}`).toBeUndefined();
+                expect(admit(state.lines, draft, PLAIN), `${label} ${writer} ${offer.gist}`).toBeUndefined();
+                expect((await post(state, draft, PLAIN, NOW)).refusal, `${label} ${writer} ${offer.gist}`).toBeUndefined();
                 offered++;
               }
             }
@@ -1888,29 +1910,30 @@ describe('posting to a thread', () => {
 
         it('follows the order of the gists and reads the first schema of a gist', async () => {
           const { afterCreate } = await states();
-          const gists: GistSchema[] = [
-            ...BASE_GISTS,
+          // the reader refuses a gist twice, so the schema is built without it
+          const gists = unchecked([
+            ...PLAIN.gists,
             { gist: 'zed', writers: ['user'], rules: [] },
             { gist: 'abc', writers: ['user'], rules: [] },
             { gist: 'zed', writers: ['system'], rules: [] },
-          ];
+          ]);
           expect(names(offers(afterCreate.lines, 'user::mrossi', gists))).toEqual(['memo', 'comment', 'doc_ref', 'set_goal', 'stage', 'closed', 'quit', 'zed', 'abc']);
           expect(names(offers(afterCreate.lines, 'system::sibardoc', gists))).not.toContain('zed');
         });
 
-        it('offers a gist only where a line of it keeps the zero-gist rule', async () => {
+        it('offers a gist only where a line of it keeps the opening rule', async () => {
           const { afterCreate } = await states();
           const second = await stamp(mrossi('create', { name: 'B', assignTo: ['x'] }), afterCreate.lines, NOW);
           const two = [...afterCreate.lines, second];
           // two creates in force: a create is not offered, and nor is anything a create would not mend
-          expect(offers(two, 'user::mrossi', BASE_GISTS)).toEqual([]);
-          expect(offers(two, 'system::sibardoc', BASE_GISTS)).toEqual([]);
+          expect(offers(two, 'user::mrossi', PLAIN)).toEqual([]);
+          expect(offers(two, 'system::sibardoc', PLAIN)).toEqual([]);
         });
 
         it('offers nothing to a writer with no kin, or a kin no gist lists', async () => {
           const { afterCreate } = await states();
-          expect(offers(afterCreate.lines, 'mrossi' as Writer, BASE_GISTS)).toEqual([]);
-          expect(offers(afterCreate.lines, 'robot::x', BASE_GISTS)).toEqual([]);
+          expect(offers(afterCreate.lines, 'mrossi' as Writer, PLAIN)).toEqual([]);
+          expect(offers(afterCreate.lines, 'robot::x', PLAIN)).toEqual([]);
         });
 
         it('lists targets in reading order, from a reversed array too, and leaves out revoked lines', async () => {
@@ -1921,7 +1944,7 @@ describe('posting to a thread', () => {
             mrossi('memo', { text: 'tre' }),
           ]);
           const revoked = [...base, await stamp(mrossi('memo_revoke', { target: base[2].id }), base, NOW)];
-          const target = (lines: EventLine[]) => offers(lines, 'user::mrossi', BASE_GISTS).find((o) => o.gist === 'memo_revoke')?.targets;
+          const target = (lines: EventLine[]) => offers(lines, 'user::mrossi', PLAIN).find((o) => o.gist === 'memo_revoke')?.targets;
           expect(target(base)).toEqual([base[1].id, base[2].id, base[3].id]);
           expect(target([...base].reverse())).toEqual([base[1].id, base[2].id, base[3].id]);
           expect(target(revoked)).toEqual([base[1].id, base[3].id]);
@@ -1929,9 +1952,9 @@ describe('posting to a thread', () => {
 
         it('changes none of its arguments', async () => {
           const { afterMemo } = await states();
-          const copies = [structuredClone(afterMemo.lines), structuredClone(BASE_GISTS)] as const;
-          offers(afterMemo.lines, 'user::lbianchi', BASE_GISTS);
-          expect([afterMemo.lines, BASE_GISTS]).toEqual(copies);
+          const copies = [structuredClone(afterMemo.lines), structuredClone(PLAIN.gists)] as const;
+          offers(afterMemo.lines, 'user::lbianchi', PLAIN);
+          expect([afterMemo.lines, PLAIN.gists]).toEqual(copies);
         });
       });
     });
@@ -1942,9 +1965,9 @@ describe('posting to a thread', () => {
       { gist: 'start', writers: ['user'], rules: [] },
       { gist: 'step_a', writers: ['goal'], rules: [] },
       { gist: 'step_b', writers: ['goal'], rules: [] },
-      { gist: 'step_c', writers: ['goal'], rules: [{ rule: 'metadata', key: 'reached', value: 'yes' }] },
+      { gist: 'step_c', writers: ['goal'], rules: [{ rule: 'value', key: 'reached', value: 'yes' }] },
     ];
-    const CAPPED = [...BASE_GISTS, ...EXTRA];
+    const CAPPED = sibar({ add: EXTRA, laws: [] });
 
     async function buildChain(): Promise<ThreadState> {
       let state = EMPTY;
@@ -1973,12 +1996,12 @@ describe('posting to a thread', () => {
       const goalIds = gistNamed(paused.state.lines, 'set_goal').map((l) => l.id);
       expect(written.slice(1).map((l) => l.writer)).toEqual(goalIds.map((id) => `goal::${id}`));
       const [stepC] = gistNamed(paused.state.lines, 'step_c');
-      expect(paused.reading.denunciations).toEqual([{ sort: 'metadata', key: 'reached', expected: 'yes', line: stepC.id }]);
-      expect('reached' in paused.state.handles.metadata).toBe(false);
+      expect(paused.reading.denunciations).toEqual([{ sort: 'handle', kind: 'value', key: 'reached', expected: 'yes', line: stepC.id }]);
+      expect('reached' in valuesOf(paused.state.handles)).toBe(false);
 
       const done = await settle(paused.state, CAPPED, NOW);
       expect(done.reading.settled).toBe(true);
-      expect(done.state.handles.metadata.reached).toBe('yes');
+      expect(valuesOf(done.state.handles).reached).toBe('yes');
       expect(done.state.lines.at(-1)).toMatchObject({ gist: 'metadata_set', payload: { key: 'reached', value: 'yes' } });
       for (const line of done.state.lines) expect(await verify(line)).toBe(true);
       done.state.lines.slice(1).forEach((line, i) => expect(line.previous).toBe(done.state.lines[i].id));
@@ -1988,8 +2011,8 @@ describe('posting to a thread', () => {
       const paused = await post(await buildChain(), mrossi('start', {}), CAPPED, NOW);
       const out = await post(paused.state, mrossi('memo', { assignTo: ['lbianchi'] }), CAPPED, NOW);
       expect(out.reading.settled).toBe(true);
-      expect(out.state.handles.metadata.reached).toBe('yes');
-      expect(out.state.handles.assignees).toEqual(['lbianchi', 'mrossi']);
+      expect(valuesOf(out.state.handles).reached).toBe('yes');
+      expect(membersOf(out.state.handles)).toEqual(['lbianchi', 'mrossi']);
     });
   });
 
@@ -1997,9 +2020,9 @@ describe('posting to a thread', () => {
 
     it('lets a good draft through', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-      expect(admit(lines, mrossi('memo', { assignTo: 'lbianchi', free: { any: ['thing', 1] } }), BASE_GISTS)).toBeUndefined();
-      expect(admit(lines, mrossi('memo', {}), BASE_GISTS)).toBeUndefined();
-      expect(admit(lines, mrossi('memo', { assignTo: [] }), BASE_GISTS)).toBeUndefined();
+      expect(admit(lines, mrossi('memo', { assignTo: 'lbianchi', free: { any: ['thing', 1] } }), PLAIN)).toBeUndefined();
+      expect(admit(lines, mrossi('memo', {}), PLAIN)).toBeUndefined();
+      expect(admit(lines, mrossi('memo', { assignTo: [] }), PLAIN)).toBeUndefined();
     });
 
     it.each<[string, LineDraft, Refusal['code']]>([
@@ -2029,7 +2052,7 @@ describe('posting to a thread', () => {
       // an open thread where mrossi and lbianchi are assignees and a memo exists, so
       // what each case lacks is its payload and not the moment
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', { assignTo: ['lbianchi'] })]);
-      const refusal = admit(lines, draft, BASE_GISTS);
+      const refusal = admit(lines, draft, PLAIN);
       expect(refusal?.code).toBe(code);
       expect(refusal?.detail).toMatch(/^[A-Za-z]/);
     });
@@ -2039,41 +2062,40 @@ describe('posting to a thread', () => {
         mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
         by(SYSTEM_WRITER, 'doc_signed', { document: '1' }),
       ]);
-      expect(admit(lines, mrossi('memo_revoke', { target: 'f'.repeat(64) }), BASE_GISTS)?.code).toBe('unknown-line');
-      expect(admit(lines, mrossi('memo_revoke', { target: lines[1].id }), BASE_GISTS)?.code).toBe('not-revocable');
-      expect(admit(lines, mrossi('memo_revoke', { target: lines[0].id }), BASE_GISTS)?.code).toBe('not-revocable');
-      expect(admit(lines, mrossi('set_goal_revoke', { target: lines[1].id }), BASE_GISTS)?.code).toBe('not-revocable');
+      expect(admit(lines, mrossi('memo_revoke', { target: 'f'.repeat(64) }), PLAIN)?.code).toBe('unknown-line');
+      expect(admit(lines, mrossi('memo_revoke', { target: lines[1].id }), PLAIN)?.code).toBe('not-revocable');
+      expect(admit(lines, mrossi('memo_revoke', { target: lines[0].id }), PLAIN)?.code).toBe('not-revocable');
+      expect(admit(lines, mrossi('set_goal_revoke', { target: lines[1].id }), PLAIN)?.code).toBe('not-revocable');
     });
 
     it('admits a revoke of a line of a listed gist', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', { assignTo: ['x'] })]);
-      expect(admit(lines, mrossi('memo_revoke', { target: lines[1].id }), BASE_GISTS)).toBeUndefined();
+      expect(admit(lines, mrossi('memo_revoke', { target: lines[1].id }), PLAIN)).toBeUndefined();
     });
 
     it('keeps its order: unknown gist, then writer, then payload, then unknown line, then not revocable', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
       // a payload that is wrong and a writer that is wrong: the writer is refused first
-      expect(admit(lines, by('system::sibardoc', 'memo_revoke', { target: 5 }), BASE_GISTS)?.code).toBe('writer-not-allowed');
+      expect(admit(lines, by('system::sibardoc', 'memo_revoke', { target: 5 }), PLAIN)?.code).toBe('writer-not-allowed');
       // a target that is wrong in shape is a payload matter before it is an unknown line
-      expect(admit(lines, mrossi('memo_revoke', { target: 5 }), BASE_GISTS)?.code).toBe('invalid-payload');
+      expect(admit(lines, mrossi('memo_revoke', { target: 5 }), PLAIN)?.code).toBe('invalid-payload');
       // an unknown id is reported before a gist that cannot be revoked
-      expect(admit(lines, mrossi('memo_revoke', { target: 'abc' }), BASE_GISTS)?.code).toBe('unknown-line');
+      expect(admit(lines, mrossi('memo_revoke', { target: 'abc' }), PLAIN)?.code).toBe('unknown-line');
     });
 
     it('a goal may only name a gist that needs no payload', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-      const gists: GistSchema[] = [
-        ...BASE_GISTS,
-        { gist: 'needs_key', writers: ['goal'], rules: [{ rule: 'metadata', key: 'k', from: 'k', required: true }] },
-        { gist: 'needs_user', writers: ['goal'], rules: [{ rule: 'assign', from: 'who', required: true }] },
-        { gist: 'needs_doc', writers: ['goal'], rules: [{ rule: 'metadata', key: 'docs', collect: 'document', required: true }] },
+      const gists = sibar({ laws: [], add: [
+        { gist: 'needs_key', writers: ['goal'], rules: [{ rule: 'value', key: 'k', from: 'k', required: true }] },
+        { gist: 'needs_user', writers: ['goal'], rules: [{ rule: 'join', set: 'assignees', from: 'who', required: true }] },
+        { gist: 'needs_doc', writers: ['goal'], rules: [{ rule: 'value', key: 'docs', collect: 'document', required: true }] },
         // a goal's line has an empty payload, which no `where` can match, so nothing is asked for
-        { gist: 'when_doc', writers: ['goal'], rules: [{ rule: 'metadata', key: 'docs', collect: 'document', required: true, where: { kind: 'a' } }] },
-        { gist: 'optional_doc', writers: ['goal'], rules: [{ rule: 'metadata', key: 'docs', collect: 'document' }] },
-        { gist: 'optional_key', writers: ['goal'], rules: [{ rule: 'metadata', key: 'k', from: 'k' }, { rule: 'assign', from: 'who' }] },
+        { gist: 'when_doc', writers: ['goal'], rules: [{ rule: 'value', key: 'docs', collect: 'document', required: true, where: { kind: 'a' } }] },
+        { gist: 'optional_doc', writers: ['goal'], rules: [{ rule: 'value', key: 'docs', collect: 'document' }] },
+        { gist: 'optional_key', writers: ['goal'], rules: [{ rule: 'value', key: 'k', from: 'k' }, { rule: 'join', set: 'assignees', from: 'who' }] },
         { gist: 'revokes', writers: ['goal'], rules: [{ rule: 'revoke', from: 'target', gists: ['memo'] }] },
         { gist: 'goals', writers: ['goal'], rules: [{ rule: 'goal' }] },
-      ];
+      ] });
       const goal = (then: string) => mrossi('set_goal', { name: 'g', then, checks: [{ gist: 'x' }] });
       for (const then of ['needs_key', 'needs_user', 'needs_doc', 'revokes', 'goals']) expect(admit(lines, goal(then), gists)?.code).toBe('invalid-payload');
       expect(admit(lines, goal('optional_key'), gists)).toBeUndefined();
@@ -2084,22 +2106,21 @@ describe('posting to a thread', () => {
 
     it('admits a doc_ref with a document, whatever else it carries', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-      expect(admit(lines, mrossi('doc_ref', { document: '1' }), BASE_GISTS)).toBeUndefined();
-      expect(admit(lines, mrossi('doc_ref', { document: null, direction: 'inbound', about: 'x', free: [1] }), BASE_GISTS)).toBeUndefined();
+      expect(admit(lines, mrossi('doc_ref', { document: '1' }), PLAIN)).toBeUndefined();
+      expect(admit(lines, mrossi('doc_ref', { document: null, direction: 'inbound', about: 'x', free: [1] }), PLAIN)).toBeUndefined();
     });
 
     it('does not ask for a required key of a binding whose where does not match the payload', async () => {
-      const gists: GistSchema[] = [
-        ...BASE_GISTS,
+      const gists = sibar({ laws: [], add: [
         {
           gist: 'conditional',
           writers: ['user'],
           rules: [
-            { rule: 'metadata', key: 'a', from: 'va', required: true, where: { kind: 'a' } },
-            { rule: 'metadata', key: 'b', collect: 'vb', required: true, where: { kind: 'b' } },
+            { rule: 'value', key: 'a', from: 'va', required: true, where: { kind: 'a' } },
+            { rule: 'value', key: 'b', collect: 'vb', required: true, where: { kind: 'b' } },
           ],
         },
-      ];
+      ] });
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
       const check = (payload: LineDraft['payload']) => admit(lines, mrossi('conditional', payload), gists)?.code;
       expect(check({})).toBeUndefined();
@@ -2112,10 +2133,11 @@ describe('posting to a thread', () => {
 
     it('reads only the first revoke binding of a gist', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', {})]);
-      const gists: GistSchema[] = [
-        ...BASE_GISTS,
+      // the reader refuses two revoke bindings, so the schema is built without it
+      const gists = unchecked([
+        ...PLAIN.gists,
         { gist: 'twice', writers: ['user'], rules: [{ rule: 'revoke', from: 'first', gists: ['memo'] }, { rule: 'revoke', from: 'second', gists: ['create'] }] },
-      ];
+      ]);
       expect(admit(lines, mrossi('twice', { first: lines[1].id }), gists)).toBeUndefined();
       expect(admit(lines, mrossi('twice', { first: lines[1].id, second: 7 }), gists)).toBeUndefined();
     });
@@ -2123,9 +2145,9 @@ describe('posting to a thread', () => {
     it('changes none of its arguments', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
       const draft = mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'x' }] });
-      const copies = [structuredClone(lines), structuredClone(draft), structuredClone(BASE_GISTS)] as const;
-      admit(lines, draft, BASE_GISTS);
-      expect([lines, draft, BASE_GISTS]).toEqual(copies);
+      const copies = [structuredClone(lines), structuredClone(draft), structuredClone(PLAIN.gists)] as const;
+      admit(lines, draft, PLAIN);
+      expect([lines, draft, PLAIN.gists]).toEqual(copies);
     });
   });
 
@@ -2138,7 +2160,7 @@ describe('posting to a thread', () => {
         mrossi('memo', { text: 'Serve un parere', assignTo: ['lbianchi'] }),
         by(SYSTEM_WRITER, 'doc_signed', { document: '1' }),
       ]) {
-        state = (await post(state, draft, BASE_GISTS, NOW)).state;
+        state = (await post(state, draft, PLAIN, NOW)).state;
         states.push(state);
       }
       return { empty: EMPTY, afterMemo: states[1], afterSigned: states[2] };
@@ -2163,41 +2185,41 @@ describe('posting to a thread', () => {
 
       for (const [label, state, draft, code] of table) {
         const before = structuredClone(state);
-        const out = await post(state, draft, BASE_GISTS, NOW);
+        const out = await post(state, draft, PLAIN, NOW);
         expect(out.refusal?.code, label).toBe(code);
         expect(out.refusal?.detail, label).toMatch(/^[A-Za-z]/);
         expect(out.state, label).toEqual(before);
         expect(state, label).toEqual(before);
-        expect(out.reading, label).toEqual(reduce(before.lines, before.handles, BASE_GISTS));
+        expect(out.reading, label).toEqual(reduce(before.lines, before.handles, PLAIN));
       }
     });
 
-    it('a refusal on an empty thread reads one-create with found 0', async () => {
-      const out = await post(EMPTY, by(SYSTEM_WRITER, 'doc_signed', { document: '1' }), BASE_GISTS, NOW);
+    it('a refusal on an empty thread reads one-opening with found 0', async () => {
+      const out = await post(EMPTY, by(SYSTEM_WRITER, 'doc_signed', { document: '1' }), PLAIN, NOW);
       expect(out.refusal?.code).toBe('unreconcilable');
-      expect(out.reading.denunciations).toEqual([{ sort: 'thread', rule: 'one-create', found: 0 }]);
+      expect(out.reading.denunciations).toEqual([{ sort: 'thread', rule: 'one-opening', found: 0 }]);
       expect(out.reading.settled).toBe(false);
     });
 
     it('a refusal reads the state without settling it', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-      const unsettled: ThreadState = { lines, handles: { metadata: {}, assignees: [] } };
-      const out = await post(unsettled, mrossi('mystery', {}), BASE_GISTS, NOW);
+      const unsettled: ThreadState = { lines, handles: hold({}, []) };
+      const out = await post(unsettled, mrossi('mystery', {}), PLAIN, NOW);
       expect(out.state).toEqual(unsettled);
       expect(out.reading.settled).toBe(false);
       expect(out.reading.denunciations).toHaveLength(3);
     });
 
-    it('a second create is refused even though it would have been admitted', async () => {
+    it('a second opening line is refused even though it would have been admitted', async () => {
       const { afterMemo } = await cases();
       const draft = mrossi('create', { name: 'B', assignTo: ['x'] });
-      expect(admit(afterMemo.lines, draft, BASE_GISTS)).toBeUndefined();
-      expect((await post(afterMemo, draft, BASE_GISTS, NOW)).refusal?.code).toBe('unreconcilable');
+      expect(admit(afterMemo.lines, draft, PLAIN)).toBeUndefined();
+      expect((await post(afterMemo, draft, PLAIN, NOW)).refusal?.code).toBe('unreconcilable');
     });
 
-    it('revoking the only create is not offered: nothing revokes it', async () => {
+    it('revoking the only opening line is not offered: nothing revokes it', async () => {
       const { afterMemo } = await cases();
-      const out = await post(afterMemo, mrossi('memo_revoke', { target: afterMemo.lines[0].id }), BASE_GISTS, NOW);
+      const out = await post(afterMemo, mrossi('memo_revoke', { target: afterMemo.lines[0].id }), PLAIN, NOW);
       expect(out.refusal?.code).toBe('not-revocable');
     });
   });
@@ -2210,20 +2232,20 @@ describe('posting to a thread', () => {
 
     it('answers each denunciation, in their order, with the line that records it', async () => {
       const lines = await at();
-      const handles: Handles = { metadata: { stray: 1, name: 'Altro' }, assignees: ['zed', 'mrossi'] };
-      const reading = reduce(lines, handles, BASE_GISTS);
-      const out = reconcile(reading, handles);
+      const handles: Handles = hold({ stray: 1, name: 'Altro' }, ['zed', 'mrossi']);
+      const reading = reduce(lines, handles, PLAIN);
+      const out = reconcile(reading, handles, PLAIN);
 
       expect(out.drafts).toEqual([
         { gist: 'metadata_set', writer: SYSTEM_WRITER, payload: { key: 'name', value: 'Richiesta' } },
         { gist: 'metadata_set', writer: SYSTEM_WRITER, payload: { key: 'status', value: 'open' } },
         { gist: 'metadata_set', writer: SYSTEM_WRITER, payload: { key: 'stray' } },
-        { gist: 'assigned', writer: SYSTEM_WRITER, payload: { user: 'lbianchi', line: lines[0].id } },
-        { gist: 'unassigned', writer: SYSTEM_WRITER, payload: { user: 'zed' } },
+        { gist: 'assigned', writer: SYSTEM_WRITER, payload: { set: 'assignees', member: 'lbianchi', line: lines[0].id } },
+        { gist: 'unassigned', writer: SYSTEM_WRITER, payload: { set: 'assignees', member: 'zed' } },
       ]);
       expect('value' in out.drafts[2].payload).toBe(false);
-      expect(out.handles).toEqual({ metadata: { name: 'Richiesta', status: 'open' }, assignees: ['lbianchi', 'mrossi'] });
-      expect(reduce(lines, out.handles, BASE_GISTS).settled).toBe(true);
+      expect(out.handles).toEqual(hold({ name: 'Richiesta', status: 'open' }, ['lbianchi', 'mrossi']));
+      expect(reduce(lines, out.handles, PLAIN).settled).toBe(true);
     });
 
     it('answers a missing goal line with the goal as writer and an empty payload, and leaves the handles', async () => {
@@ -2231,43 +2253,46 @@ describe('posting to a thread', () => {
         mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
         mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }] }),
       ]);
-      const handles: Handles = { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] };
-      const reading = reduce(lines, handles, BASE_GISTS);
-      const out = reconcile(reading, handles);
+      const handles: Handles = hold({ name: 'A', status: 'open' }, ['mrossi']);
+      const reading = reduce(lines, handles, PLAIN);
+      const out = reconcile(reading, handles, PLAIN);
       expect(out.drafts).toEqual([{ gist: 'closed', writer: `goal::${lines[1].id}`, payload: {} }]);
       expect(out.handles).toEqual(handles);
     });
 
     it('has no answer to a denunciation of the thread', () => {
-      const handles: Handles = { metadata: {}, assignees: [] };
-      const reading = reduce([], handles, BASE_GISTS);
+      const handles: Handles = hold({}, []);
+      const reading = reduce([], handles, PLAIN);
       expect(reading.denunciations).toHaveLength(1);
-      expect(reconcile(reading, handles)).toEqual({ handles, drafts: [] });
+      expect(reconcile(reading, handles, PLAIN)).toEqual({ handles, drafts: [] });
     });
 
-    it('returns assignees sorted with <, and changes none of its arguments', async () => {
-      const handles: Handles = { metadata: { k: { a: 1 } }, assignees: ['b', 'mrossi', 'B', 'a'] };
-      const reading: Reading = { ...reduce([], handles, BASE_GISTS), denunciations: [] };
+    it('returns the members of a set sorted with <, and changes none of its arguments', async () => {
+      // a handle is sorted when an answer changes it: one name joins, and the list comes out in order
+      const handles: Handles = hold({ k: { a: 1 } }, ['b', 'mrossi', 'B', 'a']);
+      const joining: Denunciation = { sort: 'handle', kind: 'set', key: 'assignees', member: 'c', expected: true, line: 'x' };
+      const reading: Reading = { ...reduce([], handles, PLAIN), denunciations: [joining] };
       const readingCopy = structuredClone(reading);
       const handlesCopy = structuredClone(handles);
-      const out = reconcile(reading, handles);
-      expect(out.handles.assignees).toEqual(['B', 'a', 'b', 'mrossi']);
+      const out = reconcile(reading, handles, PLAIN);
+      expect(membersOf(out.handles)).toEqual(['B', 'a', 'b', 'c', 'mrossi']);
       expect(reading).toEqual(readingCopy);
       expect(handles).toEqual(handlesCopy);
-      expect(out.handles.assignees).not.toBe(handles.assignees);
+      expect(out.handles.set).not.toBe(handles.set);
+      expect(membersOf(out.handles)).not.toBe(membersOf(handles));
     });
 
-    it('sets a metadata key to null when the thread expects null, and records the value', () => {
+    it('sets a value key to null when the thread expects null, and records the value', () => {
       const reading: Reading = {
         inForce: [],
         revoked: [],
-        expected: { metadata: { k: null }, assignees: [] },
+        expected: hold({ k: null }, []),
         goals: [],
-        denunciations: [{ sort: 'metadata', key: 'k', expected: null, line: 'x' }],
+        denunciations: [{ sort: 'handle', kind: 'value', key: 'k', expected: null, line: 'x' }],
         settled: false,
       };
-      const out = reconcile(reading, { metadata: {}, assignees: [] });
-      expect(out.handles.metadata).toEqual({ k: null });
+      const out = reconcile(reading, hold({}, []), PLAIN);
+      expect(valuesOf(out.handles)).toEqual({ k: null });
       expect(out.drafts[0].payload).toEqual({ key: 'k', value: null });
       expect('value' in out.drafts[0].payload).toBe(true);
     });
@@ -2276,17 +2301,17 @@ describe('posting to a thread', () => {
   describe('settle', () => {
     it('adds nothing to a thread that already agrees', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-      const state: ThreadState = { lines, handles: { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] } };
-      const out = await settle(state, BASE_GISTS, NOW);
+      const state: ThreadState = { lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) };
+      const out = await settle(state, PLAIN, NOW);
       expect(out.state).toEqual(state);
       expect(out.reading.settled).toBe(true);
     });
 
     it('stamps each draft against the thread with the drafts before it appended, and changes none of its arguments', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi', 'lbianchi'] })]);
-      const state: ThreadState = { lines, handles: { metadata: {}, assignees: [] } };
+      const state: ThreadState = { lines, handles: hold({}, []) };
       const copy = structuredClone(state);
-      const out = await settle(state, BASE_GISTS, NOW);
+      const out = await settle(state, PLAIN, NOW);
       expect(state).toEqual(copy);
       expect(out.reading.settled).toBe(true);
       expect(out.state.lines).toHaveLength(1 + 2 + 2);
@@ -2301,35 +2326,37 @@ describe('posting to a thread', () => {
         mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
         mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'create' }] }),
       ]);
-      expect(admit(lines.slice(0, 1), mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'create' }] }), BASE_GISTS)?.code).toBe('invalid-payload');
-      const state: ThreadState = { lines, handles: { metadata: { name: 'A', status: 'open' }, assignees: ['mrossi'] } };
-      const out = await settle(state, BASE_GISTS, NOW);
+      expect(admit(lines.slice(0, 1), mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'create' }] }), PLAIN)?.code).toBe('invalid-payload');
+      const state: ThreadState = { lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) };
+      const out = await settle(state, PLAIN, NOW);
       expect(out.reading.settled).toBe(true);
       expect(out.state.lines.at(-1)).toMatchObject({ gist: 'doc_signed', writer: `goal::${lines[1].id}`, payload: {} });
     });
 
     it('does not act on a denunciation of the thread, and stops', async () => {
       const lines = await thread([mrossi('memo', { assignTo: ['x'] })]);
-      const state: ThreadState = { lines, handles: { metadata: {}, assignees: [] } };
-      const out = await settle(state, BASE_GISTS, NOW);
+      const state: ThreadState = { lines, handles: hold({}, []) };
+      const out = await settle(state, PLAIN, NOW);
       // the one answerable denunciation is acted on; the thread one stays
       expect(out.reading.settled).toBe(false);
-      expect(out.reading.denunciations).toEqual([{ sort: 'thread', rule: 'one-create', found: 0 }]);
-      expect(out.state.handles.assignees).toEqual(['x']);
+      expect(out.reading.denunciations).toEqual([{ sort: 'thread', rule: 'one-opening', found: 0 }]);
+      expect(membersOf(out.state.handles)).toEqual(['x']);
     });
   });
 });
 
 describe('readLaws', () => {
-  it('reads the base data with no problem', () => {
-    const { laws, problems } = readLaws(BASE_LAW_DATA);
+  const readOf = (value: unknown) => readLaws(value, BASE_KIT, HEAD);
+
+  it('reads the case with no problem', () => {
+    const { laws, problems } = readOf(SIBAR_JSON.laws);
     expect(problems).toEqual([]);
     expect(laws).toEqual([
-      { law: 'keeps-assignee', strength: 'refuse' },
+      { law: 'keeps-set', set: 'assignees', while: { status: 'open' }, strength: 'refuse' },
       { law: 'keeps-goals', strength: 'confirm' },
       { law: 'settles', strength: 'refuse' },
     ]);
-    expect(BASE_LAWS).toEqual(laws);
+    expect(SIBAR.laws).toEqual(laws);
   });
 
   it.each([
@@ -2338,14 +2365,17 @@ describe('readLaws', () => {
     ['an extra key', [{ law: 'settles', strength: 'refuse', why: 'x' }]],
     ['a missing key', [{ law: 'settles' }]],
     ['an element that is not an object', ['settles']],
+    ['a keeps-set without its set', [{ law: 'keeps-set', strength: 'refuse' }]],
+    ['a keeps-set that names a set the schema does not declare', [{ law: 'keeps-set', set: 'owners', strength: 'refuse' }]],
+    ['a keeps-set whose while is empty', [{ law: 'keeps-set', set: 'assignees', while: {}, strength: 'refuse' }]],
   ])('leaves out, and names, %s', (_, value) => {
-    const out = readLaws(value);
+    const out = readOf(value);
     expect(out.laws).toEqual([]);
     expect(out.problems).toHaveLength(1);
   });
 
-  it('keeps the first of a law named twice', () => {
-    const out = readLaws([
+  it('keeps the first of a law named twice with the same keys', () => {
+    const out = readOf([
       { law: 'settles', strength: 'confirm' },
       { law: 'settles', strength: 'refuse' },
       { law: 'keeps-goals', strength: 'refuse' },
@@ -2357,33 +2387,68 @@ describe('readLaws', () => {
     expect(out.problems).toHaveLength(1);
   });
 
+  it('keeps one law for each set it is asked of', () => {
+    const head = { ...HEAD, sets: ['assignees', 'owners'] };
+    const out = readLaws([{ law: 'keeps-set', set: 'assignees', strength: 'refuse' }, { law: 'keeps-set', set: 'owners', strength: 'refuse' }], BASE_KIT, head);
+    expect(out.problems).toEqual([]);
+    expect(out.laws).toHaveLength(2);
+  });
+
   it.each([[null], [{}], ['laws'], [undefined]])('gives no law and one problem for %j', (value) => {
-    const out = readLaws(value);
+    const out = readOf(value);
     expect(out.laws).toEqual([]);
     expect(out.problems).toHaveLength(1);
   });
 });
 
-describe('the thread folder', () => {
+describe('the package', () => {
   const dir = join(import.meta.dirname, '..', 'src');
   /** The path of every `import … from` and `export … from`, over several lines or one. */
   const sourcesOf = (text: string): string[] => [...text.matchAll(/^[ \t]*(?:import|export)\b[^;]*?\bfrom\s+(['"])(.+?)\1/gms)].map((m) => m[2]);
+  /** Every .ts file under a folder, as a path relative to it. */
+  const filesUnder = (folder: string): string[] =>
+    readdirSync(folder).flatMap((name) => (statSync(join(folder, name)).isDirectory() ? filesUnder(join(folder, name)).map((f) => join(name, f)) : name.endsWith('.ts') ? [name] : []));
 
   it('reads the statements it means to', () => {
     expect(sourcesOf("import type {\n  A,\n  B,\n} from '../x';\nexport * from './y';\nconst from = 1;")).toEqual(['../x', './y']);
   });
 
-  it('imports and re-exports only from inside itself', () => {
-    const files = readdirSync(dir).filter((f) => f.endsWith('.ts'));
-    expect(files.sort()).toEqual(['gists.ts', 'index.ts', 'laws.ts', 'line.ts', 'offers.ts', 'reduce.ts', 'schema.ts', 'settle.ts', 'types.ts']);
+  it('imports and re-exports only from inside itself, and no file imports outside src', () => {
+    const files = filesUnder(dir).sort();
+    expect(files).toEqual([
+      'check.ts',
+      'handles/set.ts',
+      'handles/value.ts',
+      'index.ts',
+      'kit.ts',
+      'laws/keeps-goals.ts',
+      'laws/keeps-set.ts',
+      'laws/settles.ts',
+      'line.ts',
+      'offers.ts',
+      'reduce.ts',
+      'rules/join.ts',
+      'rules/leave.ts',
+      'rules/value.ts',
+      'schema.ts',
+      'settle.ts',
+      'types.ts',
+      'util.ts',
+    ]);
     let seen = 0;
     for (const file of files) {
       for (const path of sourcesOf(readFileSync(join(dir, file), 'utf8'))) {
         seen++;
-        expect(path, `${file} imports ${path}`).toMatch(/^\.\/[a-z]+\.ts$/);
-        expect(files, `${file} imports ${path}`).toContain(path.slice(2));
+        expect(path, `${file} imports ${path}`).toMatch(/^\.\.?\/(?:[a-z-]+\/)*[a-z-]+\.ts$/);
+        const target = relative(dir, resolve(dir, join(file, '..', path)));
+        expect(files, `${file} imports ${path}`).toContain(target);
       }
     }
-    expect(seen).toBeGreaterThanOrEqual(10);
+    expect(seen).toBeGreaterThanOrEqual(40);
+  });
+
+  it('has no runtime dependency', () => {
+    const manifest = JSON.parse(readFileSync(join(dir, '..', 'package.json'), 'utf8')) as Record<string, unknown>;
+    expect(manifest.dependencies).toBeUndefined();
   });
 });
