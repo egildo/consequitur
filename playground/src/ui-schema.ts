@@ -398,8 +398,7 @@ const LAW_WORDS: Record<string, Record<string, string>> = {
   settles: { '': "L'attività resterebbe in disaccordo con le sue righe." },
 };
 
-/** The set a `keeps-set` verdict names: the engine states it in the detail, between quotes. */
-const setOfVerdict = (verdict: Verdict): string => /^The set "([^"]+)"/.exec(verdict.detail)?.[1] ?? '';
+const setOfVerdict = (verdict: Verdict): string => verdict.set ?? '';
 
 /** A law a dry run found broken, as a sentence; `lines` are the thread's, where the goal of a check is read. */
 export function verdictSentence(verdict: Verdict, lines: EventLine[]): string {

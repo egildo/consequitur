@@ -55,9 +55,8 @@ Where the build had to choose:
   `cases/sibar-activity/schema.json` as text (`?raw`), parses it once, hands it to `readSchema`, and cuts
   the head, each gist and the laws out of it for the inspector. «Schemi» has the chips «Testa» and one
   per gist; the laws keep their own tab, «Leggi», so the four tabs stay.
-- **Verdicts in Italian**: a `Verdict` carries the law and an English detail, and no structured set.
-  The playground words `keeps-set` by the set, which it reads from the detail's first quoted name
-  (`LAW_WORDS` in `ui-schema.ts`); a law or a set the table lacks says so in general words.
+- **Verdicts in Italian**: `LAW_WORDS` in `ui-schema.ts`, keyed by law and, for `keeps-set`, by
+  the verdict's `set`; a law or a set the table lacks says so in general words.
 - **The policy** is one entry in `case.ts`, passed to `post` and `dryRun`. The panel lists the
   denunciations it leaves, marked «lasciata senza risposta», beside «In accordo con le righe».
 - **Render** takes the place of the bench's ledger cache (`keyed`), preview scheduling (`previewer`),

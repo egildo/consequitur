@@ -194,7 +194,7 @@ export interface LawKind {
 
 `keeps-set { set, while? }`: broken when, after, every value in `while` holds and the set is
 empty; its detail says so in the schema's own words for the set and the values, never in a
-domain's. `keeps-goals` and `settles` as now. Laws come from the schema; `dryRun` and `post` judge
+domain's. Its verdict names the set (`set`), so an application can word it. `keeps-goals` and `settles` as now. Laws come from the schema; `dryRun` and `post` judge
 them for drafts whose writer's kin is in `judged`. The same law may appear again with other keys
 (one `keeps-set` per set); the same law with the same keys twice is a problem, as a gist twice is.
 

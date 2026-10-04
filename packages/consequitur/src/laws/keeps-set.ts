@@ -25,6 +25,6 @@ export const keepsSet: LawKind = {
     const held = isRecord(binding.while) ? binding.while : {};
     if (!Object.entries(held).every(([key, value]) => has(values, key) && canonical(values[key]) === canonical(value))) return [];
     const when = Object.entries(held).map(([key, value]) => `${key} is ${canonical(value)}`);
-    return [{ detail: `The set "${set}" would be empty${when.length ? ` while ${when.join(' and ')}` : ''}.` }];
+    return [{ set, detail: `The set "${set}" would be empty${when.length ? ` while ${when.join(' and ')}` : ''}.` }];
   },
 };

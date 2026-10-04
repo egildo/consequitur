@@ -2,9 +2,8 @@
 
 consequitur keeps a ledger of what was said, and deduces what follows.
 
-Status: settled. Nothing in this repository is built yet; the engine exists in
-`sibardoc-prototype` (`packages/core/src/thread/`) and is extracted here by the plan in
-[plan.md](plan.md).
+Status: settled. The engine, the render toolkit and the playground are built (see
+[plan.md](plan.md) §4); nothing is published yet.
 
 ## What it is for
 

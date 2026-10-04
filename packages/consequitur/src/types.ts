@@ -174,6 +174,8 @@ export interface Verdict {
   /** `keeps-goals`: the goal and the index of the check that would be orphaned. */
   goal?: LineId;
   check?: number;
+  /** `keeps-set`: the set that would be empty. */
+  set?: string;
 }
 
 /** What a post would do, kept and not applied. */

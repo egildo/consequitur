@@ -1544,7 +1544,7 @@ describe('posting to a thread', () => {
           expect(membersOf(state.handles)).toEqual(['mrossi']);
           const dry = await dryRun(state, quit, SIBAR, NOW);
           expect(dry.verdicts).toEqual([
-            { law: 'keeps-set', strength: 'refuse', detail: 'The set "assignees" would be empty while status is "open".' },
+            { law: 'keeps-set', strength: 'refuse', set: 'assignees', detail: 'The set "assignees" would be empty while status is "open".' },
           ]);
           const out = await post(state, quit, SIBAR, NOW);
           expect(out.refusal?.code).toBe('law');
