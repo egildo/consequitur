@@ -13,6 +13,8 @@ should. That is the pattern worth keeping: a need that a kind can meet is no cha
 
 ## 1 · «The current version»
 
+**Settled 2026-10-04**: [value references in checks](decisions/value-references-in-checks.md), to be built in the single round that answers the misfits.
+
 **Wanted.** One goal, «both reviewers approved the version now on the table», written once by the editor.
 
 **Today.** A check matches a line by equality on the payload keys it names, so a goal waits for approvals
