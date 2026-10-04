@@ -118,7 +118,7 @@ The ProseMirror correspondence, which the library should feel like:
    thread, the composer, the preview, the goal dock, the inspector with the schema as code.
    Done: `consequitur-render` (`lineFacts`, `keyed`, `previewer`, `band`), and the playground in
    `playground/`, the SIBAR thread bench ported onto the two packages and the case's schema.
-5. **The editorial review**, the second domain: a draft, two reviewers who must both approve, an
+5. **The editorial review**, as [specs/editorial-review.md](specs/editorial-review.md) says, the second domain: a draft, two reviewers who must both approve, an
    editor who publishes, a deadline written as a line. What does not fit is recorded.
 6. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
