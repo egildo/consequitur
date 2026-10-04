@@ -107,7 +107,7 @@ The ProseMirror correspondence, which the library should feel like:
    under `node --test`, with no change of meaning. `consequitur-render` is an empty package.
    Done: the workspace, the engine and its 250 tests (run by vitest) green in `packages/consequitur`,
    and an empty `consequitur-render`.
-3. **Generalise.** Handle kinds, rule kinds, law kinds and the kit; the opening gist and the
+3. **Generalise**, as [specs/engine.md](specs/engine.md) says. Handle kinds, rule kinds, law kinds and the kit; the opening gist and the
    record gists named by the schema; `readSchema`; the policy; `diff`; `offers` computing the
    expectations once. SIBAR becomes `cases/sibar-activity/`, and the tests read it.
 4. **Render, and the playground.** `consequitur-render` from what the bench proved (keyed nodes,
