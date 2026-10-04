@@ -113,7 +113,7 @@ The ProseMirror correspondence, which the library should feel like:
    Done: the kinds and the kit, `readSchema` with its head, the policy, `diff`, `emptyState` and the
    single computation of `offers`; SIBAR is `cases/sibar-activity/schema.json`, and the 250 tests
    of round 2 pass in the new words, with the tests of what is new beside them.
-4. **Render, and the playground.** `consequitur-render` from what the bench proved (keyed nodes,
+4. **Render, and the playground**, as [specs/render.md](specs/render.md) and [specs/playground.md](specs/playground.md) say. `consequitur-render` from what the bench proved (keyed nodes,
    the preview loop, the band); the playground as a sample application on the SIBAR domain: the
    thread, the composer, the preview, the goal dock, the inspector with the schema as code.
 5. **The editorial review**, the second domain: a draft, two reviewers who must both approve, an
