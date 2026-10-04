@@ -4,7 +4,7 @@
 // changes.
 
 import type { Check, EventLine, GoalReading, Json, LineId, Payload } from 'consequitur';
-import { WARNING_GIST } from './case.ts';
+import { domain } from './domain.ts';
 import type { LineAction, LineSpec } from './deduce.ts';
 import { chip, h } from './dom.ts';
 import { renderMarkdown } from './markdown.ts';
@@ -23,6 +23,7 @@ import {
   uiOf,
   userName,
   usersOf,
+  warningGist,
   warningSentence,
   writerName,
 } from './ui-schema.ts';
@@ -88,12 +89,15 @@ function bodyOf(handlers: Handlers, line: EventLine, writtenBy: LineId | undefin
   };
 
   switch (ui?.card) {
-    case 'header':
+    case 'header': {
+      const head = ui.head ?? { title: 'name', people: [], by: 'scritta da' };
+      const title = payload[head.title];
       return [
-        h('h2', { class: 'card-title card-title-lg', ...schemaTag(line.gist) }, typeof payload.name === 'string' ? payload.name : ''),
-        h('p', { class: 'card-meta' }, `aperta da ${writerName(line.writer)} · ${timeOf(line.timestamp)}`),
-        row(...usersOf(payload.assignTo).map((u) => chip(userName(u), 'user'))),
+        h('h2', { class: 'card-title card-title-lg', ...schemaTag(line.gist) }, typeof title === 'string' ? title : ''),
+        h('p', { class: 'card-meta' }, `${head.by} ${writerName(line.writer)} · ${timeOf(line.timestamp)}`),
+        row(...head.people.flatMap((key) => usersOf(payload[key])).map((u) => chip(userName(u), 'user'))),
       ];
+    }
     case 'note': {
       const code = typeof payload.document === 'string' ? payload.document : undefined;
       return [
@@ -103,7 +107,7 @@ function bodyOf(handlers: Handlers, line: EventLine, writtenBy: LineId | undefin
       ];
     }
     case 'mark': {
-      const warning = line.gist === WARNING_GIST;
+      const warning = line.gist === warningGist();
       const key = ui.compose?.refer?.key;
       return [
         h(
@@ -230,13 +234,9 @@ function noteOf(line: EventLine): HTMLElement | null {
   return typeof note === 'string' && note !== '' ? h('div', { class: 'card-note-text' }, renderMarkdown(note)) : null;
 }
 
-/** A fact the system posted about a document, as one row of its card. */
-function factSentence(fact: EventLine): string {
-  const by = fact.payload.by;
-  if (fact.gist === 'doc_signed' && typeof by === 'string') return `Firmato da ${userName(by)} · ${timeOf(fact.timestamp)}`;
-  if (fact.gist === 'doc_created') return `Creato · ${timeOf(fact.timestamp)}`;
-  return `${gistLabel(fact.gist)} · ${writerName(fact.writer)} · ${timeOf(fact.timestamp)}`;
-}
+/** A fact the system posted about a document, as one row of its card: the domain's words, or a line's own. */
+const factSentence = (fact: EventLine): string =>
+  domain().documents?.factSentence(fact) ?? `${gistLabel(fact.gist)} · ${writerName(fact.writer)} · ${timeOf(fact.timestamp)}`;
 
 /** The tick of a found check: pointing at it draws the band to the line that satisfied it. */
 export function foundTick(handlers: Handlers, id: LineId): HTMLButtonElement {
@@ -275,7 +275,7 @@ export function drawCard(line: EventLine, spec: LineSpec, lines: EventLine[], ha
 
   return h(
     'article',
-    { class: `card card-${ui?.card ?? 'fact'}${line.gist === WARNING_GIST ? ' card-warning' : ''}`, 'data-line-id': line.id },
+    { class: `card card-${ui?.card ?? 'fact'}${line.gist === warningGist() ? ' card-warning' : ''}`, 'data-line-id': line.id },
     ...bodyOf(handlers, line, writtenBy, lines),
     noteOf(line),
     goal,

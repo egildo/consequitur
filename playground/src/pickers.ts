@@ -2,8 +2,8 @@
 // a document and answers with an id; here a plain `<dialog>` answers from the
 // fixed lists. Each one resolves with the answer, or null when it is dismissed.
 
+import { domain } from './domain.ts';
 import { h } from './dom.ts';
-import { DOCUMENTS, PEOPLE } from './ui-schema.ts';
 
 type Read<T> = (form: HTMLFormElement, submitter: HTMLElement | null) => T | null;
 
@@ -32,7 +32,7 @@ export function pickPerson(): Promise<string | null> {
     'Scegli una persona',
     (form) => {
       form.append(
-        h('div', { class: 'picker-list' }, ...PEOPLE.map(({ id, name }) => h('button', { type: 'submit', value: id, class: 'offer picker-option' }, name))),
+        h('div', { class: 'picker-list' }, ...domain().people.map(({ id, name }) => h('button', { type: 'submit', value: id, class: 'offer picker-option' }, name))),
         h('div', { class: 'dialog-actions' }, cancelButton()),
       );
     },
@@ -59,7 +59,7 @@ export function pickDocument(withDirection: boolean): Promise<PickedDocument | n
         h(
           'div',
           { class: 'picker-list' },
-          ...DOCUMENTS.map(({ code, subject }, index) =>
+          ...(domain().documents?.list() ?? []).map(({ code, subject }, index) =>
             h('label', { class: 'picker-doc' }, radio('doc', code, index === 0), h('span', { class: 'card-title' }, code), h('span', { class: 'doc-subject' }, subject)),
           ),
         ),

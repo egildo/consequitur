@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 4. What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 5. What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -9,12 +9,33 @@ why it is built so is in the [principles](principles.md); the names are in the [
 |---|---|---|
 | `packages/consequitur` | the engine: a thread, a schema, the kinds, the reading, the authority's part | built |
 | `packages/consequitur-render` | a reading made into DOM | built |
-| `playground/` | the sample application: the SIBAR activity bench, built only on the two packages and the case; private, never published | built |
-| `cases/<domain>/` | a domain's schema and, later, its scenarios; not a package | `sibar-activity` |
+| `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, built only on the two packages and the cases; private, never published | built |
+| `cases/<domain>/` | a domain's schema, its scenarios and, for SIBAR, its policy; not a package. `cases/scenario.ts` plays them | `sibar-activity`, `editorial-review` |
 
 The engine has no runtime dependency and imports nothing outside `src/`; `test/thread.test.ts`
-reads every import and fails on one that leaves. Tests read the case from `cases/`, never a
+reads every import and fails on one that leaves. Tests read the cases from `cases/`, never a
 fixture of their own, except a toy that isolates one rule.
+
+## The cases and their scenarios
+
+```
+cases/
+  scenario.ts              the one resolver of scenarios: Step, resolve, draftOf, playScenario, readScenarios
+  sibar-activity/          schema.json, scenarios.json (first, opinion), policy.json
+  editorial-review/        schema.json, scenarios.json (published, late, left-alone)
+```
+
+A **scenario** is a list of **steps**, `{ writer, gist, payload }`, posted to an empty thread; a step may
+be labelled, `confirmed`, or expected `refused`. A payload may point at an earlier line by a
+**placeholder**, `$line` (a labelled step's line id), `$goal` (`goal::` and that id) or `$find` (the first
+line a check matches), since an id is a hash nobody can write down. `playScenario(steps, io)` resolves each
+step against the thread as it stands and posts it through whatever `io.send` is: the engine's tests post
+with `post`, the playground with its own `send`, so both play the same files. The module imports the
+engine's source by path (`cases/` is not a package) and knows no gist.
+
+`test/scenarios.test.ts` tests the resolver and plays SIBAR's two scenarios; `test/editorial.test.ts` plays
+the review's three, with assertions at the steps that matter, and pins one test to each of the five
+misfits of [misfits.md](misfits.md), `collect-writer` registered in a kit inside the test.
 
 ## The modules of `consequitur`
 
@@ -43,8 +64,8 @@ are asynchronous.
 ```
 facts.ts       lineFacts: each line's facts, from the lines, the reading and the schema (pure)
 keyed.ts       keyed: nodes kept by line id, rebuilt only when their key changes
-previewer.ts   previewer: the debounced dry run while composing, stale answers dropped
-band.ts        band: the pointer line over a layer, a drag from a slot to a line, a hover
+previewer.ts   previewer: the debounced dry run while composing, stale answers dropped, a failed run told to `onError`
+band.ts        band: the pointer line over a layer, a drag from a slot to a line (`dragging` says one holds it), a hover
 ```
 
 Its one dependency is `consequitur`, for types and `inOrder`. It owns no markup and no style: the
@@ -54,8 +75,9 @@ three touch the DOM and take it as an argument or from `document`, and their tes
 ## The playground
 
 ```
-case.ts        the case read with BASE_KIT (`?raw` import of cases/sibar-activity/schema.json), the policy, the pieces shown as code
-ui-schema.ts   the application's words: labels, cards, compose, awaited, the Italian sentences, verdicts by law and set
+domain.ts      the Domain types, `defineDomain` (a case read with BASE_KIT, plus its UI schema), `domain()` and `useDomain`
+domains/       sibar.ts, editorial.ts: each domain's UI schema (labels, cards, compose, awaited, words, people, commands), its policy, its examples
+ui-schema.ts   the functions that read the domain in use: the Italian sentences of a line, a check, a goal, a record, a law
 deduce.ts      the writer's offers, each line's actions, what a goal being composed may await (lineFacts feeds it)
 ledger.ts      the cards, in `keyed`; cards.ts draws one; dock.ts the goals; draft.ts the composer; panel.ts the inspector
 pointing.ts    the band over the ledger's column: hover, and a drag from a slot
@@ -63,7 +85,11 @@ state.ts, main.ts   one PageState, one `update`, and `send`, which is the only p
 ```
 
 It is plain TypeScript and DOM, with `markdown-it` for the texts, Vite for its dev server (port 5588)
-and its build. The screen is a deduction: `main.ts` holds one `PageState`; `update` makes the next and
+and its build. It runs one domain at a time, chosen in the header; the rest of `src/` reads it through
+`domain()` and names no gist (`test/fence.test.ts`), and switching resets the thread. What a domain adds
+beyond data is two optional parts: `commands`, buttons for what the page does itself, playing the system
+around the thread (SIBAR signs and makes documents), and `documents`, what it knows beyond the thread.
+The screen is a deduction: `main.ts` holds one `PageState`; `update` makes the next and
 draws it, `previewer` runs the dry run of the open draft, and nothing is read back from the DOM but the
 composer's own inputs. It imports the two packages through their public entry and reads the case's file;
 the engine and render know nothing of it.

@@ -4,14 +4,20 @@
 
 import MarkdownIt from 'markdown-it';
 import { chip } from './dom.ts';
-import { DOCUMENTS, documentSubject, PEOPLE, userName } from './ui-schema.ts';
+import { domain } from './domain.ts';
+import { documentSubject, userName } from './ui-schema.ts';
 
 // no raw HTML: a text is a person's, and the card draws what the markdown says
 const md = new MarkdownIt({ html: false, breaks: true, linkify: false });
 
-/** A token of a known person (`@lbianchi`) or document (`#34132412`), not part of a longer word. A new regular expression each time: the documents grow. */
-const tokens = (): RegExp =>
-  new RegExp(`(?<!\\w)(?:@(${PEOPLE.map((p) => p.id).join('|')})|#(${DOCUMENTS.map((d) => d.code).join('|')}))(?!\\w)`, 'g');
+/** A token of a known person (`@lbianchi`) or document (`#34132412`), not part of a longer word. A new regular expression each time: the documents grow, and the domain changes. */
+function tokens(): RegExp {
+  const { people, documents } = domain();
+  const codes = (documents?.list() ?? []).map((d) => d.code);
+  // a domain with no document has no `#` token: an empty alternative would match a bare `#`
+  const document = codes.length > 0 ? `|#(${codes.join('|')})` : '';
+  return new RegExp(`(?<!\\w)(?:@(${people.map((p) => p.id).join('|')})${document})(?!\\w)`, 'g');
+}
 
 /** The people a text mentions, in order and once each, and the first document it names. */
 export function tokensOf(text: string): { users: string[]; document?: string } {

@@ -1,0 +1,41 @@
+[
+  {
+    "id": "published",
+    "title": "Both reviewers approve the same version, and the editor's final goal publishes it",
+    "steps": [
+      {"label": "submit", "writer": "user::aconti", "gist": "submit", "payload": {"title": "Le biblioteche civiche nel 2030", "version": "v1", "authors": ["aconti"], "editor": "drusso"}},
+      {"label": "request", "writer": "user::aconti", "gist": "request_review", "payload": {"reviewers": ["bgalli", "cneri"]}},
+      {"label": "goal-v1", "writer": "user::drusso", "gist": "set_goal", "payload": {"name": "Pubblicazione", "then": "publish", "checks": [{"gist": "approve", "writer": "user::bgalli", "payload": {"version": "v1"}}, {"gist": "approve", "writer": "user::cneri", "payload": {"version": "v1"}}], "final": true}},
+      {"label": "bgalli-v1", "writer": "user::bgalli", "gist": "approve", "payload": {"version": "v1", "stamp": "v1:bgalli"}},
+      {"label": "changes", "writer": "user::cneri", "gist": "request_changes", "payload": {}},
+      {"label": "v2", "writer": "user::aconti", "gist": "revision", "payload": {"version": "v2"}},
+      {"writer": "user::drusso", "gist": "set_goal_revoke", "payload": {"target": {"$line": "goal-v1"}}},
+      {"label": "goal-v2", "writer": "user::drusso", "gist": "set_goal", "payload": {"name": "Pubblicazione", "then": "publish", "checks": [{"gist": "approve", "writer": "user::bgalli", "payload": {"version": "v2"}}, {"gist": "approve", "writer": "user::cneri", "payload": {"version": "v2"}}], "final": true}},
+      {"label": "bgalli-v2", "writer": "user::bgalli", "gist": "approve", "payload": {"version": "v2", "stamp": "v2:bgalli"}},
+      {"label": "cneri-v2", "writer": "user::cneri", "gist": "approve", "payload": {"version": "v2", "stamp": "v2:cneri"}}
+    ]
+  },
+  {
+    "id": "late",
+    "title": "A deadline is written and the clock says it passed: late is set, and nothing else happens",
+    "steps": [
+      {"label": "submit", "writer": "user::aconti", "gist": "submit", "payload": {"title": "Le biblioteche civiche nel 2030", "version": "v1", "authors": ["aconti"], "editor": "drusso"}},
+      {"label": "request", "writer": "user::aconti", "gist": "request_review", "payload": {"reviewers": ["bgalli", "cneri"]}},
+      {"label": "goal-v1", "writer": "user::drusso", "gist": "set_goal", "payload": {"name": "Pubblicazione", "then": "publish", "checks": [{"gist": "approve", "writer": "user::bgalli", "payload": {"version": "v1"}}, {"gist": "approve", "writer": "user::cneri", "payload": {"version": "v1"}}], "final": true}},
+      {"label": "bgalli-v1", "writer": "user::bgalli", "gist": "approve", "payload": {"version": "v1", "stamp": "v1:bgalli"}},
+      {"label": "changes", "writer": "user::cneri", "gist": "request_changes", "payload": {}},
+      {"label": "deadline", "writer": "user::drusso", "gist": "deadline", "payload": {"date": "2026-10-31"}},
+      {"label": "passed", "writer": "system::clock", "gist": "deadline_passed", "payload": {}}
+    ]
+  },
+  {
+    "id": "left-alone",
+    "title": "One reviewer may leave during the review; the last may not",
+    "steps": [
+      {"label": "submit", "writer": "user::aconti", "gist": "submit", "payload": {"title": "Le biblioteche civiche nel 2030", "version": "v1", "authors": ["aconti"], "editor": "drusso"}},
+      {"label": "request", "writer": "user::aconti", "gist": "request_review", "payload": {"reviewers": ["bgalli", "cneri"]}},
+      {"label": "bgalli-leaves", "writer": "user::bgalli", "gist": "leave_team", "payload": {}},
+      {"label": "cneri-leaves", "writer": "user::cneri", "gist": "leave_team", "payload": {}, "refused": "law"}
+    ]
+  }
+]

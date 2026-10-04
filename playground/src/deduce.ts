@@ -8,11 +8,11 @@
 import {
   canonical,
   goalWriter,
-  kinOf,
   offers as offersOf,
   type Check,
   type EventLine,
   type GoalReading,
+  type Handles,
   type Json,
   type LineId,
   type Offer,
@@ -21,14 +21,14 @@ import {
   type Writer,
 } from 'consequitur';
 import { lineFacts, type LineFacts } from 'consequitur-render';
-import { membersIn, SCHEMA, valueIn } from './case.ts';
-import { checkSentence, gistLabel, GIST_UI, uiIndex, uiOf, usersOf } from './ui-schema.ts';
+import { domain, membersIn, type View } from './domain.ts';
+import { checkSentence, gistLabel, uiIndex, uiOf, usersOf } from './ui-schema.ts';
 
-/** A button on a card. A `command` is the page playing the document system: it posts system facts, not a draft of `gist`. */
+/** A button on a card: a draft of `gist`, or, with a `command`, the page playing the system around the thread. */
 export interface LineAction {
-  gist: string;
+  gist?: string;
   label: string;
-  command?: 'sign' | 'new-document';
+  command?: string;
 }
 
 /** A condition a card offers to a goal being composed: the check, and its sentence. */
@@ -40,7 +40,7 @@ export interface LineAwaited {
 /** What a card draws: what the reading says of its line, then what the page adds. */
 export interface LineSpec {
   facts: LineFacts;
-  /** For a document's line: what the document system said about the document. */
+  /** What the system around the thread said about what the line names (a document). */
   documentFacts?: EventLine[];
   actions?: LineAction[];
   /** Present only while a goal is being composed, and then in place of `actions`. */
@@ -71,30 +71,17 @@ export interface Derived {
   specs: LineSpec[];
 }
 
-/** A user who is an expected assignee signs a document of the thread once, while the activity is open. */
-function canSign(d: Pick<Derived, 'thread' | 'reading' | 'writer'>, line: EventLine): boolean {
-  const user = d.writer.slice(d.writer.indexOf('::') + 2);
-  const document = line.payload.document;
-  if (kinOf(d.writer) !== 'user' || typeof document !== 'string') return false;
-  if (valueIn(d.reading.expected, 'status') !== 'open' || !membersIn(d.reading.expected).includes(user)) return false;
-  const standing = new Set(d.reading.inForce);
-  return !d.thread.lines.some((l) => standing.has(l.id) && l.gist === 'doc_signed' && l.payload.document === document && l.payload.by === user);
-}
-
 function specsOf(d: Omit<Derived, 'specs'>, facts: LineFacts[]): LineSpec[] {
-  const byId = new Map(d.thread.lines.map((line) => [line.id, line] as const));
+  const { documents, commands = [] } = domain();
   const standing = new Set(d.reading.inForce);
+  const view: View = { thread: d.thread, reading: d.reading, writer: d.writer, offered: d.offered, standing };
 
   return facts.map((fact): LineSpec => {
     const { line } = fact;
     const spec: LineSpec = { facts: fact };
 
-    const document = line.payload.document;
-    if (line.gist === 'doc_ref' && document !== undefined) {
-      spec.documentFacts = d.reading.inForce
-        .map((id) => byId.get(id))
-        .filter((l): l is EventLine => l !== undefined && kinOf(l.writer) !== 'user' && l.payload.document === document);
-    }
+    const documentFacts = documents?.factsOf(line, view);
+    if (documentFacts) spec.documentFacts = documentFacts;
 
     // a revoking gist is offered on the lines it may name; any other only on a line in force
     const actions = d.offers
@@ -103,11 +90,8 @@ function specsOf(d: Omit<Derived, 'specs'>, facts: LineFacts[]): LineSpec[] {
         return offer.targets ? offer.targets.includes(line.id) : standing.has(line.id);
       })
       .map((offer): LineAction => ({ gist: offer.gist, label: gistLabel(offer.gist) }));
-    // a memo also offers a document made on the spot, written about it
-    if (line.gist === 'memo' && standing.has(line.id) && d.offers.some((offer) => offer.gist === 'doc_ref')) {
-      actions.push({ gist: 'doc_ref', label: 'Nuovo documento', command: 'new-document' });
-    }
-    if (line.gist === 'doc_ref' && standing.has(line.id) && canSign(d, line)) actions.push({ gist: 'doc_signed', label: 'Firma', command: 'sign' });
+    // what the page does itself, playing the system around the thread
+    for (const command of commands) if (command.onLine?.(line, view)) actions.push({ label: command.label, command: command.id });
     if (actions.length) spec.actions = actions;
     return spec;
   });
@@ -127,7 +111,8 @@ export const completionOf = (goal: EventLine): Check => ({ gist: String(goal.pay
  * wrapper again: replacing or removing the goal then moves its condition too.
  */
 export function wrapperFollowing(derived: Derived, goalId: LineId): DockGoal | undefined {
-  if (!derived.offered.has('set_goal')) return undefined;
+  const { goalGist } = domain();
+  if (goalGist === undefined || !derived.offered.has(goalGist)) return undefined;
   const writer = goalWriter(goalId);
   return derived.goals.find((g) => g.wrapper && g.line.id !== goalId && g.goal.checks.some(({ check }) => check.writer === writer));
 }
@@ -137,20 +122,20 @@ let last: Derived | undefined;
 /** The deduction for a thread, its reading and a writer. */
 export function derive(thread: ThreadState, reading: Reading, writer: Writer): Derived {
   if (last && last.thread === thread && last.reading === reading && last.writer === writer) return last;
-  const every = offersOf(thread.lines, writer, SCHEMA);
+  const every = offersOf(thread.lines, writer, domain().schema);
   const offers = every
     .filter((offer) => uiOf(offer.gist)?.compose !== undefined)
     .sort((a, b) => uiIndex(a.gist) - uiIndex(b.gist));
 
-  const facts = lineFacts(thread.lines, reading, SCHEMA);
+  const facts = lineFacts(thread.lines, reading, domain().schema);
   const base = { thread, reading, writer, offers, offered: new Set(every.map((offer) => offer.gist)), goals: goalsOf(facts) };
   return (last = { ...base, specs: specsOf(base, facts) });
 }
 
 /** The checks a goal may await of a line, from the gists whose UI entry says how they are awaited. */
-function awaitedOf(line: EventLine, assignees: string[]): Check[] {
+function awaitedOf(line: EventLine, expected: Handles): Check[] {
   const checks: Check[] = [];
-  for (const ui of GIST_UI) {
+  for (const ui of domain().ui) {
     for (const awaited of ui.awaited ?? []) {
       if (awaited.on !== line.gist) continue;
       const value: Json | undefined = 'id' in awaited.value ? line.id : line.payload[awaited.value.payload];
@@ -158,8 +143,11 @@ function awaitedOf(line: EventLine, assignees: string[]): Check[] {
       const payload = { [awaited.key]: value };
       if ('users' in awaited.by) {
         for (const user of usersOf(line.payload[awaited.by.users])) checks.push({ gist: ui.gist, writer: `user::${user}`, payload });
+      } else if ('members' in awaited.by) {
+        for (const member of membersIn(expected, awaited.by.members)) checks.push({ gist: ui.gist, writer: `user::${member}`, payload });
       } else if (awaited.each !== undefined) {
-        for (const user of assignees) checks.push({ gist: ui.gist, kin: awaited.by.kin, payload: { ...payload, [awaited.each]: user } });
+        const { key, set } = awaited.each;
+        for (const user of membersIn(expected, set)) checks.push({ gist: ui.gist, kin: awaited.by.kin, payload: { ...payload, [key]: user } });
       } else {
         checks.push({ gist: ui.gist, kin: awaited.by.kin, payload });
       }
@@ -182,7 +170,7 @@ export function awaitedFor(derived: Derived, checks: Check[]): Map<LineId, LineA
   const byLine = new Map<LineId, LineAwaited[]>();
   for (const line of derived.thread.lines) {
     if (!standing.has(line.id)) continue;
-    const offered = awaitedOf(line, membersIn(derived.reading.expected))
+    const offered = awaitedOf(line, derived.reading.expected)
       .filter((check) => !held.has(keyOfCheck(check)))
       .map((check) => ({ check, label: checkSentence(check, derived.thread.lines) }));
     if (offered.length) byLine.set(line.id, offered);

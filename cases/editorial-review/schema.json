@@ -1,0 +1,97 @@
+{
+  "opening": "submit",
+  "authority": "system::clock",
+  "sets": ["team", "reviewers", "editors"],
+  "records": { "value": "value_set", "join": "joined", "leave": "left", "warning": "goal_warning" },
+  "judged": ["user"],
+  "gists": [
+    {
+      "gist": "submit",
+      "writers": ["user"],
+      "rules": [
+        { "rule": "value", "key": "title", "from": "title", "required": true },
+        { "rule": "value", "key": "status", "value": "draft" },
+        { "rule": "value", "key": "version", "from": "version", "required": true },
+        { "rule": "join", "set": "team", "from": "authors", "required": true },
+        { "rule": "join", "set": "editors", "from": "editor", "required": true }
+      ]
+    },
+    {
+      "gist": "revision",
+      "writers": ["user"],
+      "rules": [
+        { "rule": "value", "key": "version", "from": "version", "required": true },
+        { "rule": "value", "key": "status", "value": "in_review" }
+      ],
+      "when": { "in": "team", "values": { "status": "changes_requested" } }
+    },
+    {
+      "gist": "request_review",
+      "writers": ["user"],
+      "rules": [
+        { "rule": "join", "set": "reviewers", "from": "reviewers", "required": true },
+        { "rule": "join", "set": "team", "from": "reviewers", "required": true },
+        { "rule": "value", "key": "status", "value": "in_review" }
+      ],
+      "when": { "in": "team" }
+    },
+    {
+      "gist": "approve",
+      "writers": ["user"],
+      "rules": [{ "rule": "value", "key": "approvals", "collect": "stamp", "required": true }],
+      "when": { "in": "reviewers", "values": { "status": "in_review" } }
+    },
+    {
+      "gist": "approve_revoke",
+      "writers": ["user"],
+      "rules": [{ "rule": "revoke", "from": "target", "gists": ["approve"] }],
+      "when": { "in": "reviewers", "values": { "status": "in_review" } }
+    },
+    {
+      "gist": "request_changes",
+      "writers": ["user"],
+      "rules": [{ "rule": "value", "key": "status", "value": "changes_requested" }],
+      "when": { "in": "reviewers", "values": { "status": "in_review" } }
+    },
+    { "gist": "comment", "writers": ["user"], "rules": [], "when": { "in": "team" } },
+    { "gist": "set_goal", "writers": ["user"], "rules": [{ "rule": "goal" }], "when": { "in": "editors" } },
+    {
+      "gist": "set_goal_revoke",
+      "writers": ["user"],
+      "rules": [{ "rule": "revoke", "from": "target", "gists": ["set_goal"] }],
+      "when": { "in": "editors" }
+    },
+    {
+      "gist": "publish",
+      "writers": ["goal", "user"],
+      "rules": [{ "rule": "value", "key": "status", "value": "published" }],
+      "when": { "in": "editors", "values": { "status": "in_review" } }
+    },
+    {
+      "gist": "deadline",
+      "writers": ["user"],
+      "rules": [{ "rule": "value", "key": "deadline", "from": "date", "required": true }],
+      "when": { "in": "editors" }
+    },
+    { "gist": "deadline_passed", "writers": ["system"], "rules": [{ "rule": "value", "key": "late", "value": true }] },
+    {
+      "gist": "leave_team",
+      "writers": ["user"],
+      "rules": [
+        { "rule": "leave", "set": "team" },
+        { "rule": "leave", "set": "reviewers" }
+      ],
+      "when": { "in": "team" }
+    },
+    { "gist": "value_set", "writers": ["system"], "rules": [] },
+    { "gist": "joined", "writers": ["system"], "rules": [] },
+    { "gist": "left", "writers": ["system"], "rules": [] },
+    { "gist": "goal_warning", "writers": ["goal"], "rules": [] }
+  ],
+  "laws": [
+    { "law": "keeps-set", "set": "reviewers", "while": { "status": "in_review" }, "strength": "refuse" },
+    { "law": "keeps-set", "set": "editors", "strength": "refuse" },
+    { "law": "keeps-goals", "strength": "confirm" },
+    { "law": "settles", "strength": "refuse" }
+  ]
+}

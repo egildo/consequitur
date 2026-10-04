@@ -2,8 +2,8 @@
 
 consequitur keeps a ledger of what was said, and deduces what follows.
 
-Status: settled. The engine, the render toolkit and the playground are built (see
-[plan.md](plan.md) §4); nothing is published yet.
+Status: settled. The engine, the render toolkit and the playground are built, with two domains, SIBAR's
+and an editorial review (see [plan.md](plan.md) §4); nothing is published yet.
 
 ## What it is for
 

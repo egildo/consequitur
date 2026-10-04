@@ -1,0 +1,3 @@
+[
+  { "leave": { "kind": "set", "key": "assignees" }, "while": { "values": { "status": "closed" } } }
+]

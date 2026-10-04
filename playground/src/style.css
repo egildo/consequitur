@@ -187,6 +187,10 @@ body.thread-page {
   border-bottom: 1px solid var(--hairline);
 }
 
+.bar-examples {
+  display: contents;
+}
+
 .bar-field {
   display: flex;
   align-items: center;

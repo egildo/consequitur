@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
-  "description": "A sample application on consequitur: the SIBAR activity bench.",
+  "description": "A sample application on consequitur: a SIBAR activity bench and an editorial review.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "vitest run"
   },
   "dependencies": {
     "@types/markdown-it": "^14.2.0",

@@ -1,0 +1,36 @@
+[
+  {
+    "id": "first",
+    "title": "A request for an opinion: a memo, a document linked, a goal that closes the activity once the opinion is signed, a quit and a signature",
+    "steps": [
+      {"writer": "user::mrossi", "gist": "create", "payload": {"name": "Richiesta parere", "assignTo": ["mrossi"]}},
+      {"label": "memo", "writer": "user::mrossi", "gist": "memo", "payload": {"text": "Serve un parere", "assignTo": ["lbianchi"]}},
+      {"writer": "user::lbianchi", "gist": "doc_ref", "payload": {"document": "34132412", "direction": "outbound", "about": {"$line": "memo"}}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "done", "then": "closed", "checks": [{"gist": "got_it", "writer": "user::lbianchi", "payload": {"about": {"$line": "memo"}}}, {"gist": "doc_signed", "kin": "system", "payload": {"document": "34132412"}}]}},
+      {"writer": "user::lbianchi", "gist": "got_it", "payload": {"about": {"$line": "memo"}}},
+      {"writer": "user::lbianchi", "gist": "quit", "payload": {}},
+      {"writer": "user::mrossi", "gist": "memo", "payload": {"text": "Ancora una cosa", "assignTo": ["lbianchi"]}},
+      {"writer": "system::sibardoc", "gist": "doc_signed", "payload": {"document": "34132412", "signedAt": "2026-09-30"}}
+    ]
+  },
+  {
+    "id": "opinion",
+    "title": "An opinion on a contract: a document made from the activity, two goals (one fires, one is warned), two signatures, and a final wrapper that closes it",
+    "steps": [
+      {"writer": "user::mrossi", "gist": "create", "payload": {"name": "Parere sul contratto arredi", "assignTo": ["mrossi"]}},
+      {"label": "memo", "writer": "user::mrossi", "gist": "memo", "payload": {"text": "Puoi preparare il parere sul contratto?", "assignTo": ["lbianchi"]}},
+      {"writer": "user::mrossi", "gist": "doc_ref", "payload": {"document": "34132412", "direction": "inbound", "about": {"$line": "memo"}, "note": "Il contratto da esaminare."}},
+      {"writer": "system::sibardoc", "gist": "doc_created", "payload": {"document": "34133265", "subject": "Parere legale sul contratto arredi"}},
+      {"writer": "user::lbianchi", "gist": "doc_ref", "payload": {"document": "34133265", "direction": "outbound", "about": {"$line": "memo"}}},
+      {"label": "firme", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "Firme", "checks": [{"gist": "doc_signed", "kin": "system", "payload": {"document": "34133265", "by": "lbianchi"}}, {"gist": "doc_signed", "kin": "system", "payload": {"document": "34133265", "by": "mrossi"}}], "then": "memo", "with": {"text": "Protocolla e invia il parere.", "assignTo": ["gverdi"]}}},
+      {"label": "minutes", "writer": "user::mrossi", "gist": "doc_ref", "payload": {"document": "34133019", "direction": "inbound"}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "Verbale", "checks": [{"gist": "doc_signed", "kin": "system", "payload": {"document": "34133019"}}], "then": "stage", "with": {"stage": "firma"}}},
+      {"writer": "user::mrossi", "gist": "doc_ref_revoke", "payload": {"target": {"$line": "minutes"}}, "confirmed": true},
+      {"label": "wrapper", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "Completamento", "role": "completion", "checks": [{"gist": "memo", "writer": {"$goal": "firme"}}, {"gist": "got_it", "writer": "user::gverdi"}], "then": "closed", "final": true}},
+      {"writer": "user::lbianchi", "gist": "comment", "payload": {"text": "Bozza pronta, la firmo oggi."}},
+      {"writer": "system::sibardoc", "gist": "doc_signed", "payload": {"document": "34133265", "by": "lbianchi"}},
+      {"writer": "system::sibardoc", "gist": "doc_signed", "payload": {"document": "34133265", "by": "mrossi"}},
+      {"writer": "user::gverdi", "gist": "got_it", "payload": {"about": {"$find": {"gist": "memo", "kin": "goal"}}, "note": "Protocollato e inviato."}}
+    ]
+  }
+]

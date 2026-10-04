@@ -45,4 +45,11 @@ those marked *(new)* were proposed by the plan and accepted.
 | **dry run** | A post whose result is kept and not applied: the lines it would add, the rounds, the verdicts. |
 | **policy** *(new)* | Which denunciations an authority leaves unanswered, each entry with an optional condition on the value handle. Conf, outside the thread. A reading that only the policy keeps from settling counts as settled. |
 | **render** | `consequitur-render`: helpers that turn a reading into DOM, owning no markup: each line's facts, nodes kept by line id, the dry-run preview loop, the **band** (the line drawn from a slot to a line, or between two elements). |
-| **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. |
+| **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. It runs one domain at a time and has a picker for them. |
+| **case** *(new)* | A domain's files in `cases/<domain>/`: its schema, its scenarios and, where it has one, its policy. The tests and the playground read the same files. |
+| **scenario** *(new)* | A domain's story as data: a list of **steps**, posted one after the other to an empty thread. Played by `playScenario`, from `cases/scenario.ts`. |
+| **step** *(new)* | One line of a scenario: `{ writer, gist, payload }`, with a `label` if a later step points at the line it posts, `confirmed` if a `confirm` law asks it, `refused` if the scenario expects the engine to refuse it. |
+| **placeholder** *(new)* | In a step's payload, a reference to an earlier line, since an id is a hash nobody can write: `$line` (a labelled step's line id), `$goal` (`goal::` and that id), `$find` (the first line a check matches). |
+| **misfit** *(new)* | Something a schema author wanted that the engine cannot say. Each is recorded in [misfits.md](misfits.md) with what the engine does today and the smallest change that would make it fit. |
+| **domain** *(new)* | In the playground, a case together with the application's side of it, the **UI schema**: one module in `playground/src/domains/`. The rest of the page reads the domain in use and names no gist. |
+| **UI schema** *(new)* | What an application needs to know about each gist beyond the schema: its words, its card, how a person composes it, how a goal awaits it. It is the application's, not the library's. |

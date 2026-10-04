@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["packages/*/src", "packages/*/test", "playground/src"]
+  "include": ["cases/*.ts", "packages/*/src", "packages/*/test", "playground/src", "playground/test"]
 }

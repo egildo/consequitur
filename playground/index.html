@@ -8,12 +8,15 @@
   <body class="thread-page">
     <header class="bar">
       <label class="bar-field">
+        <span>Dominio</span>
+        <select id="domain"></select>
+      </label>
+      <label class="bar-field">
         <span>Scrivo come</span>
         <select id="writer"></select>
       </label>
       <button id="reset" type="button" class="bar-button">Azzera</button>
-      <button id="example" type="button" class="bar-button">Carica l'esempio</button>
-      <button id="example-opinion" type="button" class="bar-button">Esempio: parere e firme</button>
+      <span id="examples" class="bar-examples"></span>
       <label class="bar-field bar-check">
         <input id="records" type="checkbox" />
         <span>Mostra le righe di sistema</span>
@@ -44,8 +47,8 @@
       <form method="dialog">
         <p id="quit-text" class="dialog-text"></p>
         <div class="dialog-actions">
-          <button type="submit" value="quit" class="offer">Esci</button>
-          <button type="submit" value="stay" class="offer">Resta</button>
+          <button id="quit-yes" type="submit" value="yes" class="offer"></button>
+          <button id="quit-no" type="submit" value="no" class="offer"></button>
         </div>
       </form>
     </dialog>

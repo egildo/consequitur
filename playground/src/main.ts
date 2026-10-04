@@ -7,21 +7,26 @@
 
 import { dryRun, emptyState, goalWriter, inOrder, post, reduce, type Check, type EventLine, type Json, type LineDraft, type LineId, type Refusal, type Writer } from 'consequitur';
 import { previewer } from 'consequitur-render';
+import { playScenario } from '../../cases/scenario.ts';
 import './style.css';
 import type { Handlers } from './cards.ts';
-import { POLICY, SCHEMA, SYSTEM, valueIn } from './case.ts';
 import { derive, keyOfCheck, wrapperFollowing, type Derived, type DockGoal, type LineAction } from './deduce.ts';
 import { createDock, type DockHandlers } from './dock.ts';
 import { createComposer, lineOf, newDraft, newGoalDraft, type Composer, type ComposerHandlers, type ComposerView } from './draft.ts';
+import { domain, useDomain, valueIn, type Command, type Domain, type Example } from './domain.ts';
+import { DOMAINS } from './domains/index.ts';
 import { h } from './dom.ts';
 import { createLedger, type LedgerHandlers } from './ledger.ts';
 import { createPanel } from './panel.ts';
 import { askSubject } from './pickers.ts';
 import { mountBand, point, redraw } from './pointing.ts';
 import { HEAD_CHIP, type PageState, type ShownRefusal } from './state.ts';
-import { DOCUMENTS, gistLabel, GOAL_LINES, nextDocumentCode, previewOf, REFUSAL_WORDS, resetDocuments, uiOf, verdictsOf, WRITERS, type Preview } from './ui-schema.ts';
+import { gistLabel, isGoalLine, previewOf, uiOf, verdictsOf, type Preview } from './ui-schema.ts';
 
-const emptyThread = () => emptyState(SCHEMA);
+// the page starts in the first domain; `useDomain` is how it changes
+useDomain(DOMAINS[0]);
+
+const emptyThread = () => emptyState(domain().schema);
 
 const find = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -29,13 +34,11 @@ const find = <T extends HTMLElement>(id: string): T => {
   return element as T;
 };
 
-const userOf = (w: Writer): string => w.slice(w.indexOf('::') + 2);
-
 const first = emptyThread();
 let state: PageState = {
   thread: first,
-  reading: reduce(first.lines, first.handles, SCHEMA),
-  writer: 'user::mrossi',
+  reading: reduce(first.lines, first.handles, domain().schema),
+  writer: domain().writers[0].writer,
   draft: null,
   preview: null,
   answered: [],
@@ -56,6 +59,8 @@ const noticeEl = find('notice');
 const writerSelect = find<HTMLSelectElement>('writer');
 const recordsBox = find<HTMLInputElement>('records');
 const goalsBox = find<HTMLInputElement>('goals');
+const domainSelect = find<HTMLSelectElement>('domain');
+const examplesEl = find('examples');
 const quitDialog = find<HTMLDialogElement>('quit-dialog');
 const panel = createPanel(find('panel'), { onTab: (tab) => update({ tab }), onGist: (gist) => update({ gist }) });
 mountBand(find('column'));
@@ -65,7 +70,7 @@ find('scroll').addEventListener('scroll', redraw);
 
 /** A refusal as the page shows it: the words, and the sentences of the laws it names. */
 const shownOf = (refusal: Refusal, lines: EventLine[]): ShownRefusal => ({
-  words: REFUSAL_WORDS[refusal.code],
+  words: domain().words.refusals[refusal.code],
   detail: refusal.detail,
   verdicts: verdictsOf(refusal.verdicts ?? [], lines),
 });
@@ -79,12 +84,14 @@ const shownOf = (refusal: Refusal, lines: EventLine[]): ShownRefusal => ({
 async function send(draft: LineDraft, delay = 400, then: Partial<PageState> = {}, confirmed = false): Promise<Refusal | undefined> {
   if (delay > 0) await new Promise<void>((resolve) => setTimeout(resolve, delay));
   const before = state.thread.lines.length;
-  const result = await post(state.thread, draft, SCHEMA, new Date().toISOString(), { confirmed, policy: POLICY });
+  const result = await post(state.thread, draft, domain().schema, new Date().toISOString(), { confirmed, policy: domain().policy });
   if (result.refusal) return result.refusal;
+  // what the page knows beyond the thread (a document made) is learned before the lines are drawn
+  domain().documents?.learn(result.state.lines);
   // the lines after the thread's last are the draft's, then what reconciliation wrote
   const posted = result.state.lines[before];
   // a goal's own bookkeeping is not in the ledger unless asked for: there is no card to select
-  const shown = !GOAL_LINES.has(posted.gist) || state.show.goals;
+  const shown = !isGoalLine(posted.gist) || state.show.goals;
   update({ thread: result.state, reading: result.reading, answered: result.rounds, ...(shown ? { selected: posted.id } : {}), ...then });
   if (shown) reveal(posted.id, 'nearest');
   return undefined;
@@ -102,31 +109,14 @@ async function run(job: () => Promise<Refusal | undefined>): Promise<void> {
   }
 }
 
-/** The document system's part of a signature: a fact, written by the system, saying who signed. */
-const signDocument = (document: string, user: string, delay = 400): Promise<Refusal | undefined> =>
-  send({ gist: 'doc_signed', writer: SYSTEM, payload: { document, by: user } }, delay);
-
 /**
- * A document made from the activity: the system says it exists, then the writer
- * links it, outbound, about `about` when given. The code is the next one the page
- * has; the document is known to the page before its line arrives, so the card can name it.
+ * A command: the page playing the system around the thread, for the writer. It posts what the
+ * command says, with the page waiting, and says why when it is refused.
  */
-async function createDocument(subject: string, as: Writer, about?: LineId, delay = 400): Promise<Refusal | undefined> {
-  const document = nextDocumentCode();
-  DOCUMENTS.push({ code: document, subject });
-  const made = await send({ gist: 'doc_created', writer: SYSTEM, payload: { document, subject } }, delay);
-  if (made) {
-    DOCUMENTS.pop();
-    return made;
-  }
-  return send({ gist: 'doc_ref', writer: as, payload: { document, direction: 'outbound', ...(about ? { about } : {}) } }, delay);
-}
-
-/** «Nuovo documento»: asks for the subject, then makes the document. */
-async function newDocument(about?: LineId): Promise<void> {
+function runCommand(command: Command, line?: EventLine): void {
   if (state.pending) return;
-  const subject = await askSubject();
-  if (subject !== null) await run(() => createDocument(subject, state.writer, about));
+  const host = { writer: state.writer, authority: domain().schema.authority, send: (draft: LineDraft, delay = 400) => send(draft, delay), askSubject };
+  void run(() => command.run(host, line));
 }
 
 // ── the question before leaving ──
@@ -135,12 +125,14 @@ async function newDocument(about?: LineId): Promise<void> {
 let answerQuit: ((quit: boolean) => void) | undefined;
 quitDialog.querySelector('form')!.addEventListener('submit', (event) => {
   const { submitter } = event as SubmitEvent;
-  answerQuit?.(submitter instanceof HTMLButtonElement && submitter.value === 'quit');
+  answerQuit?.(submitter instanceof HTMLButtonElement && submitter.value === 'yes');
 });
 quitDialog.addEventListener('close', () => answerQuit?.(false));
 
-function ask(message: string): Promise<boolean> {
+function ask(message: string, yes: string, no: string): Promise<boolean> {
   find('quit-text').textContent = message;
+  find('quit-yes').textContent = yes;
+  find('quit-no').textContent = no;
   return new Promise((resolve) => {
     answerQuit = resolve;
     quitDialog.showModal();
@@ -166,7 +158,7 @@ const dim = (answer: Preview): Preview => {
 
 const previews = previewer<LineDraft, Preview>({
   keyOf: (line) => JSON.stringify([line, state.thread.lines.length]),
-  run: async (line) => previewOf(await dryRun(state.thread, line, SCHEMA, new Date().toISOString(), { policy: POLICY }), line.gist),
+  run: async (line) => previewOf(await dryRun(state.thread, line, domain().schema, new Date().toISOString(), { policy: domain().policy }), line.gist),
   show: (answer, fresh) => update({ preview: answer && (fresh ? answer : dim(answer)) }),
   // a failed dry run is said in the draft's preview block; what is on screen is never confirmed, as it is not fresh
   onError: (error, line) => update({ preview: { gist: line.gist, failed: error instanceof Error ? error.message : String(error), happens: [], verdicts: [], confirm: false } }),
@@ -185,8 +177,8 @@ async function sendDraft(): Promise<void> {
   const ui = draft && uiOf(draft.gist);
   const line = draft && lineOf(draft, state.writer);
   if (state.pending || !ui || !line) return;
-  const question = ui.compose?.confirmWhileOpen;
-  if (question && valueIn(state.thread.handles, 'status') === 'open' && !(await ask(question))) return;
+  const { confirm } = ui.compose ?? {};
+  if (confirm && valueIn(state.thread.handles, confirm.while.key) === confirm.while.value && !(await ask(confirm.question, confirm.yes, confirm.no))) return;
   // only what the writer was shown confirms: a preview of an older draft does not
   const shown = previews.current();
   const confirmed = shown !== null && shown.fresh && shown.answer.confirm;
@@ -209,7 +201,7 @@ function openGoal(options?: Parameters<typeof newGoalDraft>[1]): void {
 }
 
 const revokeGoal = (goal: EventLine, delay: number): Promise<Refusal | undefined> =>
-  send({ gist: 'set_goal_revoke', writer: state.writer, payload: { target: goal.id } }, delay);
+  send({ gist: domain().goalRevoke!, writer: state.writer, payload: { target: goal.id } }, delay);
 
 /**
  * The wrapper written again after a goal it awaits was replaced (`replacement`) or
@@ -224,7 +216,7 @@ async function rewriteWrapper(wrapper: EventLine, old: EventLine, replacement: E
   );
   const revoked = await revokeGoal(wrapper, delay);
   if (revoked || checks.length === 0) return revoked;
-  return send({ gist: 'set_goal', writer: state.writer, payload: { ...wrapper.payload, checks: checks as unknown as Json } }, delay);
+  return send({ gist: domain().goalGist!, writer: state.writer, payload: { ...wrapper.payload, checks: checks as unknown as Json } }, delay);
 }
 
 /**
@@ -268,7 +260,7 @@ function reveal(id: LineId, block: ScrollLogicalPosition): void {
 
 /** The lines the ledger shows, in reading order. */
 const shownLines = (): EventLine[] =>
-  inOrder(state.thread.lines).filter((line) => (state.show.records || uiOf(line.gist)?.card !== 'record') && (state.show.goals || !GOAL_LINES.has(line.gist)));
+  inOrder(state.thread.lines).filter((line) => (state.show.records || uiOf(line.gist)?.card !== 'record') && (state.show.goals || !isGoalLine(line.gist)));
 
 function step(delta: 1 | -1): void {
   const lines = shownLines();
@@ -281,13 +273,11 @@ function step(delta: 1 | -1): void {
 
 function onAction(action: LineAction, line: EventLine): void {
   if (state.pending) return;
-  if (action.command === 'sign') {
-    const document = line.payload.document;
-    if (typeof document === 'string') void run(() => signDocument(document, userOf(state.writer)));
-  } else if (action.command === 'new-document') void newDocument(line.id);
+  const command = action.command === undefined ? undefined : domain().commands?.find((c) => c.id === action.command);
+  if (command) runCommand(command, line);
   // a goal's card revokes it as the dock's «Rimuovi» does, so the wrapper follows
-  else if (action.gist === 'set_goal_revoke' && line.gist === 'set_goal') void run(() => removeGoal(line));
-  else openDraft(action.gist, line.id);
+  else if (action.gist === domain().goalRevoke && line.gist === domain().goalGist) void run(() => removeGoal(line));
+  else if (action.gist !== undefined) openDraft(action.gist, line.id);
 }
 
 function onAwait(check: Check): void {
@@ -349,7 +339,8 @@ function drawComposer(derived: Derived): void {
 
 function drawBar(derived: Derived): void {
   // the goals are the dock's
-  const offered = derived.offers.filter(({ gist }) => !GOAL_LINES.has(gist));
+  const offered = derived.offers.filter(({ gist }) => !isGoalLine(gist));
+  const { commands = [], words } = domain();
   offersEl.replaceChildren(
     h('span', { class: 'offers-label' }, 'Aggiungi:'),
     ...(offered.length
@@ -358,12 +349,17 @@ function drawBar(derived: Derived): void {
           button.addEventListener('click', () => {
             if (!state.pending) openDraft(gist);
           });
-          if (gist !== 'doc_ref') return [button];
-          const made = h('button', { class: 'offer', type: 'button' }, 'Nuovo documento');
-          made.addEventListener('click', () => void newDocument());
-          return [button, made];
+          // what the page does itself beside an offer, playing the system around the thread
+          const beside = commands
+            .filter((command) => command.inBar?.after === gist)
+            .map((command) => {
+              const extra = h('button', { class: 'offer', type: 'button' }, command.label);
+              extra.addEventListener('click', () => runCommand(command));
+              return extra;
+            });
+          return [button, ...beside];
         })
-      : [h('span', { class: 'panel-empty' }, 'Nessuna riga da scrivere adesso.')]),
+      : [h('span', { class: 'panel-empty' }, words.nothing)]),
   );
 }
 
@@ -412,13 +408,13 @@ function update(change: Partial<PageState>): void {
 }
 
 function reset(): void {
-  resetDocuments();
+  domain().documents?.reset();
   ledger.clear();
   point(null, null);
-    const thread = emptyThread();
+  const thread = emptyThread();
   update({
     thread,
-    reading: reduce(thread.lines, thread.handles, SCHEMA),
+    reading: reduce(thread.lines, thread.handles, domain().schema),
     answered: [],
     draft: null,
     preview: null,
@@ -431,128 +427,81 @@ function reset(): void {
 
 // ── the examples ──
 
-/** Plays the rows of an example one at a time, with no delay, and says why it stopped when a row is refused. */
-async function play(name: string, rows: Array<() => Promise<Refusal | undefined>>): Promise<void> {
+/**
+ * Plays the steps of an example one at a time, with no delay, the way the tests play them. A step
+ * the example expects refused ends it as a lesson: its refusal stays on screen. A step that does not
+ * go as the example says stops it, and the page says why.
+ */
+async function play(example: Example): Promise<void> {
   if (state.pending) return;
   update({ pending: true });
   reset();
   try {
-    for (const [index, row] of rows.entries()) {
-      const refusal = await row();
-      if (refusal) {
-        console.warn(`playground: the ${name} example stopped at step ${index + 1}`, refusal);
-        update({ refusal: shownOf(refusal, state.thread.lines) });
-        break;
-      }
-    }
+    const played = await playScenario(example.steps, { lines: () => state.thread.lines, send: (draft, confirmed) => send(draft, 0, {}, confirmed) });
+    const refusal = played.failed?.refusal ?? played.refused.at(-1)?.refusal;
+    if (played.failed) console.warn(`playground: the ${example.id} example stopped at step ${played.failed.index + 1}: ${played.failed.why}`, played.failed.refusal);
+    if (refusal) update({ refusal: shownOf(refusal, state.thread.lines) });
+  } catch (error) {
+    // a placeholder of the scenario found no line: the example is wrong, not the page
+    console.warn(`playground: the ${example.id} example could not be played`, error);
   } finally {
     update({ pending: false });
   }
 }
 
-const user = (id: string): Writer => `user::${id}`;
-const lineWhere = (test: (l: EventLine) => boolean): EventLine => state.thread.lines.find(test)!;
-
-/** The scenario of a request for an opinion, one line at a time and with no delay. */
-const loadExample = (): Promise<void> => {
-  const firstMemo = () => lineWhere((l) => l.gist === 'memo').id;
-  return play('first', [
-    () => send({ gist: 'create', writer: user('mrossi'), payload: { name: 'Richiesta parere', assignTo: ['mrossi'] } }, 0),
-    () => send({ gist: 'memo', writer: user('mrossi'), payload: { text: 'Serve un parere', assignTo: ['lbianchi'] } }, 0),
-    () => send({ gist: 'doc_ref', writer: user('lbianchi'), payload: { document: '34132412', direction: 'outbound', about: firstMemo() } }, 0),
-    () =>
-      send(
-        {
-          gist: 'set_goal',
-          writer: user('mrossi'),
-          payload: {
-            name: 'done',
-            then: 'closed',
-            checks: [
-              { gist: 'got_it', writer: user('lbianchi'), payload: { about: firstMemo() } },
-              { gist: 'doc_signed', kin: 'system', payload: { document: '34132412' } },
-            ],
-          },
-        },
-        0,
-      ),
-    () => send({ gist: 'got_it', writer: user('lbianchi'), payload: { about: firstMemo() } }, 0),
-    () => send({ gist: 'quit', writer: user('lbianchi'), payload: {} }, 0),
-    () => send({ gist: 'memo', writer: user('mrossi'), payload: { text: 'Ancora una cosa', assignTo: ['lbianchi'] } }, 0),
-    () => send({ gist: 'doc_signed', writer: SYSTEM, payload: { document: '34132412', signedAt: '2026-09-30' } }, 0),
-  ]);
-};
-
-/**
- * A request for an opinion on a contract: a document made from the activity, two
- * goals (one fires, one is warned), signatures by the two who sign, and a wrapper
- * that awaits the first goal and a receipt, and closes it for good. Each step calls what the buttons call and gives its answers directly,
- * with no dialog and no delay; a refusal stops it.
- */
-const loadOpinionExample = (): Promise<void> => {
-  const memo = () => lineWhere((l) => l.gist === 'memo' && l.writer.startsWith('user::')).id;
-  const opinion = () => lineWhere((l) => l.gist === 'doc_created').payload.document as string;
-  const minutes = '34133019';
-  const goalMemo = () => lineWhere((l) => l.gist === 'memo' && l.writer.startsWith('goal::')).id;
-  const firme = () => lineWhere((l) => l.gist === 'set_goal' && l.payload.name === 'Firme').id;
-  const signedBy = (document: string, by: string) => ({ gist: 'doc_signed', kin: 'system', payload: { document, by } });
-  return play('opinion', [
-    () => send({ gist: 'create', writer: user('mrossi'), payload: { name: 'Parere sul contratto arredi', assignTo: ['mrossi'] } }, 0),
-    () => send({ gist: 'memo', writer: user('mrossi'), payload: { text: 'Puoi preparare il parere sul contratto?', assignTo: ['lbianchi'] } }, 0),
-    () => send({ gist: 'doc_ref', writer: user('mrossi'), payload: { document: '34132412', direction: 'inbound', about: memo(), note: 'Il contratto da esaminare.' } }, 0),
-    () => createDocument('Parere legale sul contratto arredi', user('lbianchi'), memo(), 0),
-    () =>
-      send(
-        {
-          gist: 'set_goal',
-          writer: user('mrossi'),
-          payload: {
-            name: 'Firme',
-            checks: [signedBy(opinion(), 'lbianchi'), signedBy(opinion(), 'mrossi')],
-            then: 'memo',
-            with: { text: 'Protocolla e invia il parere.', assignTo: ['gverdi'] },
-          },
-        },
-        0,
-      ),
-    async () =>
-      (await send({ gist: 'doc_ref', writer: user('mrossi'), payload: { document: minutes, direction: 'inbound' } }, 0)) ??
-      (await send(
-        {
-          gist: 'set_goal',
-          writer: user('mrossi'),
-          payload: { name: 'Verbale', checks: [{ gist: 'doc_signed', kin: 'system', payload: { document: minutes } }], then: 'stage', with: { stage: 'firma' } },
-        },
-        0,
-      )) ??
-      // unlinking a document a goal awaits is asked to be confirmed
-      send({ gist: 'doc_ref_revoke', writer: user('mrossi'), payload: { target: lineWhere((l) => l.gist === 'doc_ref' && l.payload.document === minutes).id } }, 0, {}, true),
-    // the wrapper: it awaits the completion of «Firme» and a «Ricevuto» of the one who files, and then closes
-    () =>
-      send(
-        {
-          gist: 'set_goal',
-          writer: user('mrossi'),
-          payload: {
-            name: 'Completamento',
-            role: 'completion',
-            checks: [{ gist: 'memo', writer: goalWriter(firme()) }, { gist: 'got_it', writer: user('gverdi') }],
-            then: 'closed',
-            final: true,
-          },
-        },
-        0,
-      ),
-    () => send({ gist: 'comment', writer: user('lbianchi'), payload: { text: 'Bozza pronta, la firmo oggi.' } }, 0),
-    () => signDocument(opinion(), 'lbianchi', 0),
-    () => signDocument(opinion(), 'mrossi', 0),
-    () => send({ gist: 'got_it', writer: user('gverdi'), payload: { about: goalMemo(), note: 'Protocollato e inviato.' } }, 0),
-  ]);
-};
-
 // ── the bar of the page ──
 
-for (const { writer: value, label } of WRITERS) writerSelect.append(h('option', { value }, label));
+/** The writers, the examples and the words of the page as the domain in use has them. */
+function drawDomain(): void {
+  const { writers, examples, words } = domain();
+  document.title = words.title;
+  find('ledger').setAttribute('aria-label', words.ledger);
+  find('panel').setAttribute('aria-label', words.panel);
+  writerSelect.replaceChildren(...writers.map(({ writer: value, label }) => h('option', { value }, label)));
+  examplesEl.replaceChildren(
+    ...examples.map((example) => {
+      const button = h('button', { type: 'button', class: 'bar-button', 'data-example': example.id }, example.label);
+      button.addEventListener('click', () => void play(example));
+      return button;
+    }),
+  );
+}
+
+/** Starts again in another domain: its words, its writers and its examples, and an empty thread. */
+function switchDomain(next: Domain): void {
+  if (state.pending || next === domain()) return;
+  useDomain(next);
+  drawDomain();
+  barOf = panelOf = undefined;
+  ledger.clear();
+  point(null, null);
+  next.documents?.reset();
+  const thread = emptyThread();
+  update({
+    thread,
+    reading: reduce(thread.lines, thread.handles, next.schema),
+    writer: next.writers[0].writer,
+    answered: [],
+    draft: null,
+    preview: null,
+    selected: null,
+    lit: null,
+    linking: null,
+    refusal: null,
+    tab: 'activity',
+    gist: HEAD_CHIP,
+  });
+}
+
+domainSelect.append(...DOMAINS.map((d) => h('option', { value: d.id }, d.label)));
+domainSelect.addEventListener('change', () => {
+  const next = DOMAINS.find((d) => d.id === domainSelect.value);
+  if (!next) return;
+  switchDomain(next);
+  // a switch refused (a post is in flight) leaves the picker where the page is
+  domainSelect.value = domain().id;
+});
+drawDomain();
 writerSelect.addEventListener('change', () => {
   // a draft is written as one person: with another writer it would be someone else's
   update({ writer: writerSelect.value as Writer, draft: null, refusal: null });
@@ -560,8 +509,6 @@ writerSelect.addEventListener('change', () => {
 find('reset').addEventListener('click', () => {
   if (!state.pending) reset();
 });
-find('example').addEventListener('click', () => void loadExample());
-find('example-opinion').addEventListener('click', () => void loadOpinionExample());
 recordsBox.addEventListener('change', () => update({ show: { ...state.show, records: recordsBox.checked } }));
 goalsBox.addEventListener('change', () => update({ show: { ...state.show, goals: goalsBox.checked } }));
 

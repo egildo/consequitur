@@ -8,11 +8,9 @@ import type { Preview } from './ui-schema.ts';
 export interface GoalForm {
   name: string;
   /** What the goal does: the gist it writes. */
-  outcome: 'closed' | 'stage' | 'memo';
-  stage: string;
-  /** The user a memo is written to, and its text. */
-  to: string;
-  text: string;
+  then: string;
+  /** What that gist is given: a value for each field of the outcome, by the field's key. */
+  values: Record<string, string>;
   final: boolean;
   checks: Check[];
   /** `completion`: the wrapper, which awaits the completion of the goals. */

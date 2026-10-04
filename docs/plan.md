@@ -1,6 +1,6 @@
 # The plan — extracting the engine into a library
 
-Status: settled 2026-10-04 by Egildo's answers (section 5). This file is the brief for the
+Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 5 are done. This file is the brief for the
 rounds; as each lands, what it made true moves into `architecture.md`, and a ruling worth
 keeping into `decisions/`.
 
@@ -120,6 +120,9 @@ The ProseMirror correspondence, which the library should feel like:
    `playground/`, the SIBAR thread bench ported onto the two packages and the case's schema.
 5. **The editorial review**, as [specs/editorial-review.md](specs/editorial-review.md) says, the second domain: a draft, two reviewers who must both approve, an
    editor who publishes, a deadline written as a line. What does not fit is recorded.
+   Done: `cases/editorial-review/` (schema and three scenarios), the shared scenario resolver in
+   `cases/scenario.ts`, SIBAR's examples in the same shape, the engine's tests of the scenarios and of the
+   five misfits, [misfits.md](misfits.md), and the playground with a domain picker. The engine did not change.
 6. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
 ## 5 · Settled

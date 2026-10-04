@@ -9,7 +9,7 @@ import { keyed } from 'consequitur-render';
 import { drawCard, type Handlers } from './cards.ts';
 import { awaitedFor, keyOfSpec, type Derived, type LineSpec } from './deduce.ts';
 import type { PageState } from './state.ts';
-import { GOAL_LINES } from './ui-schema.ts';
+import { isGoalLine } from './ui-schema.ts';
 
 export interface LedgerHandlers extends Handlers {
   /** A click on a card that is not on one of its buttons or pills. */
@@ -64,7 +64,7 @@ export function createLedger(root: HTMLElement, handlers: LedgerHandlers) {
         const { line, revokedBy } = facts;
         const node = cards.node(line.id);
         if (!node) continue;
-        node.classList.toggle('is-goalline', GOAL_LINES.has(line.gist));
+        node.classList.toggle('is-goalline', isGoalLine(line.gist));
         node.classList.toggle('is-revoked', revokedBy !== undefined);
         node.classList.toggle('is-selected', state.selected === line.id);
         node.classList.toggle('is-lit', state.lit === line.id);

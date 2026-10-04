@@ -8,12 +8,10 @@
 import type { EventLine } from 'consequitur';
 import { foundTick, goalFacts, goalRows, type Handlers } from './cards.ts';
 import { completionOf, keyOfCheck, type Derived, type DockGoal } from './deduce.ts';
+import { domain } from './domain.ts';
 import { h } from './dom.ts';
 import type { PageState } from './state.ts';
 import { checkSentence } from './ui-schema.ts';
-
-/** The most goals that stand besides the wrapper. */
-export const MOST_GOALS = 2;
 
 export interface DockHandlers extends Handlers {
   /** «Imposta un traguardo», or with `completion` «Imposta il completamento». */
@@ -44,12 +42,13 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
     const { goal, line, wrapper, warnings } = dock;
     const composing = state.draft?.goal;
     const lines = derived.thread.lines;
-    const targets = derived.offers.find((offer) => offer.gist === 'set_goal_revoke')?.targets ?? [];
+    const { goalGist, goalRevoke } = domain();
+    const targets = derived.offers.find((offer) => offer.gist === goalRevoke)?.targets ?? [];
     const removable = targets.includes(line.id);
 
     const actions: HTMLElement[] = [];
     if (!composing && removable) {
-      if (derived.offered.has('set_goal')) {
+      if (goalGist !== undefined && derived.offered.has(goalGist)) {
         const change = h('button', { class: 'action is-quiet', type: 'button' }, 'Cambia');
         change.addEventListener('click', () => handlers.onChange(line));
         actions.push(change);
@@ -83,15 +82,16 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
 
   function draw(state: PageState, derived: Derived): void {
     const composing = state.draft?.goal;
+    const { goalGist, goals: config } = domain();
     const standing = derived.goals.filter((g) => !g.wrapper);
     const wrapper = derived.goals.find((g) => g.wrapper);
-    const writes = derived.offered.has('set_goal');
+    const writes = goalGist !== undefined && derived.offered.has(goalGist);
 
     const content: Array<HTMLElement | false> = [];
     if (derived.goals.length === 0) {
       const set = writes && h('button', { class: 'action', type: 'button' }, 'Imposta un traguardo');
       if (set) set.addEventListener('click', () => handlers.onGoal());
-      content.push(h('div', { class: 'dock-empty' }, h('p', null, "Nessun traguardo: l'attività si chiude a mano"), set));
+      content.push(h('div', { class: 'dock-empty' }, h('p', null, config?.empty ?? 'Nessun traguardo'), set));
     } else {
       content.push(
         standing.length > 0 && h('div', { class: 'goal-grid' }, ...standing.map((g) => block(g, derived, state))),
@@ -99,12 +99,12 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
       );
       if (!composing && writes) {
         const row = h('div', { class: 'dock-actions' });
-        if (standing.length < MOST_GOALS) {
+        if (standing.length < (config?.most ?? 1)) {
           const more = h('button', { class: 'action', type: 'button' }, 'Imposta un traguardo');
           more.addEventListener('click', () => handlers.onGoal());
           row.append(more);
         }
-        if (!wrapper && standing.length > 0) {
+        if (config?.wrapper && !wrapper && standing.length > 0) {
           const wrap = h('button', { class: 'action', type: 'button' }, 'Imposta il completamento');
           wrap.addEventListener('click', () => handlers.onGoal('completion'));
           row.append(wrap);
@@ -124,11 +124,13 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
       view.hidden = composing !== undefined && composing !== null && composing.role !== 'completion';
       slot.hidden = !composing;
       // what the blocks read: the goals, the lines their sentences name, what the writer may do, and the goal composed
+      const { goalGist, goalRevoke } = domain();
       const key = JSON.stringify([
+        domain().id,
         derived.goals.map((g) => [g.goal, Object.entries(g.warnings).map(([i, w]) => [i, w.timestamp])]),
         derived.thread.lines.length,
-        derived.offered.has('set_goal'),
-        derived.offers.find((offer) => offer.gist === 'set_goal_revoke')?.targets,
+        goalGist !== undefined && derived.offered.has(goalGist),
+        derived.offers.find((offer) => offer.gist === goalRevoke)?.targets,
         state.pending,
         composing ? [composing.role, composing.checks.map(keyOfCheck)] : null,
       ]);

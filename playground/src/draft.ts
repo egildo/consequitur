@@ -8,16 +8,14 @@ import { inOrder, type Check, type EventLine, type Json, type LineDraft, type Li
 import { dragLink } from './pointing.ts';
 import { keyOfCheck, type Derived } from './deduce.ts';
 import { chip, h } from './dom.ts';
+import { domain, valueIn, type Field, type GistUi, type GoalOutcome, type OutcomeField } from './domain.ts';
 import { renderMarkdown, tokensOf } from './markdown.ts';
 import { pickDocument, pickPerson } from './pickers.ts';
 import type { Draft, GoalForm, Linking, ShownRefusal } from './state.ts';
-import { checkSentence, documentSubject, lineLabel, NOTE_PLACEHOLDER, PEOPLE, STAGES, uiOf, usersOf, writerName, type GistUi, type Preview } from './ui-schema.ts';
+import { checkSentence, documentSubject, lineLabel, NOTE_PLACEHOLDER, uiOf, usersOf, writerName, type Preview } from './ui-schema.ts';
 
 /** The name a goal starts with, and the one it falls back to when left empty. */
 const GOAL_NAME = 'Traguardo';
-
-/** The name the wrapper starts with. */
-const WRAPPER_NAME = 'Completamento';
 
 /** The lines a draft's reference may name: a revoking gist's targets, otherwise the lines in force of the gists it lists. */
 export function candidatesOf(derived: Derived, gist: string): EventLine[] {
@@ -30,26 +28,45 @@ export function candidatesOf(derived: Derived, gist: string): EventLine[] {
 
 let opened = 0;
 
-const OUTCOMES_OF_THE_PAGE = ['closed', 'stage', 'memo'] as const;
+/** What an input with options offers: each value with the words a person reads. */
+const optionsOf = (field: Field): Array<{ value: string; label: string }> =>
+  field.options === 'people' ? domain().people.map((p) => ({ value: p.id, label: p.name })) : (field.options ?? []).map((o) => ({ value: o, label: o }));
+
+/** The value a field of a goal's outcome starts on. */
+function startOf(field: OutcomeField): string {
+  if (field.kind === 'choice') return field.options[0];
+  return field.kind === 'person' ? domain().people[0].id : '';
+}
+
+/** What each field of every outcome of the domain starts on, and, for `given`, what the outcome `doing` was given. */
+function valuesOf(doing: GoalOutcome, given: Payload): Record<string, string> {
+  const values = Object.fromEntries(domain().goals!.outcomes.flatMap((o) => o.with ?? []).map((field) => [field.key, startOf(field)]));
+  for (const field of doing.with ?? []) {
+    const value = given[field.key];
+    if (field.kind === 'person') values[field.key] = usersOf(value)[0] ?? startOf(field);
+    else if (typeof value === 'string' && (field.kind === 'text' || field.options.includes(value))) values[field.key] = value;
+  }
+  return values;
+}
 
 /**
  * A new goal draft. A goal starts with no condition and the first name «Traguardo N»
- * no goal in force holds; the wrapper starts as «Completamento». With `from` the
+ * no goal in force holds; the wrapper starts as its own name. With `from` the
  * draft takes that goal's place: it starts as that goal, and sending it revokes that goal first.
  */
 export function newGoalDraft(derived: Derived, options: { role?: 'completion'; from?: EventLine } = {}): Draft {
   const { from } = options;
+  const config = domain().goals!;
   const role = from ? (from.payload.role === 'completion' ? 'completion' : null) : (options.role ?? null);
   let goal: GoalForm;
   if (from) {
     const { payload } = from;
-    const outcome = payload.with !== null && typeof payload.with === 'object' && !Array.isArray(payload.with) ? payload.with : {};
+    const given = payload.with !== null && typeof payload.with === 'object' && !Array.isArray(payload.with) ? payload.with : {};
+    const doing = config.outcomes.find((o) => o.then === payload.then) ?? config.outcomes[0];
     goal = {
       name: typeof payload.name === 'string' ? payload.name : GOAL_NAME,
-      outcome: OUTCOMES_OF_THE_PAGE.find((then) => then === payload.then) ?? 'closed',
-      stage: typeof outcome.stage === 'string' ? outcome.stage : STAGES[0],
-      to: usersOf(outcome.assignTo)[0] ?? PEOPLE[0].id,
-      text: typeof outcome.text === 'string' ? outcome.text : '',
+      then: doing.then,
+      values: valuesOf(doing, given),
       final: payload.final === true,
       checks: Array.isArray(payload.checks) ? (payload.checks as unknown as Check[]) : [],
       role,
@@ -59,20 +76,25 @@ export function newGoalDraft(derived: Derived, options: { role?: 'completion'; f
     const names = new Set(derived.goals.map((g) => g.goal.name));
     let n = 1;
     while (names.has(`${GOAL_NAME} ${n}`)) n++;
-    goal = { name: role ? WRAPPER_NAME : `${GOAL_NAME} ${n}`, outcome: 'closed', stage: STAGES[0], to: PEOPLE[0].id, text: '', final: false, checks: [], role, replaces: null };
+    const [doing] = config.outcomes;
+    goal = { name: role ? (config.wrapper?.name ?? GOAL_NAME) : `${GOAL_NAME} ${n}`, then: doing.then, values: valuesOf(doing, {}), final: false, checks: [], role, replaces: null };
   }
-  return { id: ++opened, gist: 'set_goal', fields: {}, text: '', ref: null, pick: null, goal };
+  return { id: ++opened, gist: domain().goalGist!, fields: {}, text: '', ref: null, pick: null, goal };
 }
 
 /** A new draft for `gist`, or null when the gist is not composed by hand. */
 export function newDraft(gist: string, derived: Derived, ref?: LineId): Draft | null {
-  if (gist === 'set_goal') return newGoalDraft(derived);
+  if (gist === domain().goalGist) return newGoalDraft(derived);
   const id = ++opened;
   const compose = uiOf(gist)?.compose;
   if (!compose) return null;
-  // a field with options starts on the first, so what its select shows is what is sent
+  // a field starts on what it says, or on what the thread holds, or on its first option, so what it shows is what is sent
   const fields: Record<string, string> = {};
-  for (const { key, options } of compose.fields ?? []) if (options?.length) fields[key] = options[0];
+  for (const field of compose.fields ?? []) {
+    const held = field.current === undefined ? undefined : valueIn(derived.reading.expected, field.current);
+    const start = field.initial ?? (typeof held === 'string' ? held : undefined) ?? optionsOf(field)[0]?.value;
+    if (start !== undefined) fields[field.key] = start;
+  }
   // a reference that must be given starts on the newest candidate, so what the select shows is what is sent
   const given = ref ?? (compose.refer && !compose.refer.optional ? candidatesOf(derived, gist).at(-1)?.id : undefined);
   return { id, gist, fields, text: '', ref: given ?? null, pick: null, goal: null };
@@ -88,15 +110,18 @@ export function payloadOf(draft: Draft, ui: GistUi, writer: Writer): Payload {
     if (text) payload[compose.body] = text;
   }
 
+  const id = writer.slice(writer.indexOf('::') + 2);
   if (compose.atoms) {
     const { users, document } = tokensOf(draft.text);
     if (compose.atoms.mention) {
-      const own = compose.self ? [writer.slice(writer.indexOf('::') + 2)] : [];
+      const own = compose.self === compose.atoms.mention ? [id] : [];
       const list = [...new Set([...own, ...users])];
       if (list.length) payload[compose.atoms.mention] = list;
     }
     if (compose.atoms.document && document !== undefined) payload[compose.atoms.document] = document;
   }
+  // the writer's own name, under a key of its own
+  if (compose.self !== undefined && compose.self !== compose.atoms?.mention) payload[compose.self] = [id];
 
   for (const { key } of compose.fields ?? []) {
     const value = draft.fields[key]?.trim();
@@ -107,17 +132,23 @@ export function payloadOf(draft: Draft, ui: GistUi, writer: Writer): Payload {
     payload[compose.pick.document] = draft.pick.code;
     if (compose.pick.direction && draft.pick.direction) payload[compose.pick.direction] = draft.pick.direction;
   }
+  if (compose.stamp) {
+    const part = payload[compose.stamp.of];
+    if (typeof part === 'string') payload[compose.stamp.key] = `${part}:${id}`;
+  }
   return payload;
 }
 
 /** What a goal posts: its conditions as the checks, its name, what it does when met, and whether that is final. */
 export function goalPayload(goal: GoalForm): Payload {
-  const payload: Payload = { name: goal.name.trim() || GOAL_NAME, then: goal.outcome, checks: goal.checks as unknown as Json };
-  if (goal.outcome === 'stage') payload.with = { stage: goal.stage };
-  if (goal.outcome === 'memo') {
-    const text = goal.text.trim();
-    payload.with = { ...(text ? { text } : {}), assignTo: [goal.to] };
+  const payload: Payload = { name: goal.name.trim() || GOAL_NAME, then: goal.then, checks: goal.checks as unknown as Json };
+  const given: Payload = {};
+  for (const field of domain().goals!.outcomes.find((o) => o.then === goal.then)?.with ?? []) {
+    const value = (goal.values[field.key] ?? '').trim();
+    if (field.kind === 'person') given[field.key] = [value];
+    else if (value !== '') given[field.key] = value;
   }
+  if (Object.keys(given).length > 0) payload.with = given;
   if (goal.final) payload.final = true;
   // a free key: the core reads none of it
   if (goal.role) payload.role = goal.role;
@@ -252,8 +283,10 @@ function lineComposer(first: Draft, ui: GistUi, handlers: ComposerHandlers): Com
 
   const inputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
   const slots: HTMLElement[] = [];
-  for (const { key, label, options } of compose.fields ?? []) {
-    const input = options ? h('select', { class: 'draft-select is-short' }, ...options.map((o) => h('option', { value: o }, o))) : h('input', { type: 'text', class: 'draft-input' });
+  for (const field of compose.fields ?? []) {
+    const { key, label } = field;
+    const options = field.options === undefined ? undefined : optionsOf(field);
+    const input = options ? h('select', { class: 'draft-select is-short' }, ...options.map((o) => h('option', { value: o.value }, o.label))) : h('input', { type: 'text', class: 'draft-input' });
     input.addEventListener(options ? 'change' : 'input', () => handlers.patch({ fields: { ...current.fields, [key]: input.value } }));
     inputs.set(key, input);
     f.controls.push(input);
@@ -445,12 +478,12 @@ function lineComposer(first: Draft, ui: GistUi, handlers: ComposerHandlers): Com
   };
 }
 
-/** What a goal may do when it is met, as the select words it. */
-const OUTCOMES: Array<{ value: GoalForm['outcome']; label: string }> = [
-  { value: 'closed', label: "chiudi l'attività" },
-  { value: 'stage', label: 'passa alla fase…' },
-  { value: 'memo', label: 'scrivi un promemoria a…' },
-];
+/** The control of one field of a goal's outcome: a select for a choice and for a person, an input for a text. */
+function outcomeControl(field: OutcomeField): HTMLInputElement | HTMLSelectElement {
+  if (field.kind === 'text') return h('input', { type: 'text', class: 'draft-input', placeholder: field.placeholder });
+  const options = field.kind === 'choice' ? field.options.map((o) => ({ value: o, label: o })) : domain().people.map((p) => ({ value: p.id, label: p.name }));
+  return h('select', { class: 'draft-select is-short' }, ...options.map((o) => h('option', { value: o.value }, o.label)));
+}
 
 /** The goal being composed: its name, «Fatto quando:» and its conditions, then what it does and whether that is final. */
 function goalComposer(first: Draft, handlers: ComposerHandlers): Composer {
@@ -459,11 +492,11 @@ function goalComposer(first: Draft, handlers: ComposerHandlers): Composer {
   let current = first;
   let conditionsOf: string | undefined;
 
+  const outcomes = domain().goals!.outcomes;
   const name = h('input', { type: 'text', class: 'draft-input' });
-  const outcome = h('select', { class: 'draft-select is-short' }, ...OUTCOMES.map(({ value, label }) => h('option', { value }, label)));
-  const stage = h('select', { class: 'draft-select is-short' }, ...STAGES.map((s) => h('option', { value: s }, s)));
-  const to = h('select', { class: 'draft-select is-short' }, ...PEOPLE.map(({ id, name: person }) => h('option', { value: id }, person)));
-  const text = h('input', { type: 'text', class: 'draft-input', placeholder: 'Testo del promemoria' });
+  const outcome = h('select', { class: 'draft-select is-short' }, ...outcomes.map(({ then, label }) => h('option', { value: then }, label)));
+  // each outcome's fields have a control, shown while the outcome is the one chosen
+  const given = outcomes.flatMap((o) => (o.with ?? []).map((field) => ({ then: o.then, field, control: outcomeControl(field) })));
   const final = h('input', { type: 'checkbox' });
   const hint = h('p', { class: 'draft-hint' }, wrapper ? 'Indica sui traguardi, o sulle schede, che cosa attendere.' : 'Indica sulle schede che cosa attendere.');
   const note = h('p', { class: 'draft-note', hidden: '' });
@@ -472,12 +505,10 @@ function goalComposer(first: Draft, handlers: ComposerHandlers): Composer {
   // each control writes its part of the goal; `sync` writes a control only when it differs, so typing keeps its caret
   const patch = (change: Partial<GoalForm>): void => handlers.patch({ goal: { ...current.goal!, ...change } });
   name.addEventListener('input', () => patch({ name: name.value }));
-  outcome.addEventListener('change', () => patch({ outcome: outcome.value as GoalForm['outcome'] }));
-  stage.addEventListener('change', () => patch({ stage: stage.value }));
-  to.addEventListener('change', () => patch({ to: to.value }));
-  text.addEventListener('input', () => patch({ text: text.value }));
+  outcome.addEventListener('change', () => patch({ then: outcome.value }));
+  for (const { field, control } of given) control.addEventListener(field.kind === 'text' ? 'input' : 'change', () => patch({ values: { ...current.goal!.values, [field.key]: control.value } }));
   final.addEventListener('change', () => patch({ final: final.checked }));
-  f.controls.push(name, outcome, stage, to, text, final);
+  f.controls.push(name, outcome, ...given.map(({ control }) => control), final);
 
   const el = h(
     'section',
@@ -487,7 +518,7 @@ function goalComposer(first: Draft, handlers: ComposerHandlers): Composer {
     h(
       'footer',
       { class: 'goal-draft-foot' },
-      h('div', { class: 'draft-slots' }, h('span', { class: 'draft-label' }, '→ allora:'), outcome, stage, to, text),
+      h('div', { class: 'draft-slots' }, h('span', { class: 'draft-label' }, '→ allora:'), outcome, ...given.map(({ control }) => control)),
       h('label', { class: 'draft-check' }, final, h('span', null, 'Definitivo: non si potrà riaprire')),
       f.preview,
       note,
@@ -507,13 +538,12 @@ function goalComposer(first: Draft, handlers: ComposerHandlers): Composer {
       if (view.note !== null && note.textContent !== view.note) note.textContent = view.note;
 
       write(name, goal.name);
-      write(outcome, goal.outcome);
-      write(stage, goal.stage);
-      write(to, goal.to);
-      write(text, goal.text);
+      write(outcome, goal.then);
+      for (const { then, field, control } of given) {
+        write(control, goal.values[field.key] ?? '');
+        control.hidden = goal.then !== then;
+      }
       if (final.checked !== goal.final) final.checked = goal.final;
-      stage.hidden = goal.outcome !== 'stage';
-      to.hidden = text.hidden = goal.outcome !== 'memo';
       hint.hidden = goal.checks.length > 0;
 
       const lines = view.derived.thread.lines;

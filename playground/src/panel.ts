@@ -5,45 +5,39 @@
 // person reads an id.
 
 import { answer, verify, type Denunciation, type EventLine, type Json, type LineId } from 'consequitur';
-import { gistData, HEAD_DATA, LAWS_DATA, membersIn, POLICY, SCHEMA, valueIn, WARNING_GIST } from './case.ts';
 import { codeView } from './code.ts';
 import type { Derived } from './deduce.ts';
+import { domain, membersIn, valueIn } from './domain.ts';
 import { chip, h } from './dom.ts';
 import { HEAD_CHIP, LAWS_CHIP, type InspectorTab, type PageState } from './state.ts';
-import { gistLabel, lineLabel, metadataLabel, metadataValue, uiIndex, uiOf, userName, writerName } from './ui-schema.ts';
+import { gistLabel, lineLabel, memberSentence, metadataLabel, metadataValue, uiIndex, uiOf, userName, warningGist, writerName } from './ui-schema.ts';
 
 function denunciationSentence(d: Denunciation, lines: EventLine[]): string {
   switch (d.sort) {
     case 'handle': {
       if (d.kind === 'set') {
-        const who = userName(d.member ?? '');
-        return d.expected ? `${who} dovrebbe essere assegnatario` : `${who} non dovrebbe esserlo`;
+        const set = domain().sets[d.key];
+        const words = set ? (d.expected ? set.should : set.shouldNot) : `{member} ${d.expected ? 'dovrebbe essere in' : 'non dovrebbe essere in'} ${d.key}`;
+        return memberSentence(words, d.member ?? '');
       }
       const said = (present: boolean, value: Json | undefined) => (present && value !== undefined ? metadataValue(d.key, value, lines) : 'niente');
       return `${metadataLabel(d.key)}: atteso ${said('expected' in d, d.expected)}, trovato ${said('found' in d, d.found)}`;
     }
     case 'line':
-      return d.gist === WARNING_GIST ? 'Un traguardo deve avvisare che una condizione non può più avverarsi' : `Il traguardo attende la riga «${gistLabel(d.gist)}»`;
+      return d.gist === warningGist() ? 'Un traguardo deve avvisare che una condizione non può più avverarsi' : `Il traguardo attende la riga «${gistLabel(d.gist)}»`;
     case 'thread':
-      return `L'attività non ha una sola «Nuova attività»: ${d.found}`;
+      return domain().words.opening.replace('{found}', String(d.found));
   }
 }
 
 const section = (title: string | null, ...children: Array<Node | null>): HTMLElement =>
   h('section', { class: 'panel-section' }, title && h('h2', { class: 'panel-title' }, title), ...children);
 
-const TABS: Array<{ tab: InspectorTab; label: string }> = [
-  { tab: 'activity', label: 'Attività' },
-  { tab: 'line', label: 'Riga' },
-  { tab: 'schemas', label: 'Schemi' },
-  { tab: 'laws', label: 'Leggi' },
-];
-
 /** The gists of the case, in the order the bar offers them. */
-const GISTS = SCHEMA.gists.map((schema) => schema.gist).sort((a, b) => uiIndex(a) - uiIndex(b));
+const gistsOf = (): string[] => domain().schema.gists.map((schema) => schema.gist).sort((a, b) => uiIndex(a) - uiIndex(b));
 
 /** What the code of a chip shows: the head of the schema, its laws, or one gist's schema. */
-const dataOf = (chip: string): unknown => (chip === HEAD_CHIP ? HEAD_DATA : chip === LAWS_CHIP ? LAWS_DATA : gistData(chip));
+const dataOf = (chip: string): unknown => (chip === HEAD_CHIP ? domain().head : chip === LAWS_CHIP ? domain().lawsData : domain().gistData(chip));
 
 /** The sentence every tab and chip of the laws closes with. */
 const LAWS_NOTE = 'Le leggi giudicano solo le righe scritte da persone.';
@@ -60,7 +54,13 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
   // the «Interfaccia» block stays as the person left it
   let interfaceOpen = false;
 
-  const buttons = TABS.map(({ tab, label }) => {
+  const tabs: Array<{ tab: InspectorTab; label: string }> = [
+    { tab: 'activity', label: domain().words.tab },
+    { tab: 'line', label: 'Riga' },
+    { tab: 'schemas', label: 'Schemi' },
+    { tab: 'laws', label: 'Leggi' },
+  ];
+  const buttons = tabs.map(({ tab, label }) => {
     const button = h('button', { class: 'tab', type: 'button', role: 'tab', 'data-tab': tab }, label);
     button.addEventListener('click', () => handlers.onTab(tab));
     return button;
@@ -73,19 +73,23 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
     const { lines, handles } = thread;
     const answered = state.answered.flat();
     // what the authority answers; the rest, but for the thread's own, its policy leaves
-    const owed = new Set(answer(reading, handles, POLICY));
+    const { words, sets, policy = [] } = domain();
+    const owed = new Set(answer(reading, handles, policy));
     const sentence = (d: Denunciation) =>
       h('li', null, denunciationSentence(d, lines), d.sort !== 'thread' && !owed.has(d) && h('span', { class: 'denunciation-note' }, ' · lasciata senza risposta'));
 
-    const name = valueIn(handles, 'name');
-    const others = Object.entries(handles.value as Record<string, Json>).filter(([key]) => key !== 'name');
-    others.sort(([a], [b]) => (a === 'status' ? -1 : b === 'status' ? 1 : 0));
-    const assignees = membersIn(handles);
+    const name = valueIn(handles, words.nameKey);
+    const others = Object.entries(handles.value as Record<string, Json>).filter(([key]) => key !== words.nameKey);
+    others.sort(([a], [b]) => (a === words.statusKey ? -1 : b === words.statusKey ? 1 : 0));
+    // each set of the domain that has members, under its own name
+    const groups = Object.entries(sets)
+      .map(([set, { label }]) => ({ label, members: membersIn(handles, set) }))
+      .filter(({ members }) => members.length > 0);
 
     return [
       section(
-        "L'attività",
-        h('p', { class: 'activity-name' }, typeof name === 'string' ? name : 'Nessuna attività'),
+        words.subject,
+        h('p', { class: 'activity-name' }, typeof name === 'string' ? name : words.none),
         others.length
           ? h(
               'dl',
@@ -93,9 +97,9 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
               ...others.flatMap(([key, value]) => [h('dt', null, metadataLabel(key)), h('dd', null, metadataValue(key, value, lines))]),
             )
           : null,
-        assignees.length
-          ? h('div', { class: 'panel-group' }, h('p', { class: 'panel-label' }, 'Assegnatari'), h('div', { class: 'chips' }, ...assignees.map((u) => chip(userName(u), 'user'))))
-          : null,
+        ...groups.map(({ label, members }) =>
+          h('div', { class: 'panel-group' }, h('p', { class: 'panel-label' }, label), h('div', { class: 'chips' }, ...members.map((u) => chip(userName(u), 'user')))),
+        ),
         h('p', { class: reading.settled ? 'settled is-ok' : 'settled is-bad' }, reading.settled ? 'In accordo con le righe' : 'Non in accordo'),
       ),
       section(
@@ -149,7 +153,7 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
       button.addEventListener('click', () => handlers.onGist(name));
       return button;
     };
-    const chips = [pill(HEAD_CHIP, 'Testa'), ...GISTS.map((name) => pill(name, gistLabel(name))), pill(LAWS_CHIP, 'Leggi')];
+    const chips = [pill(HEAD_CHIP, 'Testa'), ...gistsOf().map((name) => pill(name, gistLabel(name))), pill(LAWS_CHIP, 'Leggi')];
     const offered = derived.offered.has(gist);
     const who = writerName(state.writer);
     const ui = head || laws ? undefined : uiOf(gist);
@@ -178,11 +182,13 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
   }
 
   const laws = (): HTMLElement[] => [
-    section(null, codeView(LAWS_DATA, 'Le leggi'), h('p', { class: 'panel-empty' }, LAWS_NOTE)),
+    section(null, codeView(domain().lawsData, 'Le leggi'), h('p', { class: 'panel-empty' }, LAWS_NOTE)),
   ];
 
   return {
     render(state: PageState, derived: Derived): void {
+      // the first tab is named for what the domain is about
+      buttons[0].textContent = domain().words.tab;
       for (const button of buttons) button.setAttribute('aria-selected', String(button.dataset.tab === state.tab));
       const content = state.tab === 'activity' ? activity(state) : state.tab === 'line' ? selected(state) : state.tab === 'schemas' ? schemas(state, derived) : laws();
       body.replaceChildren(...content);

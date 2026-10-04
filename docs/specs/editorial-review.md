@@ -1,6 +1,6 @@
 # The editorial review — spec
 
-Status: proposed for round 5 ([plan](../plan.md) §4). The second domain, chosen to be unlike
+Status: settled, built (round 5, [plan](../plan.md) §4). The second domain, chosen to be unlike
 SIBAR's activities, so that what does not fit the engine shows. Built as data in
 `cases/editorial-review/`, tested in the engine's suite, and offered in the playground beside the
 SIBAR activity.
@@ -92,3 +92,30 @@ the thread. Nothing in the page's code names a gist outside the domains' modules
 scenarios and the five misfits; the playground switches domains and runs the review's examples to
 the end in a browser; `docs/misfits.md` records the five with, for each, the smallest engine
 change that would make it fit.
+
+## 7 · As built
+
+Where the build had to choose:
+
+- **A scenario** is a list of steps, `{ writer, gist, payload }`, in `scenarios.json`, a list of
+  `{ id, title, steps }` (`published`, `late`, `left-alone`). A step may carry a `label`, so a later
+  payload can point at the line it posted, `confirmed: true` for a `confirm` law, and `refused:
+  <code>`, for a step the scenario expects the engine to refuse. The last step of «left alone» is
+  that: the scenario ends on the refusal, and the playground leaves it under the bar.
+- **Placeholders**, one resolver for all, `cases/scenario.ts` (the tests and the playground import it,
+  and it knows no gist): `{ "$line": "<label>" }` is the id of the line a step posted; `{ "$goal":
+  "<label>" }` is `goal::` and that id, the writer of what a goal writes; `{ "$find": <check> }` is the
+  first line, in reading order, that the check matches, for a line no step posted. A placeholder may
+  stand wherever a value does, a check's payload and its writer included.
+- **SIBAR is in the same shape**: its two examples are `cases/sibar-activity/scenarios.json`, and its
+  policy, which the playground had inline and the tests had no use for, is `policy.json`, so both read
+  one file.
+- **The domains of the playground** are `playground/src/domains/{sibar,editorial}.ts`, each a
+  `defineDomain` of its case (read with `readSchema` and `BASE_KIT`) and its UI schema. The review has
+  no policy, no document and no command; its goals stand one at a time and have no wrapper; a goal
+  awaits «each reviewer approves the version this card names» (`awaited.by.members`), and the
+  composer of an approval starts on the thread's current version and makes the stamp.
+  `playground/test/fence.test.ts` fails on a gist named anywhere in `src/` but the two modules.
+- **The misfits' tests** show today's behaviour; the third reviewer of the quorum test, `dferri`, is the
+  test's own. The `collect-writer` kind is registered in the test, in a kit, and not in the package.
+- **The engine did not change** this round, as §4 says.

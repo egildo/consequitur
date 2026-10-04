@@ -3,8 +3,9 @@
 A ledger of what was said, and what follows from it.
 
 > Status: the engine is built (`packages/consequitur`), and so are `consequitur-render` and the
-> playground, a sample application on the SIBAR case; the editorial review comes next, see
-> [docs/plan.md](docs/plan.md). The example below is the API as it is.
+> playground, a sample application on two domains, SIBAR's activities and an editorial review; what
+> the second showed that the engine cannot say is in [docs/misfits.md](docs/misfits.md), and the next
+> round is in [docs/plan.md](docs/plan.md). The example below is the API as it is.
 
 A **thread** is an append-only list of **lines**. Each line has a **gist** — what happened — a
 **writer**, a timestamp and a free JSON payload, and its id is the hash of its content and the
@@ -31,9 +32,10 @@ offers(state.lines, 'user::mrossi', schema); // memo, doc_ref, set_goal, close, 
 ## Where to go next
 
 - **Run the playground**: `pnpm install`, then `pnpm dev`, and open http://localhost:5588. It writes
-  a SIBAR activity thread line by line, shows what each line will cause before it is sent, and shows
-  the schema as code. `pnpm build` builds it into `playground/dist`; it is private and never published.
+  a thread line by line, in either domain (a SIBAR activity, an editorial review), shows what each line
+  will cause before it is sent, and shows the schema as code. `pnpm build` builds it into `playground/dist`; it is private and never published.
 - [docs/vision.md](docs/vision.md) — what it is for, and what it is not
 - [docs/principles.md](docs/principles.md) — how it is built
 - [docs/glossary.md](docs/glossary.md) — every name
+- [docs/misfits.md](docs/misfits.md) — what the second domain could not say, and the smallest change for each
 - [docs/plan.md](docs/plan.md) — the extraction, and the open questions
