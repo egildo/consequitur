@@ -1,6 +1,6 @@
 # consequitur-render — spec
 
-Status: proposed for round 4 ([plan](../plan.md) §4). A small toolkit for showing a thread in a
+Status: settled, built (round 4, [plan](../plan.md) §4). A small toolkit for showing a thread in a
 browser, drawn from what the SIBAR bench proved: the screen is a deduction from the thread, its
 reading and the draft; nothing is observed and nothing is read back from the DOM.
 
@@ -31,7 +31,10 @@ export interface LineFacts {
 export function lineFacts(lines: EventLine[], reading: Reading, schema: Schema): LineFacts[];  // reading order
 ```
 
-What a card shows beyond its own line comes from here. A domain's own facts (the signatures on a
+One entry per line, in reading order, whatever the order given. `revokedBy` is a line in force that
+revokes it by a binding of the schema (an earlier line, a gist the binding lists); `goal`,
+`warnings` (empty when none) and `locked` (the goal's `final`) are set on a goal line only,
+`writtenBy` on any line whose writer is `goal::<id>`. What a card shows beyond its own line comes from here. A domain's own facts (the signatures on a
 document) are the application's.
 
 ## 2 · `keyed` — nodes kept by line id
@@ -55,7 +58,7 @@ export function keyed<T>(root: HTMLElement, spec: {
 A node is built once per id and rebuilt only when its key changes; a new item is inserted at its
 place; an item gone is removed; nodes whose id and key are unchanged are never touched, so focus,
 scroll and hover survive. The application sets transient classes (selected, lit) on `node(id)`
-itself, outside the key.
+itself, outside the key, and sets them after every `update`, since a rebuilt node starts without them.
 
 ## 3 · `previewer` — the dry run while composing
 
@@ -81,7 +84,10 @@ export function previewer<D, A>(spec: {
 After `delay` of quiet it runs the draft; an answer arriving for an older key is dropped; while a
 newer draft waits, the last answer is shown with `fresh: false`. An application confirms a send
 only when `current()?.fresh` and its key is the draft's: a person confirms only what they saw.
-No `requestAnimationFrame`: timers only, so a hidden page still settles.
+A draft whose key is the one it already has changes nothing; one that returns to the key of the
+answer on screen shows it fresh again, with no new run; `change(null)` forgets the answer and shows
+null. A run that rejects leaves the answer on screen, stale. No `requestAnimationFrame`: timers
+only, so a hidden page still settles.
 
 ## 4 · `band` — pointing from a slot to a line
 
@@ -90,11 +96,15 @@ export interface Band {
   /** Starts a drag from `from`; resolves with the line id dropped on, or null. */
   drag(from: HTMLElement, event: PointerEvent, spec: {
     candidates: string[];
-    lineOf(element: Element): string | null;   // default: closest('[data-line-id]')
+    lineOf?(element: Element): string | null;  // default: closest('[data-line-id]')
     onTarget(id: string | null): void;         // the candidate under the pointer
   }): Promise<string | null>;
-  /** Draws the line from one element to another (hover), or clears it. */
+  /** Draws the line from one element to another (hover), or clears it. A drag owns the band: a hover leaves it alone. */
   point(from: HTMLElement | null, to: HTMLElement | null): void;
+  /** Draws again where the ends are now: the layer scrolled, or an element moved. */
+  redraw(): void;
+  /** Removes the drawing and the `resize` listener. */
+  dispose(): void;
 }
 
 export function band(layer: HTMLElement): Band;
@@ -104,7 +114,11 @@ The layer is an element over the scroll area; the band appends one `<svg>` to it
 `pointer-events: none`, a path and two dots, and sets `data-mode` (`drag`, `hover`) on it, `hidden`
 when idle. Listeners on `window`, capture phase, so synthetic `PointerEvent`s drive it; the drop
 target is `document.elementFromPoint` at the `pointerup`; Esc cancels. Drawn synchronously on each
-move. Colours come from CSS: the band sets classes, never colours.
+move. Colours come from CSS: the band sets classes, never colours (`band`, `band-path`, `band-dot`,
+`band-start`, `band-end`). The svg covers the layer (inline `position: absolute; inset: 0`, so the
+layer is positioned), and a node with `data-line-id` is met at the edge that faces the other end.
+`onTarget` is called when the candidate under the pointer changes, and with null once the drag ends
+over one. A second drag while one is going, or a button other than the first, resolves null.
 
 ## 5 · Tests
 

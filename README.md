@@ -2,8 +2,8 @@
 
 A ledger of what was said, and what follows from it.
 
-> Status: the engine is built (`packages/consequitur`); `consequitur-render` and the
-> playground come next, see [docs/plan.md](docs/plan.md). The example below is the API as it is.
+> Status: the engine is built (`packages/consequitur`), and so is `consequitur-render`; the
+> playground comes next, see [docs/plan.md](docs/plan.md). The example below is the API as it is.
 
 A **thread** is an append-only list of **lines**. Each line has a **gist** — what happened — a
 **writer**, a timestamp and a free JSON payload, and its id is the hash of its content and the

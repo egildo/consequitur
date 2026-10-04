@@ -44,5 +44,5 @@ those marked *(new)* were proposed by the plan and accepted.
 | **verdict** | One law found broken by a dry run. |
 | **dry run** | A post whose result is kept and not applied: the lines it would add, the rounds, the verdicts. |
 | **policy** *(new)* | Which denunciations an authority leaves unanswered, each entry with an optional condition on the value handle. Conf, outside the thread. A reading that only the policy keeps from settling counts as settled. |
-| **render** | `consequitur-render`: helpers that turn a reading into DOM — nodes kept by line id, the dry-run preview loop. |
+| **render** | `consequitur-render`: helpers that turn a reading into DOM, owning no markup: each line's facts, nodes kept by line id, the dry-run preview loop, the **band** (the line drawn from a slot to a line, or between two elements). |
 | **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. |

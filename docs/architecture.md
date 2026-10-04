@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 3. What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 4. What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -8,7 +8,7 @@ why it is built so is in the [principles](principles.md); the names are in the [
 | Package | Holds | State |
 |---|---|---|
 | `packages/consequitur` | the engine: a thread, a schema, the kinds, the reading, the authority's part | built |
-| `packages/consequitur-render` | a reading made into DOM | empty until round 4 |
+| `packages/consequitur-render` | a reading made into DOM | built |
 | `cases/<domain>/` | a domain's schema and, later, its scenarios; not a package | `sibar-activity` |
 
 The engine has no runtime dependency and imports nothing outside `src/`; `test/thread.test.ts`
@@ -36,6 +36,19 @@ Each file imports only from those above it in this list, apart from `kit.ts`, wh
 kinds and is imported by nothing but `index.ts` and the consumer. The reading (`reduce.ts`) is
 synchronous and pure; only the lines that must be hashed (`stamp`, so `settle`, `dryRun`, `post`)
 are asynchronous.
+
+## The modules of `consequitur-render`
+
+```
+facts.ts       lineFacts: each line's facts, from the lines, the reading and the schema (pure)
+keyed.ts       keyed: nodes kept by line id, rebuilt only when their key changes
+previewer.ts   previewer: the debounced dry run while composing, stale answers dropped
+band.ts        band: the pointer line over a layer, a drag from a slot to a line, a hover
+```
+
+Its one dependency is `consequitur`, for types and `inOrder`. It owns no markup and no style: the
+application builds every node and paints the band's classes. Only `facts.ts` is pure; the other
+three touch the DOM and take it as an argument or from `document`, and their tests run under jsdom.
 
 ## The boundary: mechanics and kinds
 

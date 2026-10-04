@@ -6,5 +6,11 @@
   "description": "A consequitur reading made into DOM.",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "consequitur": "workspace:*"
   }
 }
