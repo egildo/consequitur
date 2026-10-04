@@ -1,0 +1,10 @@
+{
+  "name": "consequitur-render",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "A consequitur reading made into DOM.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

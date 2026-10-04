@@ -105,6 +105,8 @@ The ProseMirror correspondence, which the library should feel like:
 2. **The monorepo, and the engine ported as is.** The workspace, the two package folders, the
    engine and its 250 tests copied from `sibardoc-prototype` into `packages/consequitur`, green
    under `node --test`, with no change of meaning. `consequitur-render` is an empty package.
+   Done: the workspace, the engine and its 250 tests (run by vitest) green in `packages/consequitur`,
+   and an empty `consequitur-render`.
 3. **Generalise.** Handle kinds, rule kinds, law kinds and the kit; the opening gist and the
    record gists named by the schema; `readSchema`; the policy; `diff`; `offers` computing the
    expectations once. SIBAR becomes `cases/sibar-activity/`, and the tests read it.
