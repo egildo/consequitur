@@ -1,8 +1,7 @@
 # Glossary
 
-One entry per name. Status: proposed — the names come from `sibardoc-prototype`, where Egildo
-gave most of them; the ones marked *(new)* are proposals of this plan and are open in
-[plan.md](plan.md).
+One entry per name. Status: settled — the names come from `sibardoc-prototype`, where Egildo gave most of them;
+those marked *(new)* were proposed by the plan and accepted.
 
 | Name | What it is |
 |---|---|
@@ -20,8 +19,11 @@ gave most of them; the ones marked *(new)* are proposals of this plan and are op
 | **revoke** | The rule that takes a line out of force. Always specific: a revoking gist lists the gists it may revoke. |
 | **in force** | Not revoked by a line that is itself in force. |
 | **handles** | The values on the record that the thread explains, outside the thread so they can be listed and searched. |
-| **value handle** *(new)* | A handle that holds one JSON value under a key. In SIBAR, a metadata key. |
-| **set handle** *(new)* | A handle that holds a set of names. In SIBAR, the assignees. |
+| **handle kind** | The code behind a sort of handle: its empty form, how expectations of it are compared with it, how a denunciation of it is answered. Two ship with the library: |
+| **value handle** | A handle that holds one JSON value under a key. In SIBAR, a metadata key. |
+| **set handle** | A handle that holds a set of names. In SIBAR, the assignees. |
+| **kit** | The handle, rule and law kinds a schema may use. `BASE_KIT` ships with the library. |
+| **join**, **leave** | The rules that put names into a set handle, and take the writer out of one. In SIBAR, assign and release. |
 | **expectation** | What the thread says a handle should be, or that a line should exist. |
 | **reading** | The result of reducing a thread against its handles: lines in force, expectations, goals, denunciations. |
 | **denunciation** | One difference between an expectation and the handles. |
@@ -37,4 +39,5 @@ gave most of them; the ones marked *(new)* are proposals of this plan and are op
 | **verdict** | One law found broken by a dry run. |
 | **dry run** | A post whose result is kept and not applied: the lines it would add, the rounds, the verdicts. |
 | **policy** *(new)* | Which denunciations an authority leaves unanswered. Conf, outside the thread. |
-| **playground** | The development page: a domain's schema edited live, a thread written by hand, its reading inspected. |
+| **render** | `consequitur-render`: helpers that turn a reading into DOM — nodes kept by line id, the dry-run preview loop. |
+| **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. |

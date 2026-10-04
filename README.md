@@ -1,4 +1,4 @@
-# sequitur
+# consequitur
 
 A ledger of what was said, and what follows from it.
 
@@ -10,14 +10,14 @@ A **thread** is an append-only list of **lines**. Each line has a **gist** — w
 **writer**, a timestamp and a free JSON payload, and its id is the hash of its content and the
 line before it. A **schema**, written as JSON, says who may write each gist, when, and what it
 implies: a value on the record, someone joining or leaving a set, another line taken out of
-force. sequitur reads the thread, compares what it implies with what the record holds, and
+force. consequitur reads the thread, compares what it implies with what the record holds, and
 answers every difference by writing a line. **Goals** wait for lines and write one when met;
 **laws** judge what a line would cause; a **dry run** tells you before you send it.
 
 ```ts
-import { readSchema, BASE_KINDS, emptyState, dryRun, post, offers } from '@egildo/sequitur';
+import { readSchema, BASE_KINDS, emptyState, dryRun, post, offers } from 'conconsequitur';
 
-const { schema } = readSchema(activitySchema, BASE_KINDS);
+const { schema } = readSchema(activitySchema, BASE_KIT);
 let state = emptyState(schema);
 
 const draft = { gist: 'create', writer: 'user::mrossi', payload: { name: 'Richiesta parere', assignTo: ['mrossi'] } };

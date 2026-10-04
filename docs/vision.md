@@ -1,8 +1,8 @@
 # Vision
 
-sequitur keeps a ledger of what was said, and deduces what follows.
+consequitur keeps a ledger of what was said, and deduces what follows.
 
-Status: proposed. Nothing in this repository is built yet; the engine exists in
+Status: settled. Nothing in this repository is built yet; the engine exists in
 `sibardoc-prototype` (`packages/core/src/thread/`) and is extracted here by the plan in
 [plan.md](plan.md).
 
@@ -13,7 +13,7 @@ request for approval, a ticket, a purchase, a case file. Every client meeting ad
 status and a function that changes them, and the record grows into something nobody can
 explain.
 
-sequitur replaces that with a **thread**: an append-only list of **lines**, each of one
+consequitur replaces that with a **thread**: an append-only list of **lines**, each of one
 **gist** (what happened), written by a **writer**, chained by hash. What the record *is* — its
 name, its status, whom it concerns — is never written directly: it is **deduced** from the lines
 in force by **rules** that a **schema** binds to each gist. The engine compares what the thread
@@ -61,5 +61,5 @@ code this library exists to remove.
 
 ## When this and the principles collide
 
-This document decides what sequitur is and what it is for; the [design principles](principles.md)
+This document decides what consequitur is and what it is for; the [design principles](principles.md)
 decide how it is built. Neither is overridden by a plan, a spec or convenience.

@@ -1,7 +1,7 @@
 # Design principles
 
-Status: proposed. Each principle says what it forbids and where it comes from. The
-[vision](vision.md) decides what sequitur is and what it is for; these decide how it is built.
+Status: settled. Each principle says what it forbids and where it comes from. The
+[vision](vision.md) decides what consequitur is and what it is for; these decide how it is built.
 
 ## The thread is the only truth
 
