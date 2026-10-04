@@ -15,7 +15,7 @@ answers every difference by writing a line. **Goals** wait for lines and write o
 **laws** judge what a line would cause; a **dry run** tells you before you send it.
 
 ```ts
-import { readSchema, BASE_KINDS, emptyState, dryRun, post, offers } from 'conconsequitur';
+import { readSchema, BASE_KIT, emptyState, dryRun, post, offers } from 'consequitur';
 
 const { schema } = readSchema(activitySchema, BASE_KIT);
 let state = emptyState(schema);
