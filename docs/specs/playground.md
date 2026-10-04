@@ -27,8 +27,8 @@ here, not reinvented: every behaviour it has, it keeps.
 - **Styles**: there is no SIBAR CSS chain. The playground's stylesheet defines its own custom
   properties (a neutral ramp, the five hues of the card kinds and states, spacing) with the values
   the bench used, as one `:root` block, and the rest follows. The ground is the lightest grey.
-- **«Schemi»** shows the whole schema of the case as code — its head, each gist, the laws — with
-  the gist chips as now, and «Testa» for the head.
+- **«Schemi»** shows the whole schema of the case as code — its head, each gist, the laws — as chips:
+  «Testa» for the head, one per gist, and «Leggi» for the laws.
 - The `UI schema` (`ui-schema.ts`: labels, cards, compose, awaited, the Italian words) stays the
   playground's.
 
@@ -53,17 +53,20 @@ Where the build had to choose:
 
 - **The schema as code** reads the same file the engine does: `case.ts` imports
   `cases/sibar-activity/schema.json` as text (`?raw`), parses it once, hands it to `readSchema`, and cuts
-  the head, each gist and the laws out of it for the inspector. «Schemi» has the chips «Testa» and one
-  per gist; the laws keep their own tab, «Leggi», so the four tabs stay.
+  the head, each gist and the laws out of it for the inspector. «Schemi» has the chips «Testa», one per
+  gist, and «Leggi» (the laws, as code); the laws keep their own tab, «Leggi», too, so the four tabs stay.
 - **Verdicts in Italian**: `LAW_WORDS` in `ui-schema.ts`, keyed by law and, for `keeps-set`, by
   the verdict's `set`; a law or a set the table lacks says so in general words.
 - **The policy** is one entry in `case.ts`, passed to `post` and `dryRun`. The panel lists the
   denunciations it leaves, marked «lasciata senza risposta», beside «In accordo con le righe».
 - **Render** takes the place of the bench's ledger cache (`keyed`), preview scheduling (`previewer`),
-  band (`band`, with a thin adapter in `pointing.ts` that knows whether a drag holds it, since the
-  band does not say) and the per-line reading (`lineFacts`, which also yields the goals the dock
+  band (`band`, with a thin adapter in `pointing.ts`; whether a drag holds the band is `band.dragging`,
+  and only the `is-linking` class of the page's body is the page's own) and the per-line reading (`lineFacts`, which also yields the goals the dock
   draws and the warnings of each). What render lacks is on the page: the application's own facts
   (a document's signatures), the actions on a card, and what a goal being composed may await.
+- **A failed preview** is heard through the previewer's `onError`: the draft's preview block says
+  «Anteprima non disponibile: …» with the error's message, and, the answer on screen not being fresh,
+  nothing can be confirmed on it.
 - **Styles** are one file, `style.css`: a `:root` block with the neutral ramp, the five hues and the
   spacing, then the rules. No font is fetched; Inter is named first and the system's sans follows.
 

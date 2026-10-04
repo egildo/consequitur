@@ -4,6 +4,8 @@
 // and it sets classes and `data-mode`, never colours: the application's CSS paints it.
 
 export interface Band {
+  /** Whether a drag holds the band, from its start to its end. */
+  readonly dragging: boolean;
   /** Starts a drag from `from`; resolves with the line id dropped on, or null. */
   drag(
     from: HTMLElement,
@@ -70,6 +72,7 @@ export function band(layer: HTMLElement): Band {
   let from: Anchor | undefined;
   let to: Anchor | undefined;
   let mode: Mode | undefined;
+  let dragging = false;
 
   function draw(): void {
     if (!from || !to) return;
@@ -108,6 +111,10 @@ export function band(layer: HTMLElement): Band {
   window.addEventListener('resize', draw);
 
   return {
+    get dragging() {
+      return dragging;
+    },
+
     drag(handle, event, spec) {
       if (mode === 'drag' || event.button !== 0) return Promise.resolve(null);
       event.preventDefault();
@@ -119,6 +126,7 @@ export function band(layer: HTMLElement): Band {
       };
 
       let over: string | null = null;
+      dragging = true;
       show(handle, { x: event.clientX, y: event.clientY }, 'drag');
 
       return new Promise((resolve) => {
@@ -127,6 +135,7 @@ export function band(layer: HTMLElement): Band {
           window.removeEventListener('pointerup', up, true);
           window.removeEventListener('pointercancel', cancel, true);
           window.removeEventListener('keydown', escape, true);
+          dragging = false;
           clear();
           if (over !== null) spec.onTarget(null);
           resolve(picked);

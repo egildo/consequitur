@@ -167,10 +167,11 @@ const verdictItems = (verdicts: Preview['verdicts']): HTMLElement[] =>
 
 /** The block under a draft's header, and what it holds for a preview. */
 function drawPreview(element: HTMLElement, preview: Preview | null): void {
-  const empty = !preview || (preview.unsent === undefined && preview.happens.length === 0 && preview.verdicts.length === 0);
+  const empty = !preview || (preview.failed === undefined && preview.unsent === undefined && preview.happens.length === 0 && preview.verdicts.length === 0);
   element.hidden = empty;
   element.classList.toggle('is-stale', preview?.stale === true);
   if (empty) return element.replaceChildren();
+  if (preview.failed !== undefined) return element.replaceChildren(h('p', { class: 'preview-unsent' }, `Anteprima non disponibile: ${preview.failed}`));
   if (preview.unsent !== undefined) return element.replaceChildren(h('p', { class: 'preview-unsent' }, `Non ancora inviabile: ${preview.unsent}`));
   element.replaceChildren(
     h('p', { class: 'preview-label' }, 'Succederà:'),

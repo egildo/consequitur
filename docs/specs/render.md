@@ -78,6 +78,8 @@ export function previewer<D, A>(spec: {
   run(draft: D): Promise<A>;
   /** Called with the answer to show, or null; `fresh` false while a newer draft waits. */
   show(answer: A | null, fresh: boolean): void;
+  /** Called when the run of the draft now on screen rejects. */
+  onError?(error: unknown, draft: D): void;
 }): Previewer<D, A>;
 ```
 
@@ -86,13 +88,18 @@ newer draft waits, the last answer is shown with `fresh: false`. An application 
 only when `current()?.fresh` and its key is the draft's: a person confirms only what they saw.
 A draft whose key is the one it already has changes nothing; one that returns to the key of the
 answer on screen shows it fresh again, with no new run; `change(null)` forgets the answer and shows
-null. A run that rejects leaves the answer on screen, stale. No `requestAnimationFrame`: timers
+null. A run that rejects leaves the answer on screen, stale, and calls `onError` with the error and the
+draft: swallowing a failed dry run was ruled out, so `onError` is how an application hears it (a rejection
+with no `onError` is dropped, silently). Only the draft now on screen is heard of: a run whose draft has
+moved on, been closed or disposed is dropped as its answer would be. No `requestAnimationFrame`: timers
 only, so a hidden page still settles.
 
 ## 4 · `band` — pointing from a slot to a line
 
 ```ts
 export interface Band {
+  /** Whether a drag holds the band, from its start to its end. Read only. */
+  readonly dragging: boolean;
   /** Starts a drag from `from`; resolves with the line id dropped on, or null. */
   drag(from: HTMLElement, event: PointerEvent, spec: {
     candidates: string[];
@@ -117,8 +124,10 @@ target is `document.elementFromPoint` at the `pointerup`; Esc cancels. Drawn syn
 move. Colours come from CSS: the band sets classes, never colours (`band`, `band-path`, `band-dot`,
 `band-start`, `band-end`). The svg covers the layer (inline `position: absolute; inset: 0`, so the
 layer is positioned), and a node with `data-line-id` is met at the edge that faces the other end.
-`onTarget` is called when the candidate under the pointer changes, and with null once the drag ends
-over one. A second drag while one is going, or a button other than the first, resolves null.
+`dragging` is true from the call of `drag` to the end of the drag (a drop, Esc, a `pointercancel`), so an
+application asks the band whether one holds it and keeps no flag of its own. `onTarget` is called when
+the candidate under the pointer changes, and with null once the drag ends over one. A second drag while
+one is going, or a button other than the first, resolves null.
 
 ## 5 · Tests
 

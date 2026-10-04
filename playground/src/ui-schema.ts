@@ -419,6 +419,8 @@ export const verdictsOf = (verdicts: Verdict[], lines: EventLine[]): Array<{ str
 
 /** What a draft would cause, as the page draws it under the draft's header. */
 export interface Preview {
+  /** The dry run failed: what the error says. Nothing else is drawn then, and nothing is confirmed on it. */
+  failed?: string;
   /** The draft cannot be sent yet: the refusal's words. Nothing else is drawn then. */
   unsent?: string;
   /** One sentence per line the post would add after the draft's own. */

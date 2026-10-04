@@ -37,6 +37,44 @@ describe('band', () => {
     expect(svg().querySelectorAll('circle')).toHaveLength(2);
   });
 
+  describe('dragging', () => {
+    it('is false at rest and during a hover, true from the start of a drag to its end', async () => {
+      expect(b.dragging).toBe(false);
+      b.point(slot, cards.b);
+      expect(b.dragging).toBe(false);
+      const done = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
+      expect(b.dragging).toBe(true);
+      window.dispatchEvent(pointer('pointermove', 20, 10));
+      expect(b.dragging).toBe(true);
+      window.dispatchEvent(pointer('pointerup', 20, 10));
+      expect(b.dragging).toBe(false);
+      await done;
+      expect(b.dragging).toBe(false);
+    });
+
+    it('is false again after Esc and after a pointercancel, and a refused drag never raises it', async () => {
+      const first = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
+      expect(b.dragging).toBe(true);
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      expect(b.dragging).toBe(false);
+      await first;
+      const second = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
+      window.dispatchEvent(pointer('pointercancel', 10, 10));
+      expect(b.dragging).toBe(false);
+      await second;
+      await b.drag(slot, pointer('pointerdown', 10, 10, { button: 2 }), spec(['a']));
+      expect(b.dragging).toBe(false);
+    });
+
+    it('stays true while a drag is going and a second one is refused', async () => {
+      const done = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
+      expect(await b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']))).toBeNull();
+      expect(b.dragging).toBe(true);
+      window.dispatchEvent(pointer('pointerup', 20, 10));
+      await done;
+    });
+  });
+
   describe('drag', () => {
     it('draws to the pointer on each move, in drag mode, and reports the candidate under it', async () => {
       const done = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a', 'c']));

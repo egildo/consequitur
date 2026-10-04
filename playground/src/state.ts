@@ -50,6 +50,9 @@ export interface Linking {
 /** The «Testa» chip of «Schemi»: not a gist, so a name no gist can have. */
 export const HEAD_CHIP = '(testa)';
 
+/** The «Leggi» chip of «Schemi»: the schema's laws, which are no gist either. */
+export const LAWS_CHIP = '(leggi)';
+
 /** The tabs of the inspector. */
 export type InspectorTab = 'activity' | 'line' | 'schemas' | 'laws';
 
@@ -69,7 +72,7 @@ export interface PageState {
   linking: Linking | null;
   /** Which kinds of line the ledger shows besides the people's. */
   show: { records: boolean; goals: boolean };
-  /** The inspector's tab, and the chip its «Schemi» tab shows: a gist, or `HEAD_CHIP`. */
+  /** The inspector's tab, and the chip its «Schemi» tab shows: a gist, `HEAD_CHIP` or `LAWS_CHIP`. */
   tab: InspectorTab;
   gist: string;
   /** A post or an example is in flight: the page waits for it. */

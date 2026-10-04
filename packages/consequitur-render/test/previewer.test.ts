@@ -15,11 +15,13 @@ describe('previewer', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     shown.length = 0;
+    failed.length = 0;
   });
   afterEach(() => vi.useRealTimers());
 
-  const make = (run: (draft: string) => Promise<string>, delay?: number) =>
-    previewer<string, string>({ delay, keyOf: (d) => d.toLowerCase(), run, show: (answer, fresh) => shown.push([answer, fresh]) });
+  const failed: Array<[unknown, string]> = [];
+  const make = (run: (draft: string) => Promise<string>, delay?: number, onError?: (error: unknown, draft: string) => void) =>
+    previewer<string, string>({ delay, keyOf: (d) => d.toLowerCase(), run, show: (answer, fresh) => shown.push([answer, fresh]), onError });
 
   it('runs a draft only after the default 250 ms of quiet', async () => {
     const { pending, run } = control();
@@ -153,6 +155,64 @@ describe('previewer', () => {
     pending[1].reject(new Error('down'));
     await vi.advanceTimersByTimeAsync(0);
     expect(p.current()).toEqual({ key: 'a', answer: 'one', fresh: false });
+  });
+
+  it('tells onError of a run that rejects, with the error and the draft, and the answer on screen stays stale', async () => {
+    const { pending, run } = control();
+    const p = make(run, 10, (error, draft) => failed.push([error, draft]));
+    p.change('a');
+    await vi.advanceTimersByTimeAsync(10);
+    pending[0].resolve('one');
+    await vi.advanceTimersByTimeAsync(0);
+    p.change('B');
+    await vi.advanceTimersByTimeAsync(10);
+    const down = new Error('down');
+    pending[1].reject(down);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(failed).toEqual([[down, 'B']]);
+    expect(p.current()?.fresh).toBe(false);
+    expect(shown.at(-1)).toEqual(['one', false]);
+  });
+
+  it('tells onError of a failure with no answer on screen, and shows nothing', async () => {
+    const { pending, run } = control();
+    const p = make(run, 10, (error, draft) => failed.push([error, draft]));
+    p.change('a');
+    await vi.advanceTimersByTimeAsync(10);
+    pending[0].reject(new Error('down'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(failed).toHaveLength(1);
+    expect(p.current()).toBeNull();
+    expect(shown).toEqual([]);
+  });
+
+  it('does not tell onError of a run whose draft has moved on, or been closed or disposed', async () => {
+    const { pending, run } = control();
+    const p = make(run, 10, (error, draft) => failed.push([error, draft]));
+    p.change('a');
+    await vi.advanceTimersByTimeAsync(10);
+    p.change('b');
+    pending[0].reject(new Error('old'));
+    await vi.advanceTimersByTimeAsync(10);
+    p.change(null);
+    pending[1].reject(new Error('closed'));
+    await vi.advanceTimersByTimeAsync(0);
+    p.change('c');
+    await vi.advanceTimersByTimeAsync(10);
+    p.dispose();
+    pending[2].reject(new Error('disposed'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(failed).toEqual([]);
+  });
+
+  it('swallows a rejected run when no onError is given', async () => {
+    const { pending, run } = control();
+    const p = make(run, 10);
+    p.change('a');
+    await vi.advanceTimersByTimeAsync(10);
+    pending[0].reject(new Error('down'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(p.current()).toBeNull();
   });
 
   it('dispose stops the wait and drops what is in flight', async () => {

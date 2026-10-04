@@ -7,15 +7,14 @@ import type { LineId } from 'consequitur';
 import type { Linking } from './state.ts';
 
 let band: Band | undefined;
-let dragging = false;
 
 /** Puts the band over `layer`, which must be positioned. */
 export function mountBand(layer: HTMLElement): void {
   band = makeBand(layer);
 }
 
-/** Whether a drag holds the band. */
-export const isDragging = (): boolean => dragging;
+/** Whether a drag holds the band: the band says so. */
+export const isDragging = (): boolean => band?.dragging === true;
 
 /** Draws the band from one element to another, or clears it. */
 export const point = (from: HTMLElement | null, to: HTMLElement | null): void => band?.point(from, to);
@@ -29,15 +28,13 @@ export const redraw = (): void => band?.redraw();
  * anywhere else, or on Esc, nothing is picked.
  */
 export async function dragLink(handle: HTMLElement, event: PointerEvent, candidates: LineId[], link: (linking: Linking | null) => void, pick: (id: LineId) => void): Promise<void> {
-  if (!band || dragging || event.button !== 0) return;
-  dragging = true;
+  if (!band || band.dragging || event.button !== 0) return;
   document.body.classList.add('is-linking');
   link({ candidates, target: null });
   let picked: LineId | null = null;
   try {
     picked = await band.drag(handle, event, { candidates, onTarget: (target) => link({ candidates, target }) });
   } finally {
-    dragging = false;
     document.body.classList.remove('is-linking');
     link(null);
   }

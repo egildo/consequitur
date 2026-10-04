@@ -9,7 +9,7 @@ import { gistData, HEAD_DATA, LAWS_DATA, membersIn, POLICY, SCHEMA, valueIn, WAR
 import { codeView } from './code.ts';
 import type { Derived } from './deduce.ts';
 import { chip, h } from './dom.ts';
-import { HEAD_CHIP, type InspectorTab, type PageState } from './state.ts';
+import { HEAD_CHIP, LAWS_CHIP, type InspectorTab, type PageState } from './state.ts';
 import { gistLabel, lineLabel, metadataLabel, metadataValue, uiIndex, uiOf, userName, writerName } from './ui-schema.ts';
 
 function denunciationSentence(d: Denunciation, lines: EventLine[]): string {
@@ -42,8 +42,11 @@ const TABS: Array<{ tab: InspectorTab; label: string }> = [
 /** The gists of the case, in the order the bar offers them. */
 const GISTS = SCHEMA.gists.map((schema) => schema.gist).sort((a, b) => uiIndex(a) - uiIndex(b));
 
-/** What the code of a chip shows: the head of the schema, or one gist's schema. */
-const dataOf = (chip: string): unknown => (chip === HEAD_CHIP ? HEAD_DATA : gistData(chip));
+/** What the code of a chip shows: the head of the schema, its laws, or one gist's schema. */
+const dataOf = (chip: string): unknown => (chip === HEAD_CHIP ? HEAD_DATA : chip === LAWS_CHIP ? LAWS_DATA : gistData(chip));
+
+/** The sentence every tab and chip of the laws closes with. */
+const LAWS_NOTE = 'Le leggi giudicano solo le righe scritte da persone.';
 
 export interface PanelHandlers {
   onTab(tab: InspectorTab): void;
@@ -139,15 +142,17 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
   function schemas(state: PageState, derived: Derived): HTMLElement[] {
     const { gist } = state;
     const head = gist === HEAD_CHIP;
+    const laws = gist === LAWS_CHIP;
     const pill = (name: string, label: string) => {
-      const button = h('button', { class: 'gist-chip', type: 'button', 'aria-pressed': String(name === gist) }, h('span', { class: 'gist-name' }, name === HEAD_CHIP ? 'schema' : name), h('span', { class: 'gist-label' }, label));
+      const shown = name === HEAD_CHIP ? 'schema' : name === LAWS_CHIP ? 'laws' : name;
+      const button = h('button', { class: 'gist-chip', type: 'button', 'aria-pressed': String(name === gist) }, h('span', { class: 'gist-name' }, shown), h('span', { class: 'gist-label' }, label));
       button.addEventListener('click', () => handlers.onGist(name));
       return button;
     };
-    const chips = [pill(HEAD_CHIP, 'Testa'), ...GISTS.map((name) => pill(name, gistLabel(name)))];
+    const chips = [pill(HEAD_CHIP, 'Testa'), ...GISTS.map((name) => pill(name, gistLabel(name))), pill(LAWS_CHIP, 'Leggi')];
     const offered = derived.offered.has(gist);
     const who = writerName(state.writer);
-    const ui = head ? undefined : uiOf(gist);
+    const ui = head || laws ? undefined : uiOf(gist);
     const details = h(
       'details',
       { class: 'interface' },
@@ -163,15 +168,17 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
         null,
         head
           ? h('p', { class: 'panel-label' }, 'Le parole dello schema: come inizia, chi scrive le righe di sistema, gli insiemi, quali righe sono giudicate.')
-          : h('p', { class: offered ? 'offered is-yes' : 'offered is-no' }, offered ? `Offerta adesso a ${who}` : `Non offerta adesso a ${who}`),
-        codeView(dataOf(gist), head ? 'La testa dello schema' : `Schema di ${gist}`),
+          : laws
+            ? h('p', { class: 'panel-label' }, LAWS_NOTE)
+            : h('p', { class: offered ? 'offered is-yes' : 'offered is-no' }, offered ? `Offerta adesso a ${who}` : `Non offerta adesso a ${who}`),
+        codeView(dataOf(gist), head ? 'La testa dello schema' : laws ? 'Le leggi dello schema' : `Schema di ${gist}`),
       ),
       ui ? details : null,
     ].filter((part): part is HTMLElement => part !== null);
   }
 
   const laws = (): HTMLElement[] => [
-    section(null, codeView(LAWS_DATA, 'Le leggi'), h('p', { class: 'panel-empty' }, 'Le leggi giudicano solo le righe scritte da persone.')),
+    section(null, codeView(LAWS_DATA, 'Le leggi'), h('p', { class: 'panel-empty' }, LAWS_NOTE)),
   ];
 
   return {

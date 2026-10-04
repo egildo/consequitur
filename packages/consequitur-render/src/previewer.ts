@@ -18,6 +18,8 @@ export function previewer<D, A>(spec: {
   run(draft: D): Promise<A>;
   /** Called with the answer to show, or null; `fresh` false while a newer draft waits. */
   show(answer: A | null, fresh: boolean): void;
+  /** Called when the run of the draft now on screen rejects; the one way an application hears it. */
+  onError?(error: unknown, draft: D): void;
 }): Previewer<D, A> {
   const delay = spec.delay ?? 250;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -30,8 +32,10 @@ export function previewer<D, A>(spec: {
     let answer: A;
     try {
       answer = await spec.run(draft);
-    } catch {
-      // no answer: the one on screen stays, and stays stale, so nothing is confirmed on it
+    } catch (error) {
+      // no answer: the one on screen stays, and stays stale, so nothing is confirmed on it; the
+      // application hears of it only while the draft is the one on screen, as it would of an answer
+      if (run === runs) spec.onError?.(error, draft);
       return;
     }
     if (run !== runs) return;

@@ -168,6 +168,8 @@ const previews = previewer<LineDraft, Preview>({
   keyOf: (line) => JSON.stringify([line, state.thread.lines.length]),
   run: async (line) => previewOf(await dryRun(state.thread, line, SCHEMA, new Date().toISOString(), { policy: POLICY }), line.gist),
   show: (answer, fresh) => update({ preview: answer && (fresh ? answer : dim(answer)) }),
+  // a failed dry run is said in the draft's preview block; what is on screen is never confirmed, as it is not fresh
+  onError: (error, line) => update({ preview: { gist: line.gist, failed: error instanceof Error ? error.message : String(error), happens: [], verdicts: [], confirm: false } }),
 });
 
 // ── the draft ──
