@@ -9,6 +9,7 @@ why it is built so is in the [principles](principles.md); the names are in the [
 |---|---|---|
 | `packages/consequitur` | the engine: a thread, a schema, the kinds, the reading, the authority's part | built |
 | `packages/consequitur-render` | a reading made into DOM | built |
+| `playground/` | the sample application: the SIBAR activity bench, built only on the two packages and the case; private, never published | built |
 | `cases/<domain>/` | a domain's schema and, later, its scenarios; not a package | `sibar-activity` |
 
 The engine has no runtime dependency and imports nothing outside `src/`; `test/thread.test.ts`
@@ -49,6 +50,23 @@ band.ts        band: the pointer line over a layer, a drag from a slot to a line
 Its one dependency is `consequitur`, for types and `inOrder`. It owns no markup and no style: the
 application builds every node and paints the band's classes. Only `facts.ts` is pure; the other
 three touch the DOM and take it as an argument or from `document`, and their tests run under jsdom.
+
+## The playground
+
+```
+case.ts        the case read with BASE_KIT (`?raw` import of cases/sibar-activity/schema.json), the policy, the pieces shown as code
+ui-schema.ts   the application's words: labels, cards, compose, awaited, the Italian sentences, verdicts by law and set
+deduce.ts      the writer's offers, each line's actions, what a goal being composed may await (lineFacts feeds it)
+ledger.ts      the cards, in `keyed`; cards.ts draws one; dock.ts the goals; draft.ts the composer; panel.ts the inspector
+pointing.ts    the band over the ledger's column: hover, and a drag from a slot
+state.ts, main.ts   one PageState, one `update`, and `send`, which is the only place a line is posted
+```
+
+It is plain TypeScript and DOM, with `markdown-it` for the texts, Vite for its dev server (port 5588)
+and its build. The screen is a deduction: `main.ts` holds one `PageState`; `update` makes the next and
+draws it, `previewer` runs the dry run of the open draft, and nothing is read back from the DOM but the
+composer's own inputs. It imports the two packages through their public entry and reads the case's file;
+the engine and render know nothing of it.
 
 ## The boundary: mechanics and kinds
 

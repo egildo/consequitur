@@ -4,6 +4,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "dev": "pnpm --filter consequitur-playground dev",
+    "build": "pnpm --filter consequitur-playground build",
     "typecheck": "tsc",
     "test": "pnpm -r --if-present test"
   },

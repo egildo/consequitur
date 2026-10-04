@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banco delle attività · consequitur</title>
+  </head>
+  <body class="thread-page">
+    <header class="bar">
+      <label class="bar-field">
+        <span>Scrivo come</span>
+        <select id="writer"></select>
+      </label>
+      <button id="reset" type="button" class="bar-button">Azzera</button>
+      <button id="example" type="button" class="bar-button">Carica l'esempio</button>
+      <button id="example-opinion" type="button" class="bar-button">Esempio: parere e firme</button>
+      <label class="bar-field bar-check">
+        <input id="records" type="checkbox" />
+        <span>Mostra le righe di sistema</span>
+      </label>
+      <label class="bar-field bar-check">
+        <input id="goals" type="checkbox" />
+        <span>Mostra i traguardi</span>
+      </label>
+    </header>
+    <div class="layout">
+      <main id="column" class="column">
+        <div id="scroll" class="scroll">
+          <div id="editor-wrap" class="editor-wrap">
+            <div id="editor" class="editor">
+              <div id="ledger" class="ledger" tabindex="0" aria-label="Le righe dell'attività"></div>
+            </div>
+          </div>
+        </div>
+        <section id="dock" class="dock" aria-label="I traguardi"></section>
+        <footer class="offers-bar">
+          <p id="notice" class="notice" role="status"></p>
+          <div id="offers" class="offers"></div>
+        </footer>
+      </main>
+      <aside id="panel" class="panel" aria-label="Stato dell'attività"></aside>
+    </div>
+    <dialog id="quit-dialog" class="dialog">
+      <form method="dialog">
+        <p id="quit-text" class="dialog-text"></p>
+        <div class="dialog-actions">
+          <button type="submit" value="quit" class="offer">Esci</button>
+          <button type="submit" value="stay" class="offer">Resta</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

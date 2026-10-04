@@ -1,6 +1,6 @@
 # The playground — spec
 
-Status: proposed for round 4 ([plan](../plan.md) §4). A sample application: what a real screen
+Status: settled, built (round 4, [plan](../plan.md) §4). A sample application: what a real screen
 built on consequitur looks like. It is private, never published, and built **only** on
 `consequitur`, `consequitur-render` and the domain's files in `cases/`. Its UI schema, its words
 and its styles are its own.
@@ -46,3 +46,25 @@ the thread written by hand writer by writer, refusals in words, the dry-run prev
 «Conferma e invia», the band filling a slot, the goal dock with two goals and the wrapper,
 «Cambia» as revoke and new, the inspector's four tabs with the schema as code, the records and
 goal lines switchable.
+
+## 5 · As built
+
+Where the build had to choose:
+
+- **The schema as code** reads the same file the engine does: `case.ts` imports
+  `cases/sibar-activity/schema.json` as text (`?raw`), parses it once, hands it to `readSchema`, and cuts
+  the head, each gist and the laws out of it for the inspector. «Schemi» has the chips «Testa» and one
+  per gist; the laws keep their own tab, «Leggi», so the four tabs stay.
+- **Verdicts in Italian**: a `Verdict` carries the law and an English detail, and no structured set.
+  The playground words `keeps-set` by the set, which it reads from the detail's first quoted name
+  (`LAW_WORDS` in `ui-schema.ts`); a law or a set the table lacks says so in general words.
+- **The policy** is one entry in `case.ts`, passed to `post` and `dryRun`. The panel lists the
+  denunciations it leaves, marked «lasciata senza risposta», beside «In accordo con le righe».
+- **Render** takes the place of the bench's ledger cache (`keyed`), preview scheduling (`previewer`),
+  band (`band`, with a thin adapter in `pointing.ts` that knows whether a drag holds it, since the
+  band does not say) and the per-line reading (`lineFacts`, which also yields the goals the dock
+  draws and the warnings of each). What render lacks is on the page: the application's own facts
+  (a document's signatures), the actions on a card, and what a goal being composed may await.
+- **Styles** are one file, `style.css`: a `:root` block with the neutral ramp, the five hues and the
+  spacing, then the rules. No font is fetched; Inter is named first and the system's sans follows.
+
