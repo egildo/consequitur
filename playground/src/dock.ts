@@ -123,7 +123,8 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
       // a goal being composed hides the blocks, except while it is the wrapper: they offer their completion
       view.hidden = composing !== undefined && composing !== null && composing.role !== 'completion';
       slot.hidden = !composing;
-      // what the blocks read: the goals, the lines their sentences name, what the writer may do, and the goal composed
+      // what the blocks read, and nothing else: the domain, the goals and their warnings, the lines their
+      // sentences name, what the writer may do, and the goal composed
       const { goalGist, goalRevoke } = domain();
       const key = JSON.stringify([
         domain().id,
@@ -131,7 +132,6 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
         derived.thread.lines.length,
         goalGist !== undefined && derived.offered.has(goalGist),
         derived.offers.find((offer) => offer.gist === goalRevoke)?.targets,
-        state.pending,
         composing ? [composing.role, composing.checks.map(keyOfCheck)] : null,
       ]);
       if (key === drawn) return;

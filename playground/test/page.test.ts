@@ -163,3 +163,16 @@ describe('pointing at a line', () => {
     expect(q('svg.band')!.hasAttribute('hidden')).toBe(true);
   });
 });
+
+describe('the dock', () => {
+  it('keeps its blocks while a line is on its way, since nothing it draws waits for it', async () => {
+    await withGoals();
+    const blocks = [...document.querySelectorAll('#dock .goal-block')];
+    click(button('Commento', q('#offers')));
+    type(q('.draft textarea'), 'Fatto');
+    click(q('.draft-send'));
+    expect(q('.draft')!.classList.contains('is-pending')).toBe(true);
+    expect([...document.querySelectorAll('#dock .goal-block')].filter((node, i) => node === blocks[i])).toHaveLength(2);
+    await until(() => q('.draft') === null);
+  });
+});
