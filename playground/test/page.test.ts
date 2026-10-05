@@ -134,3 +134,32 @@ describe('the ledger', () => {
     expect(during.filter((node, i) => node === records[i])).toHaveLength(records.length);
   });
 });
+
+describe('pointing at a line', () => {
+  it('stops when the element pointing is built again, with no leave or blur to say so', async () => {
+    click(button('Nuova attività', q('#offers')));
+    type(q('.draft .draft-input'), 'Prova');
+    await send();
+    click(button('Promemoria', q('#offers')));
+    type(q('.draft textarea'), 'Serve un parere @lbianchi');
+    await send();
+    click(button('Imposta un traguardo', q('#dock')));
+    click(button('attendi:', q('#ledger')));
+    await send();
+    // lbianchi answers: the goal's check is found, and its tick points at her line
+    choose(q('#writer'), 'user::lbianchi');
+    click(button('Ricevuto', q('#ledger')));
+    await send();
+    const tick = q('#dock .tick-button')!;
+    tick.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(document.querySelectorAll('#ledger .is-lit')).toHaveLength(1);
+    expect(q('svg.band')!.hasAttribute('hidden')).toBe(false);
+    // a line arrives while the pointer rests on the tick, and the dock is drawn again
+    click(button('Commento', q('#offers')));
+    type(q('.draft textarea'), 'Fatto');
+    await send();
+    expect(tick.isConnected).toBe(false);
+    expect(document.querySelectorAll('#ledger .is-lit')).toHaveLength(0);
+    expect(q('svg.band')!.hasAttribute('hidden')).toBe(true);
+  });
+});

@@ -9,7 +9,7 @@ import { dryRun, emptyState, goalWriter, inOrder, post, reduce, type Check, type
 import { previewer } from 'consequitur-render';
 import { playScenario } from '../../cases/scenario.ts';
 import './style.css';
-import type { Handlers } from './cards.ts';
+import { lightingGone, type Handlers } from './cards.ts';
 import { derive, keyOfCheck, wrapperFollowing, type Derived, type DockGoal, type LineAction } from './deduce.ts';
 import { createDock, type DockHandlers } from './dock.ts';
 import { createComposer, lineOf, newDraft, newGoalDraft, type Composer, type ComposerHandlers, type ComposerView } from './draft.ts';
@@ -391,6 +391,9 @@ function render(): void {
   const { refusal } = state;
   noticeEl.textContent = refusal && !state.draft ? [refusal.words, ...refusal.verdicts.map((v) => v.text)].join(' ') : '';
   noticeEl.title = refusal && !state.draft ? refusal.detail : '';
+
+  // a card or a goal's block built again may have taken an end of the band away: drawn again, it clears itself
+  redraw();
 }
 
 /** Makes the next state and draws it. */
@@ -409,6 +412,8 @@ function update(change: Partial<PageState>): void {
     draftKey = key;
     previews.change(line);
   }
+  // the element that lit a line was built again, with no leave or blur to say so: the line is lit no more
+  if (state.lit !== null && lightingGone()) update({ lit: null });
 }
 
 function reset(): void {

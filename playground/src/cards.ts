@@ -38,6 +38,19 @@ export interface Handlers {
   onLight(id: LineId | null): void;
 }
 
+// the element whose hover or focus lights a line now
+let lighting: HTMLElement | null = null;
+
+/**
+ * Whether the element that lights a line has left the page, and then it is forgotten: a card or a
+ * goal's block built again takes it away with no leave or blur, so the page asks after each drawing.
+ */
+export function lightingGone(): boolean {
+  if (lighting === null || lighting.isConnected) return false;
+  lighting = null;
+  return true;
+}
+
 /**
  * Hovering or focusing `element` draws the band from it to the card of a line and
  * lights the card; leaving clears both. A drag in progress owns the band.
@@ -45,11 +58,13 @@ export interface Handlers {
 export function pointAt(handlers: Handlers, element: HTMLElement, id: LineId): void {
   const on = () => {
     if (isDragging()) return;
+    lighting = element;
     handlers.onLight(id);
     const card = document.querySelector<HTMLElement>(`.card[data-line-id="${id}"]`);
     if (card) point(element, card);
   };
   const off = () => {
+    lighting = null;
     handlers.onLight(null);
     point(null, null);
   };
