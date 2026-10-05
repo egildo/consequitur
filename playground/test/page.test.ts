@@ -104,3 +104,19 @@ describe('«Cambia» on a goal the wrapper awaits', () => {
     expect(dockWords()[1]).toMatch(/«Nuovo» è raggiunto/);
   });
 });
+
+describe('«Scrivo come»', () => {
+  it('cannot change while lines are on their way, so all of them are written as the one who sent them', async () => {
+    await withGoals();
+    const writer = q<HTMLSelectElement>('#writer')!;
+    click(button('Cambia', q('#dock .goal-grid')));
+    type(q('.goal-draft .draft-input'), 'Nuovo');
+    click(q('.goal-draft .draft-send'));
+    expect(writer.disabled).toBe(true);
+    choose(writer, 'user::lbianchi');
+    expect(writer.value).toBe('user::mrossi');
+    await until(() => !writer.disabled);
+    expect(dockWords()[1]).toMatch(/«Nuovo» è raggiunto/);
+    expect(writer.value).toBe('user::mrossi');
+  });
+});

@@ -370,6 +370,8 @@ function render(): void {
   editorWrap.classList.toggle('show-records', state.show.records);
   editorWrap.classList.toggle('show-goals', state.show.goals);
   if (writerSelect.value !== state.writer) writerSelect.value = state.writer;
+  // the lines on their way are written as the writer who sent them
+  writerSelect.disabled = state.pending;
   if (recordsBox.checked !== state.show.records) recordsBox.checked = state.show.records;
   if (goalsBox.checked !== state.show.goals) goalsBox.checked = state.show.goals;
 
@@ -505,6 +507,11 @@ domainSelect.addEventListener('change', () => {
 });
 drawDomain();
 writerSelect.addEventListener('change', () => {
+  // a change refused (a post is in flight, and its next lines read the writer) leaves the picker where the page is
+  if (state.pending) {
+    writerSelect.value = state.writer;
+    return;
+  }
   // a draft is written as one person: with another writer it would be someone else's
   update({ writer: writerSelect.value as Writer, draft: null, refusal: null });
 });
