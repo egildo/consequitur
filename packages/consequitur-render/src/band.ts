@@ -22,7 +22,7 @@ export interface Band {
   point(from: HTMLElement | null, to: HTMLElement | null): void;
   /** Draws again where the ends are now: the layer scrolled or an element moved. */
   redraw(): void;
-  /** Removes the drawing and the window listener. */
+  /** Ends a drag in hand with null, then removes the drawing and the window listener. */
   dispose(): void;
 }
 
@@ -178,6 +178,8 @@ export function band(layer: HTMLElement): Band {
     redraw: draw,
 
     dispose() {
+      // a drag in hand ends first, with null, so its listeners go and its promise answers
+      finishDrag?.(null);
       window.removeEventListener('resize', draw);
       svg.remove();
     },

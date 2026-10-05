@@ -238,4 +238,16 @@ describe('band', () => {
     b.dispose();
     expect(layer.querySelector('svg')).toBeNull();
   });
+
+  it('dispose during a drag ends it with null first, and leaves no listener behind', async () => {
+    const done = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
+    b.dispose();
+    expect(b.dragging).toBe(false);
+    expect(layer.querySelector('svg')).toBeNull();
+    // over a candidate, then a drop on it: a listener left on would name it
+    window.dispatchEvent(pointer('pointermove', 20, 10));
+    window.dispatchEvent(pointer('pointerup', 20, 10));
+    expect(targets).toEqual([]);
+    expect(await done).toBeNull();
+  });
 });

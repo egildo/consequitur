@@ -110,7 +110,7 @@ export interface Band {
   point(from: HTMLElement | null, to: HTMLElement | null): void;
   /** Draws again where the ends are now: the layer scrolled, or an element moved. */
   redraw(): void;
-  /** Removes the drawing and the `resize` listener. */
+  /** Ends a drag in hand with null, then removes the drawing and the `resize` listener. */
   dispose(): void;
 }
 
