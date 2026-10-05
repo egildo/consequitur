@@ -20,8 +20,6 @@ export interface LedgerHandlers extends Handlers {
   onStep(delta: 1 | -1): void;
 }
 
-const NO_CONDITIONS: never[] = [];
-
 export function createLedger(root: HTMLElement, handlers: LedgerHandlers) {
   // the lines of the thread being drawn, which a card reads its pills' labels from
   let lines: EventLine[] = [];
@@ -54,9 +52,13 @@ export function createLedger(root: HTMLElement, handlers: LedgerHandlers) {
     render(state: PageState, derived: Derived): void {
       lines = state.thread.lines;
       const awaiting = state.draft?.goal ? awaitedFor(derived, state.draft.goal.checks) : undefined;
-      // while a goal is composed a card offers what can be awaited of it, not what can be written about it
+      // while a goal is composed a card offers what can be awaited of it, not what can be written about it;
+      // one that offers nothing has no `awaited`, so a card with no action either keeps its key and its node
       const specs = awaiting
-        ? derived.specs.map(({ actions: _actions, ...spec }): LineSpec => ({ ...spec, awaited: awaiting.get(spec.facts.line.id) ?? NO_CONDITIONS }))
+        ? derived.specs.map(({ actions: _actions, ...spec }): LineSpec => {
+            const awaited = awaiting.get(spec.facts.line.id);
+            return awaited ? { ...spec, awaited } : spec;
+          })
         : derived.specs;
       cards.update(specs);
 

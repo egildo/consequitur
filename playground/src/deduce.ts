@@ -43,7 +43,7 @@ export interface LineSpec {
   /** What the system around the thread said about what the line names (a document). */
   documentFacts?: EventLine[];
   actions?: LineAction[];
-  /** Present only while a goal is being composed, and then in place of `actions`. */
+  /** Present only while a goal is being composed and the line offers something to await, and then in place of `actions`. */
   awaited?: LineAwaited[];
 }
 

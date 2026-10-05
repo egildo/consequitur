@@ -120,3 +120,17 @@ describe('«Scrivo come»', () => {
     expect(writer.value).toBe('user::mrossi');
   });
 });
+
+describe('the ledger', () => {
+  it('keeps the cards that draw the same when a goal is being composed', async () => {
+    click(button('Nuova attività', q('#offers')));
+    type(q('.draft .draft-input'), 'Prova');
+    await send();
+    // the records offer nothing to await, and had no action either
+    const records = [...document.querySelectorAll('#ledger .card-record')];
+    expect(records.length).toBeGreaterThan(0);
+    click(button('Imposta un traguardo', q('#dock')));
+    const during = [...document.querySelectorAll('#ledger .card-record')];
+    expect(during.filter((node, i) => node === records[i])).toHaveLength(records.length);
+  });
+});
