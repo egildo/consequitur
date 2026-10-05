@@ -130,12 +130,30 @@ keeps no flag of its own. `onTarget` is called when
 the candidate under the pointer changes, and with null once the drag ends over one. A second drag while
 one is going, or a button other than the first, resolves null.
 
-## 5 · `keyOf`, `keyOfCheck` — keys for what a reading holds without an id (pure, no DOM)
+## 5 · `changes`, `keyOf`, `keyOfCheck` — what a reading changed into (pure, no DOM)
 
 ```ts
+export type ReadingChange =
+  | { of: 'line'; key: LineId; change: 'in-force' | 'revoked' }
+  | { of: 'goal'; key: LineId; change: 'set' | 'met' | 'unmet' | 'gone' }
+  | { of: 'check'; key: string; change: 'found' | 'lost' | 'orphan' }
+  | { of: 'denunciation'; key: string; change: 'raised' | 'answered' }
+  | { of: 'settled'; change: 'settled' | 'unsettled' };
+
+export function changes(before: Reading, after: Reading): ReadingChange[];
 export function keyOf(denunciation: Denunciation): string;
 export function keyOfCheck(goal: GoalReading, index: number): string;
 ```
+
+What a host animates or tells a person when a reading becomes another. A line is `in-force` when
+the thread newly holds it in force, `revoked` when it is newly out of force. A goal is `set` when
+the reading holds it for the first time (and `met` too if it is met already), `met` or `unmet` when
+that flips, `gone` when the reading no longer holds it. A check, found by its goal and its index,
+`found` a line (it had none, or another), `lost` the one it had, or became an `orphan`; the checks of
+a goal newly set are read against checks that found nothing. A denunciation is `raised` when its key
+is new, `answered` when its key is gone; `settled` and `unsettled` say the thread's settling flipped.
+Two identical readings give no change. The list is ordered by kind, in the order above, then by key
+with `compare`, so a host that is given the same two readings animates the same.
 
 `reduce` builds fresh objects every time, so a host that memoises by reference, or keeps nodes by
 `keyed`, needs a string that stays the same across readings. Lines and goals have one already
@@ -143,13 +161,15 @@ export function keyOfCheck(goal: GoalReading, index: number): string;
 denunciations that say the same thing in two readings and different otherwise: a `handle` one by its
 kind, key and member, a `line` one by the goal's line, the gist and the payload (the outcome and a
 warning of one goal differ by both), a `thread` one by its rule. It does not read what a handle
-expects or holds, so a denunciation whose expectation changes keeps its key. `keyOfCheck` is the goal's line id
-and the check's index: two equal checks of one goal still have two keys. The parts a person writes
-(a key, a member, a payload) are written canonical or last, so no key can be read two ways.
+expects or holds, so a denunciation whose expectation changes keeps its key, and `changes` says
+nothing of it. `keyOfCheck` is the goal's line id and the check's index: two equal checks of one
+goal still have two keys. The parts a person writes (a key, a member, a payload) are written
+canonical or last, so no key can be read two ways.
 
 ## 6 · Tests
 
-`lineFacts` on the SIBAR case's scenarios (revoked, goals, outcomes, warnings, locked); `keyOf` and
-`keyOfCheck` on denunciations read from the same case's threads.
+`lineFacts` on the SIBAR case's scenarios (revoked, goals, outcomes, warnings, locked); `changes`,
+`keyOf` and `keyOfCheck` on the same scenarios, step by step: a goal that fires, a revoke, an orphan,
+a denunciation answered; a post on top of a scenario's thread where the case does not show a change.
 `keyed`, `previewer` (fake timers: debounce, stale drop, `fresh`), `band` (dispatched pointer
 events, `elementFromPoint` stubbed, Esc) under vitest's jsdom environment.

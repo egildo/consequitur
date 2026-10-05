@@ -63,7 +63,7 @@ are asynchronous.
 
 ```
 facts.ts       lineFacts: each line's facts, from the lines, the reading and the schema (pure)
-changes.ts     keyOf, keyOfCheck: keys for a denunciation and a check, which a reading gives no id (pure)
+changes.ts     changes: what a reading changed into, line, goal, check, denunciation and settling; keyOf, keyOfCheck: the keys of a denunciation and a check (pure)
 keyed.ts       keyed: nodes kept by line id, rebuilt only when their key changes
 previewer.ts   previewer: the debounced dry run while composing, stale answers dropped, a failed run told to `onError`
 band.ts        band: the pointer line over a layer, a drag from a slot to a line (`dragging` says one holds it), a hover

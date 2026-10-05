@@ -6,4 +6,5 @@ export { previewer } from './previewer.ts';
 export type { Previewer } from './previewer.ts';
 export { band } from './band.ts';
 export type { Band } from './band.ts';
-export { keyOf, keyOfCheck } from './changes.ts';
+export { changes, keyOf, keyOfCheck } from './changes.ts';
+export type { ReadingChange } from './changes.ts';

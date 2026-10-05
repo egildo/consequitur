@@ -30,7 +30,7 @@ those marked *(new)* were proposed by the plan and accepted.
 | **expectation** | What the thread says a handle should be, or that a line should exist. |
 | **reading** | The result of reducing a thread against its handles: lines in force, expectations, goals, denunciations. |
 | **denunciation** | One difference between an expectation and the handles (`sort: 'handle'`), a line a goal owes (`'line'`), or a breach of the opening rule (`'thread'`). |
-| **change** *(new)* | One difference between two handles, as its handle kind says it, for a host to apply to its own copy. `diff` lists them. |
+| **change** *(new)* | One difference between two handles, as its handle kind says it, for a host to apply to its own copy. `diff` lists them. Between two readings, a change is what `changes` lists: a line's standing, a goal, a check, a denunciation, the thread's settling, each with a key (from `keyOf` or `keyOfCheck` where the reading gives none). |
 | **reconciliation** | The answer to a denunciation: the handles change and a line records it. Settling repeats it, at most three rounds. |
 | **record** *(new)* | A line the authority writes to say a reconciliation changed a handle. Each has a **role** (`value`, `join`, `leave`, or one of a kit's own), and the head's `records` names the gist of each role, and of the goal's `warning`. |
 | **goal** | A line that names checks and an outcome. When every check finds a line, the goal writes its outcome, once. |

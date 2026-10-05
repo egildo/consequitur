@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { emptyState, inOrder, post, readPolicy, reduce, type EventLine, type ThreadState } from 'consequitur';
+import { emptyState, inOrder, post, readPolicy, reduce, type EventLine, type LineDraft, type Reading, type ThreadState } from 'consequitur';
 import { playScenario, readScenarios } from '../../../cases/scenario.ts';
-import { keyOf, keyOfCheck } from '../src/index.ts';
+import { changes, keyOf, keyOfCheck, type ReadingChange } from '../src/index.ts';
 import { NOW, SIBAR } from './helpers.ts';
 
 const casesDir = join(import.meta.dirname, '..', '..', '..', 'cases', 'sibar-activity');
@@ -76,5 +76,134 @@ describe('keyOfCheck', () => {
     expect(keyOfCheck(goal('a'), 0)).not.toBe(keyOfCheck(goal('a'), 1));
     expect(keyOfCheck(goal('a'), 0)).not.toBe(keyOfCheck(goal('b'), 0));
     expect(keyOfCheck(goal('a'), 1)).toBe(keyOfCheck(goal('a'), 1));
+  });
+});
+
+/** What one more post changes, read from the reading before and the reading after. */
+async function posted(from: { state: ThreadState; reading: Reading }, draft: LineDraft, confirmed = false) {
+  const out = await post(from.state, draft, SIBAR, NOW, { policy, confirmed });
+  expect(out.refusal).toBeUndefined();
+  return { out, list: changes(from.reading, out.reading) };
+}
+
+const only = (list: ReadingChange[], of: ReadingChange['of']) => list.filter((c) => c.of === of);
+
+describe('changes', () => {
+  it('is empty between a reading and itself, at every step of both scenarios', async () => {
+    for (const { id } of scenarios) {
+      for (const { reading } of (await play(id)).trace) expect(changes(reading, reading)).toEqual([]);
+    }
+  });
+
+  it('lists the same changes for the same readings, and for readings made of the thread in another order', async () => {
+    const { trace } = await play('opinion');
+    for (let i = 1; i < trace.length; i++) {
+      const list = changes(trace[i - 1].reading, trace[i].reading);
+      expect(list.length).toBeGreaterThan(0);
+      expect(changes(trace[i - 1].reading, trace[i].reading)).toEqual(list);
+      const again = (t: (typeof trace)[number]) => reduce(inOrder(t.state.lines).reverse(), t.state.handles, SIBAR);
+      expect(changes(again(trace[i - 1]), again(trace[i]))).toEqual(list);
+    }
+  });
+
+  it('orders by kind, line, goal, check, denunciation, settled, then by key', async () => {
+    const { trace } = await play('opinion');
+    const stale = reduce(trace.at(-1)!.state.lines, emptyState(SIBAR).handles, SIBAR);
+    const lists = [changes(stale, trace.at(-1)!.reading), changes(trace[0].reading, trace.at(-1)!.reading)];
+    const rank = ['line', 'goal', 'check', 'denunciation', 'settled'];
+    for (const list of lists) {
+      expect(list.length).toBeGreaterThan(1);
+      const keyed = list.map((c) => [rank.indexOf(c.of), 'key' in c ? c.key : ''] as const);
+      expect(keyed).toEqual([...keyed].sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0)));
+    }
+    expect(new Set(lists.flat().map((c) => c.of))).toEqual(new Set(rank));
+  });
+
+  it('says a line newly in force, and a goal newly set, with no check found', async () => {
+    const { trace } = await play('first');
+    const list = changes(trace[3].reading, trace[4].reading);
+    const goal = trace[4].reading.goals[0];
+    expect(list).toEqual([{ of: 'line', key: goal.line, change: 'in-force' }, { of: 'goal', key: goal.line, change: 'set' }]);
+  });
+
+  it('says a check found, and then a goal met with its outcome in force, when the last check finds its line', async () => {
+    const { trace, labels } = await play('opinion');
+    const firme = labels.get('firme')!;
+    const [before, after] = [trace[12], trace[13]];
+    const list = changes(before.reading, after.reading);
+    const goal = after.reading.goals.find((g) => g.line === firme)!;
+    expect(before.reading.goals.find((g) => g.line === firme)!.met).toBe(false);
+    expect(goal.met).toBe(true);
+    expect(list).toContainEqual({ of: 'goal', key: firme, change: 'met' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(goal, 1), change: 'found' });
+    expect(list).toContainEqual({ of: 'line', key: goal.outcome, change: 'in-force' });
+    // the wrapper awaited that outcome, and finds it in the same post
+    const wrapper = after.reading.goals.find((g) => g.line === labels.get('wrapper')!)!;
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(wrapper, 0), change: 'found' });
+  });
+
+  it('says a goal set that is met already, with each of its checks found, and two equal checks have two keys', async () => {
+    const { trace } = await play('opinion');
+    const draft = { gist: 'set_goal', writer: 'user::mrossi' as const, payload: { name: 'g', then: 'stage', with: { stage: 'x' }, checks: [{ gist: 'memo' }, { gist: 'memo' }] } };
+    const { out, list } = await posted(trace[2], draft);
+    const goal = out.reading.goals.find((g) => g.name === 'g')!;
+    expect(only(list, 'goal')).toEqual([{ of: 'goal', key: goal.line, change: 'set' }, { of: 'goal', key: goal.line, change: 'met' }]);
+    expect(only(list, 'check')).toEqual([0, 1].map((i) => ({ of: 'check', key: keyOfCheck(goal, i), change: 'found' })));
+  });
+
+  it('says a line revoked and a check lost when a revoke takes the line a check found out of force', async () => {
+    const { trace, labels } = await play('opinion');
+    const written = trace[13].state.lines.find((l) => l.gist === 'memo' && l.writer === `goal::${labels.get('firme')}`)!;
+    const wrapper = trace[13].reading.goals.find((g) => g.line === labels.get('wrapper')!)!;
+    const { list } = await posted(trace[13], { gist: 'memo_revoke', writer: 'user::mrossi', payload: { target: written.id } }, true);
+    expect(list).toContainEqual({ of: 'line', key: written.id, change: 'revoked' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(wrapper, 0), change: 'lost' });
+    expect(only(list, 'line').filter((c) => c.change === 'revoked')).toHaveLength(1);
+  });
+
+  it('says a goal met no more when a check is lost', async () => {
+    const { trace } = await play('opinion');
+    const draft = { gist: 'set_goal', writer: 'user::mrossi' as const, payload: { name: 'g', then: 'stage', with: { stage: 'x' }, checks: [{ gist: 'memo' }] } };
+    const { out } = await posted(trace[2], draft);
+    const [goal] = out.reading.goals.filter((g) => g.name === 'g');
+    const memo = out.state.lines.find((l) => l.gist === 'memo' && l.writer === 'user::mrossi')!;
+    const { list } = await posted(out, { gist: 'memo_revoke', writer: 'user::mrossi', payload: { target: memo.id } }, true);
+    expect(list).toContainEqual({ of: 'line', key: memo.id, change: 'revoked' });
+    expect(list).toContainEqual({ of: 'goal', key: goal.line, change: 'unmet' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(goal, 0), change: 'lost' });
+  });
+
+  it('says a check an orphan when a line it awaited is revoked before it found it', async () => {
+    const { trace } = await play('opinion');
+    const verbale = trace[9].reading.goals.find((g) => g.name === 'Verbale')!;
+    const list = changes(trace[8].reading, trace[9].reading);
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(verbale, 0), change: 'orphan' });
+    expect(list.filter((c) => c.of === 'check' && c.change === 'lost')).toEqual([]);
+    expect(list.filter((c) => c.of === 'line' && c.change === 'revoked')).toHaveLength(1);
+  });
+
+  it('says a goal gone when the reading no longer holds it', async () => {
+    const { trace, labels } = await play('opinion');
+    const firme = labels.get('firme')!;
+    const { list } = await posted(trace[6], { gist: 'set_goal_revoke', writer: 'user::mrossi', payload: { target: firme } });
+    expect(list).toContainEqual({ of: 'goal', key: firme, change: 'gone' });
+    expect(list).toContainEqual({ of: 'line', key: firme, change: 'revoked' });
+  });
+
+  it('says a denunciation answered and the thread settled, and the other way round', async () => {
+    const { trace } = await play('first');
+    const { state, reading } = trace.at(-1)!;
+    const stale = reduce(state.lines, emptyState(SIBAR).handles, SIBAR);
+    expect(stale.settled).toBe(false);
+    const keys = stale.denunciations.map(keyOf);
+    expect(keys.length).toBeGreaterThan(0);
+    expect(changes(stale, reading)).toEqual(expect.arrayContaining([...keys.map((key) => ({ of: 'denunciation', key, change: 'answered' })), { of: 'settled', change: 'settled' }]));
+    expect(only(changes(stale, reading), 'denunciation')).toHaveLength(keys.length);
+    expect(changes(reading, stale)).toEqual(expect.arrayContaining([...keys.map((key) => ({ of: 'denunciation', key, change: 'raised' })), { of: 'settled', change: 'unsettled' }]));
+  });
+
+  it('says the opening rule answered by the thread denunciation, which has a key of its own', async () => {
+    const { trace } = await play('first');
+    expect(changes(trace[0].reading, trace[1].reading)).toContainEqual({ of: 'denunciation', key: 'thread:one-opening', change: 'answered' });
   });
 });
