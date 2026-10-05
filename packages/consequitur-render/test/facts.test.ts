@@ -21,6 +21,28 @@ describe('lineFacts', () => {
     }
   });
 
+  it('reads a stored line whose writer, gist, timestamp or id is not a string as stating nothing, and does not throw', async () => {
+    // the engine never writes one: such a line comes from storage the engine did not keep
+    const MISSING = Symbol('missing');
+    const odd = (line: EventLine, field: keyof EventLine, value: unknown): EventLine => {
+      const { [field]: _, ...rest } = line;
+      return (value === MISSING ? rest : { ...rest, [field]: value }) as unknown as EventLine;
+    };
+    const r = await written([opening, mrossi('memo', { text: 'uno' })]);
+    const memo = r.state.lines.at(-1)!;
+    const lines = [
+      ...r.state.lines,
+      ...[7, null, MISSING].map((writer) => odd(memo, 'writer', writer)),
+      odd(memo, 'gist', 7),
+      odd(memo, 'timestamp', null),
+      odd(memo, 'timestamp', 7),
+      odd(memo, 'id', 7),
+    ];
+    const facts = lineFacts(lines, reduce(lines, r.state.handles, SIBAR), SIBAR);
+    expect(facts).toHaveLength(lines.length);
+    expect(facts.every((f) => f.writtenBy === undefined && f.goal === undefined && f.revokedBy === undefined)).toBe(true);
+  });
+
   it('has one entry per line, in reading order, whatever the order given', async () => {
     const r = await written([opening, mrossi('memo', { text: 'uno' })]);
     const shuffled = [...r.state.lines].reverse();

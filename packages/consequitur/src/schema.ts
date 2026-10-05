@@ -12,7 +12,7 @@
 
 import { validChecks } from './check.ts';
 import type { GistSchema, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
-import { isJson, isObject, isStrings, keysAre } from './util.ts';
+import { idOf, isJson, isObject, isStrings, keysAre, kinOf } from './util.ts';
 import { canonical } from './line.ts';
 
 const GIST_NAME = /^[a-z][a-z0-9_]{0,31}$/;
@@ -151,8 +151,7 @@ function headProblems(json: Record<string, unknown>, kit: Kit): string[] {
   const known = ['opening', 'authority', 'sets', 'records', 'judged', 'gists', 'laws'];
   for (const key of Object.keys(json)) if (!known.includes(key)) problems.push(`The schema has the key "${key}", which it may not.`);
   if (typeof json.opening !== 'string' || !GIST_NAME.test(json.opening)) problems.push('opening must name a gist, in lower snake case.');
-  const at = typeof json.authority === 'string' ? json.authority.indexOf('::') : -1;
-  if (typeof json.authority !== 'string' || at < 1 || at + 2 >= json.authority.length) problems.push('authority must be a writer, as KIN::ID.');
+  if (!kinOf(json.authority) || !idOf(json.authority)) problems.push('authority must be a writer, as KIN::ID.');
   if ('sets' in json && !(isStrings(json.sets) && json.sets.every((s) => s !== '') && new Set(json.sets).size === json.sets.length)) {
     problems.push('sets must be a list of distinct, non-empty names.');
   }
@@ -178,7 +177,7 @@ function headProblems(json: Record<string, unknown>, kit: Kit): string[] {
 function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
   const problems: string[] = [];
   if (!gists.some((g) => g.gist === head.opening)) problems.push(`The opening gist "${head.opening}" has no schema.`);
-  const kin = head.authority.slice(0, head.authority.indexOf('::'));
+  const kin = kinOf(head.authority) ?? '';
   for (const [role, name] of Object.entries(head.records)) {
     const gist = gists.find((g) => g.gist === name);
     if (!gist) problems.push(`The record "${role}" is the gist "${name}", which has no schema.`);

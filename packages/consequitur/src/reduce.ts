@@ -8,7 +8,7 @@
 // it on any thread, so a payload that lacks what a binding reads, or holds it in
 // another shape, states nothing.
 
-import { idOf, matches, validChecks } from './check.ts';
+import { matches, validChecks } from './check.ts';
 import { canonical, inForce, inOrder } from './line.ts';
 import type {
   Check,
@@ -25,7 +25,7 @@ import type {
   When,
   Writer,
 } from './types.ts';
-import { compare, has, isObject, isRecord } from './util.ts';
+import { compare, has, idOf, isObject, isRecord } from './util.ts';
 
 /** A writer type cannot be built from a template without stating it, so one place states it. */
 export const goalWriter = (id: LineId): Writer => `goal::${id}`;

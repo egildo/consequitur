@@ -1,5 +1,5 @@
 // Small guards the other files share. Not part of the public surface, except
-// `keysAre` and `compare`, which a kit author needs too (see `index.ts`).
+// `keysAre`, `compare`, `kinOf` and `idOf`, which a kit author needs too (see `index.ts`).
 
 import type { Json } from './types.ts';
 
@@ -14,6 +14,20 @@ export const isRecord = (value: unknown): value is { [key: string]: Json } => is
 
 /** A key is absent when the object has no property of that name; `null` is a value. */
 export const has = (object: unknown, key: string): boolean => isObject(object) && Object.hasOwn(object, key);
+
+/** The part of a writer before the first `::`; a writer with no `::`, or one that is not a string, has none. */
+export const kinOf = (writer: unknown): string | undefined => {
+  if (typeof writer !== 'string') return undefined;
+  const at = writer.indexOf('::');
+  return at < 0 ? undefined : writer.slice(0, at);
+};
+
+/** The part after the first `::`; a writer with no `::`, or one that is not a string, has none. */
+export const idOf = (writer: unknown): string | undefined => {
+  if (typeof writer !== 'string') return undefined;
+  const at = writer.indexOf('::');
+  return at < 0 ? undefined : writer.slice(at + 2);
+};
 
 export const isStrings = (value: unknown): value is string[] => Array.isArray(value) && value.every((v) => typeof v === 'string');
 

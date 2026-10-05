@@ -3,10 +3,10 @@
 // the opening rule is read here the way `post` enforces it, and the lines the
 // engine writes itself, a goal's and the records, are offered to nobody.
 
-import { kinOf } from './check.ts';
 import { lockedBy, revokeOf } from './line.ts';
 import { expectations, holds } from './reduce.ts';
 import type { EventLine, Offer, Schema, Writer } from './types.ts';
+import { kinOf } from './util.ts';
 
 /**
  * One offer per gist, in the order of the schema, for each gist this writer may

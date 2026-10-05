@@ -618,6 +618,37 @@ describe('reduce', () => {
       }
     });
 
+    it('a stored line whose writer is not a string states nothing, and neither the reading nor the offers throw', async () => {
+      // the engine never writes one: such a line comes from storage the engine did not keep
+      const MISSING = Symbol('missing');
+      const odd = (line: EventLine, field: keyof EventLine, value: unknown): EventLine => {
+        const { [field]: _, ...rest } = line;
+        return (value === MISSING ? rest : { ...rest, [field]: value }) as unknown as EventLine;
+      };
+      for (const writer of [7, null, MISSING]) {
+        const lines = await thread([
+          create,
+          mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'proof', kin: 'user' }] }),
+          mrossi('memo', {}),
+          mrossi('memo', {}),
+          mrossi('proof', {}),
+          mrossi('quit', {}),
+          mrossi('got_it', {}),
+        ]);
+        // a check that names a kin, a revoke whose target, and an offer whose target, has such a writer, the leave rule
+        const stored = lines.map((l, i) => (i >= 2 && i <= 5 ? odd(l, 'writer', writer) : l));
+        const revoking = await stamp(mrossi('memo_revoke', { target: lines[2].id }), stored, NOW);
+        // and a gist, a timestamp, an id that are not strings
+        const got = lines[6];
+        const all = [...stored, revoking, odd(got, 'gist', 7), odd(got, 'timestamp', null), odd(got, 'timestamp', 7), odd(got, 'id', 7)];
+        const reading = read(all, agreeing);
+        expect(reading.goals.map((g) => g.met)).toEqual([false]);
+        expect(reading.revoked).toEqual([lines[2].id]);
+        expect(reading.settled).toBe(true);
+        expect(offers(all, 'user::mrossi', RULES).find((o) => o.gist === 'memo_revoke')).toEqual({ gist: 'memo_revoke', targets: [lines[3].id] });
+      }
+    });
+
     it('a line whose gist has no schema is in force and states nothing', async () => {
       const lines = await thread([create, mrossi('mystery', { assignTo: ['x'], v: 1 })]);
       const reading = read(lines, agreeing);

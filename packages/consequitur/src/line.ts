@@ -5,7 +5,7 @@
 // must agree on an order whatever their locale.
 
 import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload } from './types.ts';
-import { compare, isRecord } from './util.ts';
+import { compare, idOf, isRecord, kinOf } from './util.ts';
 
 /**
  * What a gist's revoke binding says, or nothing when it has none: only the first
@@ -77,9 +77,9 @@ export function inOrder(lines: EventLine[]): EventLine[] {
  * goal leaves what it wrote locked.
  */
 export function lockedBy(line: EventLine, lines: EventLine[]): LineId | undefined {
-  const at = line.writer.indexOf('::');
-  if (at < 0 || line.writer.slice(0, at) !== 'goal') return undefined;
-  const id = line.writer.slice(at + 2);
+  // a stored writer that is not a string names no goal
+  const id = kinOf(line.writer) === 'goal' ? idOf(line.writer) : undefined;
+  if (id === undefined) return undefined;
   // a stored payload that is not an object states nothing, so it locks nothing
   return lines.some((l) => l.id === id && isRecord(l.payload) && l.payload.final === true) ? id : undefined;
 }

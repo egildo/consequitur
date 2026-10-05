@@ -1,10 +1,9 @@
-// How a check matches a line, how a `where` matches a payload, and who wrote a
-// line. A check is an equality on a line's gist, kin, writer and payload keys:
+// How a check matches a line, and how a `where` matches a payload. A check is an equality on a line's gist, kin, writer and payload keys:
 // goals wait on them, `when` asks them, and a binding's `where` is the payload half.
 
 import { canonical } from './line.ts';
 import type { Check, EventLine, Payload } from './types.ts';
-import { has, isObject } from './util.ts';
+import { has, isObject, kinOf } from './util.ts';
 
 const CHECK_KEYS = ['gist', 'kin', 'writer', 'payload'];
 
@@ -23,18 +22,6 @@ export function validChecks(value: unknown): value is Check[] {
     return keys.every((k) => (k === 'payload' ? isObject(check[k]) && Object.keys(check[k]).length > 0 : typeof check[k] === 'string'));
   });
 }
-
-/** The part of a writer before the first `::`; a writer with no `::` has none. */
-export const kinOf = (writer: string): string | undefined => {
-  const at = writer.indexOf('::');
-  return at < 0 ? undefined : writer.slice(0, at);
-};
-
-/** The part after the first `::`; a writer with no `::` has none. */
-export const idOf = (writer: string): string | undefined => {
-  const at = writer.indexOf('::');
-  return at < 0 ? undefined : writer.slice(at + 2);
-};
 
 /** Whether a line equals every part a check states. */
 export function matches(check: Check, line: EventLine): boolean {

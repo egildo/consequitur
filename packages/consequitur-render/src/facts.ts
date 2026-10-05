@@ -2,7 +2,7 @@
 // thread. Pure and without DOM: the same lines, reading and schema give the same answer.
 // A domain's own facts (the signatures on a document) are the application's.
 
-import { inOrder, type EventLine, type GoalReading, type LineId, type Payload, type Reading, type Schema } from 'consequitur';
+import { idOf, inOrder, kinOf, type EventLine, type GoalReading, type LineId, type Payload, type Reading, type Schema } from 'consequitur';
 
 export interface LineFacts {
   line: EventLine;
@@ -70,7 +70,7 @@ function payloadOf(line: EventLine): Payload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload) ? payload : {};
 }
 
-/** The id of the goal that wrote a line: its writer is `goal::<id of the goal's line>`. */
+/** The id of the goal that wrote a line: its writer is `goal::<id of the goal's line>`; a stored writer that is not a string names none. */
 function writerGoal(line: EventLine): LineId | undefined {
-  return line.writer.startsWith('goal::') ? line.writer.slice('goal::'.length) : undefined;
+  return kinOf(line.writer) === 'goal' ? idOf(line.writer) : undefined;
 }

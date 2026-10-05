@@ -4,7 +4,7 @@
 // that record a reconciliation are its own, so they skip admission; admission
 // refuses them, and a goal's lines, from anyone else.
 
-import { kinOf, validChecks } from './check.ts';
+import { validChecks } from './check.ts';
 import { asStored, canonical, inForce, lockedBy, revokeOf, stamp } from './line.ts';
 import { reduce, whenHolds } from './reduce.ts';
 import type {
@@ -25,7 +25,7 @@ import type {
   ThreadState,
   Verdict,
 } from './types.ts';
-import { has, isObject, isRecord } from './util.ts';
+import { has, isObject, isRecord, kinOf } from './util.ts';
 
 /** Reaching the cap is a pause, not an error: the next `post` or `settle` resumes. */
 export const MAX_ROUNDS = 3;

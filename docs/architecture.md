@@ -41,9 +41,9 @@ misfits of [misfits.md](misfits.md), `collect-writer` registered in a kit inside
 
 ```
 types.ts       every type, kits' interfaces included
-util.ts        small guards, `compare` (never localeCompare), `keysAre`
+util.ts        small guards, `compare` (never localeCompare), `keysAre`, `kinOf`, `idOf`
 line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
-check.ts       validChecks, matches, whereMatches, kinOf, idOf
+check.ts       validChecks, matches, whereMatches
 schema.ts      readSchema, readGists, readLaws, readPolicy
 reduce.ts      expectations, holds, whenHolds, reduce
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState

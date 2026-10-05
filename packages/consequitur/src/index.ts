@@ -1,7 +1,7 @@
 export type * from './types.ts';
 export { canonical, inForce, inOrder, lockedBy, stamp, verify } from './line.ts';
-export { kinOf, idOf, matches, validChecks, whereMatches } from './check.ts';
-export { compare, isJson, keysAre, optionalFlag } from './util.ts';
+export { matches, validChecks, whereMatches } from './check.ts';
+export { compare, idOf, isJson, keysAre, kinOf, optionalFlag } from './util.ts';
 export { expectations, goalWriter, holds, reduce, whenHolds } from './reduce.ts';
 export type { Expectations } from './reduce.ts';
 export { readGists, readLaws, readPolicy, readSchema } from './schema.ts';

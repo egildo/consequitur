@@ -2,9 +2,8 @@
 // later line asks again.
 
 import type { SetAcc } from '../handles/set.ts';
-import { idOf } from '../check.ts';
 import type { RuleBinding, RuleKind } from '../types.ts';
-import { keysAre } from '../util.ts';
+import { idOf, keysAre } from '../util.ts';
 
 export const leaveRule: RuleKind = {
   rule: 'leave',
