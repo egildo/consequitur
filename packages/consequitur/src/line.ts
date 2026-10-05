@@ -34,6 +34,12 @@ async function hashOf(line: Omit<EventLine, 'id'>): Promise<LineId> {
 }
 
 /**
+ * A payload as a stored line gives it back: through a JSON round trip, as `stamp`
+ * stores it. Throws where JSON does: on a BigInt, or an object that holds itself.
+ */
+export const asStored = (payload: unknown): unknown => JSON.parse(JSON.stringify(payload));
+
+/**
  * The authority's envelope for a draft. The id is computed here, once, and stored:
  * nothing else recomputes it but `verify`. A timestamp never repeats inside a
  * thread, because the reading order depends on it. The payload is stored as JSON
@@ -50,7 +56,7 @@ export async function stamp(draft: LineDraft, lines: EventLine[], now: string): 
     gist: draft.gist,
     writer: draft.writer,
     timestamp,
-    payload: JSON.parse(JSON.stringify(draft.payload)) as Payload,
+    payload: asStored(draft.payload) as Payload,
   };
   return { id: await hashOf(body), ...body };
 }

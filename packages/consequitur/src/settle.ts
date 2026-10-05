@@ -5,7 +5,7 @@
 // refuses them, and a goal's lines, from anyone else.
 
 import { kinOf, validChecks } from './check.ts';
-import { canonical, inForce, lockedBy, revokeOf, stamp } from './line.ts';
+import { asStored, canonical, inForce, lockedBy, revokeOf, stamp } from './line.ts';
 import { reduce, whenHolds } from './reduce.ts';
 import type {
   Change,
@@ -61,7 +61,9 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
 
 /**
  * Why a draft cannot join the thread, or undefined. It looks only at what the
- * gist's rules read: every other key of the payload is free. The refusals come in
+ * gist's rules read: every other key of the payload is free. The payload is judged
+ * as it will be stored, after a JSON round trip, so a key that holds `undefined`
+ * is absent and a payload JSON cannot write is refused. The refusals come in
  * a fixed order, so two readers give the same answer. The drafts `settle` writes
  * never come through here, so a goal writes its line whatever that gist's `when`
  * says; and a draft that would be one of them, a line by a goal or of a record
@@ -88,10 +90,17 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   }
 
   const invalid = (detail: string) => refuse('invalid-payload', `${detail} in a "${draft.gist}" line.`);
-  const { payload } = draft;
-  // a plain object, which a JSON round trip gives back as one: `stamp` stores what JSON holds
-  const plain = isObject(payload) && [Object.prototype, null].includes(Object.getPrototypeOf(payload));
-  if (!plain) return invalid('The payload must be an object');
+  // a plain object, judged as `stamp` will store it: what a JSON round trip gives back,
+  // which must be an object too; a payload JSON cannot write is refused, not thrown
+  const plain = isObject(draft.payload) && [Object.prototype, null].includes(Object.getPrototypeOf(draft.payload));
+  let stored: unknown;
+  try {
+    stored = asStored(draft.payload);
+  } catch {
+    stored = undefined;
+  }
+  if (!plain || !isRecord(stored)) return invalid('The payload must be an object');
+  const payload = stored;
 
   const problem = payloadProblem(schema, gist, payload);
   if (problem !== undefined) return refuse('invalid-payload', problem);

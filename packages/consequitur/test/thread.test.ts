@@ -71,6 +71,13 @@ async function thread(drafts: LineDraft[], now = NOW): Promise<EventLine[]> {
 
 const idsOf = (lines: EventLine[]) => lines.map((l) => l.id);
 
+/** An object that holds itself, which JSON cannot write. */
+function cycle(): Record<string, unknown> {
+  const object: Record<string, unknown> = { text: 'a' };
+  object.self = object;
+  return object;
+}
+
 describe('canonical', () => {
   it('gives one string for two key orders, at every depth', () => {
     const a = { b: 1, a: { y: [1, { q: 1, p: 2 }], x: null } };
@@ -2104,6 +2111,11 @@ describe('posting to a thread', () => {
       ['a payload that is a list', { gist: 'comment', writer: 'user::mrossi', payload: [1] }, 'invalid-payload'],
       ['a payload that is a string', { gist: 'comment', writer: 'user::mrossi', payload: 'text' }, 'invalid-payload'],
       ['a payload that is a date', { gist: 'comment', writer: 'user::mrossi', payload: new Date(0) }, 'invalid-payload'],
+      // judged as it will be stored: what a JSON round trip gives back
+      ['a required key that holds undefined', { gist: 'create', writer: 'user::mrossi', payload: { name: undefined, assignTo: ['mrossi'] } }, 'invalid-payload'],
+      ['a payload whose toJSON gives a string', { gist: 'comment', writer: 'user::mrossi', payload: { text: 'a', toJSON: () => 'gone' } }, 'invalid-payload'],
+      ['a payload that holds a BigInt', { gist: 'comment', writer: 'user::mrossi', payload: { n: 1n } }, 'invalid-payload'],
+      ['a payload that holds itself', { gist: 'comment', writer: 'user::mrossi', payload: cycle() }, 'invalid-payload'],
     ])('refuses %s, and post says so without throwing', async (_, draft, code) => {
       // a host hands over what it was sent: the type is a promise the engine cannot rely on
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
@@ -2112,6 +2124,16 @@ describe('posting to a thread', () => {
       const out = await post(state, draft as LineDraft, PLAIN, NOW);
       expect(out.refusal?.code).toBe(code);
       expect(out.added).toEqual([]);
+    });
+
+    it('lets a payload through that JSON writes otherwise but still gives back as an object, and stores it so', async () => {
+      const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
+      const state: ThreadState = { lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) };
+      const payload = { text: 'a', at: { when: new Date(0) } } as unknown as Payload;
+      const out = await post(state, mrossi('comment', payload), PLAIN, NOW);
+      expect(out.refusal).toBeUndefined();
+      expect(out.added[0].payload).toEqual({ text: 'a', at: { when: '1970-01-01T00:00:00.000Z' } });
+      expect(await verify(JSON.parse(JSON.stringify(out.added[0])) as EventLine)).toBe(true);
     });
 
     it('refuses the lines the engine writes itself: one by a goal, and one of a record gist, whoever writes it', async () => {

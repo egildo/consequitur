@@ -42,7 +42,7 @@ misfits of [misfits.md](misfits.md), `collect-writer` registered in a kit inside
 ```
 types.ts       every type, kits' interfaces included
 util.ts        small guards, `compare` (never localeCompare), `keysAre`
-line.ts        canonical, stamp, verify, inOrder, inForce, lockedBy, revokeOf
+line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
 check.ts       validChecks, matches, whereMatches, kinOf, idOf
 schema.ts      readSchema, readGists, readLaws, readPolicy
 reduce.ts      expectations, holds, whenHolds, reduce
@@ -131,8 +131,9 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
 
 `post(state, draft, schema, now, options)` is `dryRun` and then a decision.
 
-1. **Admit** the draft: an object whose writer is a string, gist, writer's kin, `when`, payload (a
-   plain object, then each rule kind's `admit`, then the mechanics of revoke and goal).
+1. **Admit** the draft: an object whose writer is a string, gist, writer's kin, `when`, payload as it
+   will be stored, after a JSON round trip (a plain object, then each rule kind's `admit`, then the
+   mechanics of revoke and goal).
 2. **Append** it, stamped, with its payload as JSON holds it, and refuse it if the opening rule would break.
 3. **Settle**: reduce; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);
