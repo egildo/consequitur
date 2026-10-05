@@ -33,9 +33,12 @@ export function keyed<T>(
         seen.add(id);
         let entry = cache.get(id);
         if (!entry || entry.key !== key) {
-          entry?.node.remove();
+          const old = entry?.node;
           entry = { key, node: spec.build(item) };
           cache.set(id, entry);
+          // removed only once its successor is kept: a removal can fire an event (a blur) whose
+          // handler updates again, and that update must find the new node, not build another
+          old?.remove();
         }
         nodes.push(entry.node);
       }

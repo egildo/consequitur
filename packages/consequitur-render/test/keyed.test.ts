@@ -104,6 +104,35 @@ describe('keyed', () => {
     expect(root.children).toHaveLength(0);
   });
 
+  it('keeps the node it built when an update is entered again from the removal of the node it replaces', () => {
+    // a browser fires blur, synchronously, when a focused node is removed, and an application may
+    // update from it; jsdom does not, so the node's removal calls the update itself
+    let items = [item('a', '1')];
+    let again = false;
+    const reentered = keyed<Item>(root, {
+      id: (i) => i.id,
+      key: (i) => i.label,
+      build: (i) => {
+        const node = document.createElement('div');
+        node.textContent = i.label;
+        const remove = node.remove.bind(node);
+        node.remove = () => {
+          remove();
+          if (!again) return;
+          again = false;
+          reentered.update(items);
+        };
+        return node;
+      },
+    });
+    reentered.update(items);
+    items = [item('a', '2')];
+    again = true;
+    reentered.update(items);
+    expect([...root.children].map((c) => c.textContent)).toEqual(['2']);
+    expect(reentered.node('a')).toBe(root.firstElementChild);
+  });
+
   it('clear forgets every node, so the next update builds them all', () => {
     list.update([item('a'), item('b')]);
     list.clear();
