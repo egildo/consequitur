@@ -42,10 +42,11 @@ async function hashOf(line: Omit<EventLine, 'id'>): Promise<LineId> {
  */
 export async function stamp(draft: LineDraft, lines: EventLine[], now: string): Promise<EventLine> {
   const instant = new Date(now).toISOString();
-  const latest = lines.reduce((max, l) => (l.timestamp > max ? l.timestamp : max), '');
-  const timestamp = latest !== '' && instant <= latest ? new Date(Date.parse(latest) + 1).toISOString() : instant;
+  // the thread's last line is the last in reading order: the array's own order is never read
+  const last = inOrder(lines).at(-1);
+  const timestamp = last && instant <= last.timestamp ? new Date(Date.parse(last.timestamp) + 1).toISOString() : instant;
   const body = {
-    previous: lines.length ? lines[lines.length - 1].id : null,
+    previous: last?.id ?? null,
     gist: draft.gist,
     writer: draft.writer,
     timestamp,

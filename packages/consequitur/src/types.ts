@@ -13,7 +13,7 @@ export type Payload = { [key: string]: Json };
 
 export interface EventLine {
   id: LineId;
-  /** The thread's last line when this one was written; null on the first. */
+  /** The thread's last line in reading order when this one was written; null on the first. */
   previous: LineId | null;
   gist: string;
   writer: Writer;

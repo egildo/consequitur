@@ -120,6 +120,14 @@ describe('stamp', () => {
     expect(await verify(line)).toBe(true);
   });
 
+  it('chains to the last line in reading order, not the last of the array', async () => {
+    const lines = await thread([note, note, note]);
+    const next = await stamp(note, [...lines].reverse(), NOW);
+    expect(next.previous).toBe(lines[2].id);
+    expect(next.timestamp).toBe('2026-10-03T10:00:00.003Z');
+    expect(next).toEqual(await stamp(note, lines, NOW));
+  });
+
   it('stores the payload as JSON holds it, so a line verifies after a JSON round trip', async () => {
     // what a host may hand over whatever the type says: values JSON drops or writes otherwise
     const payload = { text: 'a', gone: undefined, at: new Date(0), run: () => 1, n: Number.NaN } as unknown as Payload;
