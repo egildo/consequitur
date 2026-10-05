@@ -168,7 +168,10 @@ function headProblems(json: Record<string, unknown>, kit: Kit): string[] {
   return problems;
 }
 
-/** How the head sits beside the gists that were read: the gists it names must be there, and writable by whom it says. */
+/**
+ * How the head sits beside the gists that were read: the gists it names must be there, writable
+ * by whom it says, and a record gist has no rules: a record states nothing, or it could never settle.
+ */
 function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
   const problems: string[] = [];
   if (!gists.some((g) => g.gist === head.opening)) problems.push(`The opening gist "${head.opening}" has no schema.`);
@@ -176,6 +179,7 @@ function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
   for (const [role, name] of Object.entries(head.records)) {
     const gist = gists.find((g) => g.gist === name);
     if (!gist) problems.push(`The record "${role}" is the gist "${name}", which has no schema.`);
+    else if (gist.rules.length > 0) problems.push(`The record "${role}" is the gist "${name}", which has rules: a record states nothing.`);
     else if (role === 'warning' ? !gist.writers.includes('goal') : !gist.writers.includes(kin)) {
       problems.push(`The record "${role}" is the gist "${name}", which does not list the kin ${role === 'warning' ? 'goal' : kin} among its writers.`);
     }

@@ -165,7 +165,8 @@ reader refuse, when the schema is read, a rule that states into a handle kind th
 - `opening`: the gist of the opening rule. `authority`: the writer of the records. `judged`: the
   kins whose lines the laws judge (none if left out). `sets`: the names of the sets (none if left
   out). `records`: one gist per role; each must be a gist of the schema whose writers include the
-  authority's kin (and `goal` for `warning`). Every role of every handle kind of the kit must be
+  authority's kin (and `goal` for `warning`), and which has no rules: a record states nothing, or
+  the thread could never settle. Every role of every handle kind of the kit must be
   named; `warning` may be left out, and then the thread expects no warnings and no check is
   judged. A schema that uses fewer handle kinds is read against a smaller kit.
 - `laws`: optional; a schema with none judges nothing.

@@ -311,6 +311,19 @@ describe('readSchema', () => {
     expect(out.problems[0]).toMatch(/"goal_warning".*goal/);
   });
 
+  it('a record gist that has rules gives an empty schema, since a record states nothing', () => {
+    for (const [name, rules] of [
+      ['metadata_set', [{ rule: 'value', key: 'log', collect: 'value' }]],
+      ['goal_warning', [{ rule: 'join', set: 'assignees', from: 'check' }]],
+    ] as const) {
+      const wrong = SIBAR_JSON.gists.map((g) => (g.gist === name ? { ...g, rules } : g));
+      const out = read({ ...SIBAR_JSON, gists: wrong });
+      expect(out.schema.gists, name).toEqual([]);
+      expect(out.problems, name).toHaveLength(1);
+      expect(out.problems[0]).toMatch(new RegExp(`"${name}".*rules`));
+    }
+  });
+
   it('a record gist that failed its own reading is a record gist with no schema', () => {
     const wrong = SIBAR_JSON.gists.map((g) => (g.gist === 'metadata_set' ? { ...g, label: 'x' } : g));
     const out = read({ ...SIBAR_JSON, gists: wrong });
