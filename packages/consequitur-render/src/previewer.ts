@@ -35,7 +35,10 @@ export function previewer<D, A>(spec: {
     } catch (error) {
       // no answer: the one on screen stays, and stays stale, so nothing is confirmed on it; the
       // application hears of it only while the draft is the one on screen, as it would of an answer
-      if (run === runs) spec.onError?.(error, draft);
+      if (run !== runs) return;
+      // with no run in hand, the same draft is run again when it comes back
+      draftKey = null;
+      spec.onError?.(error, draft);
       return;
     }
     if (run !== runs) return;

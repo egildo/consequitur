@@ -86,8 +86,8 @@ export function previewer<D, A>(spec: {
 After `delay` of quiet it runs the draft; an answer arriving for an older key is dropped; while a
 newer draft waits, the last answer is shown with `fresh: false`. An application confirms a send
 only when `current()?.fresh` and its key is the draft's: a person confirms only what they saw.
-A draft whose key is the one it already has changes nothing; one that returns to the key of the
-answer on screen shows it fresh again, with no new run; `change(null)` forgets the answer and shows
+A draft whose key is the one it already has changes nothing, unless the run of that draft rejected: then it
+is run again; one that returns to the key of the answer on screen shows it fresh again, with no new run; `change(null)` forgets the answer and shows
 null. A run that rejects leaves the answer on screen, stale, and calls `onError` with the error and the
 draft: swallowing a failed dry run was ruled out, so `onError` is how an application hears it (a rejection
 with no `onError` is dropped, silently). Only the draft now on screen is heard of: a run whose draft has

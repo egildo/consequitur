@@ -186,6 +186,23 @@ describe('previewer', () => {
     expect(shown).toEqual([]);
   });
 
+  it('runs the same draft again after its run rejected, and answers it', async () => {
+    const { pending, run } = control();
+    const p = make(run, 10, (error, draft) => failed.push([error, draft]));
+    p.change('a');
+    await vi.advanceTimersByTimeAsync(10);
+    pending[0].reject(new Error('down'));
+    await vi.advanceTimersByTimeAsync(0);
+    // the same draft again: no run was in hand and no answer on screen, so it is run again
+    p.change('a');
+    await vi.advanceTimersByTimeAsync(10);
+    expect(pending).toHaveLength(2);
+    pending[1].resolve('one');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(p.current()).toEqual({ key: 'a', answer: 'one', fresh: true });
+    expect(failed).toHaveLength(1);
+  });
+
   it('does not tell onError of a run whose draft has moved on, or been closed or disposed', async () => {
     const { pending, run } = control();
     const p = make(run, 10, (error, draft) => failed.push([error, draft]));
