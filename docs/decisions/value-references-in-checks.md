@@ -1,7 +1,7 @@
 # Value references in checks
 
-Status: settled 2026-10-04, not built. To be built in the single round that answers the
-[misfits](../misfits.md).
+Status: settled 2026-10-04, not built; its spelling is now the `(value)` reference of
+[conditions are kdlt's guards](conditions-are-kdlt-guards.md). Built in round 6.
 
 ## Context
 

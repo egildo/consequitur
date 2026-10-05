@@ -47,12 +47,16 @@ named in schemas. Forbids a kind that reaches outside the thread it is given.
 **From** ProseMirror's split between a schema that is data and the specs and plugins that give it
 behaviour: the vocabulary grows without the core learning a domain.
 
-## Zero dependencies
+## Chosen dependencies
 
-**Forbids** any entry in `dependencies` of the library. Hashing uses the platform's WebCrypto. The
-playground's tools are development dependencies and never reach a consumer.
+**Forbids** a dependency for what a few lines of our own would do, and one whose transitive graph
+nobody has read. Each runtime dependency of a package is named in [architecture](architecture.md)
+with what it does for us; the engine's reading stays pure whatever it depends on. Hashing uses
+the platform's WebCrypto.
 
-**From** a library meant to be read in one sitting and audited before it decides who may do what.
+**From** a library meant to be audited before it decides who may do what — and from the
+[decision](decisions/chosen-dependencies.md) that a condition language shared with kdlt is worth
+more than a copy kept dependency-free. Amended 2026-10-05; it was «Zero dependencies».
 
 ## Cases are the test truth
 

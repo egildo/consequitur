@@ -123,7 +123,11 @@ The ProseMirror correspondence, which the library should feel like:
    Done: `cases/editorial-review/` (schema and three scenarios), the shared scenario resolver in
    `cases/scenario.ts`, SIBAR's examples in the same shape, the engine's tests of the scenarios and of the
    five misfits, [misfits.md](misfits.md), and the playground with a domain picker. The engine did not change.
-6. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
+6. **Conditions**, answering the misfits in one round, as [specs/conditions.md](specs/conditions.md)
+   says: in kdlt, `kdlt-guards` taken out of kdlt; here, `when` and goals rewritten on it with
+   `line`, `at-least` and the references, named guards in the schema, `collect-writer` in
+   `BASE_KIT`; then `consequitur-kdl`, schemas written in KDL, shown so in the playground.
+7. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
 ## 5 · Settled
 
