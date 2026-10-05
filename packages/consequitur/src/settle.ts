@@ -5,7 +5,7 @@
 // refuses them, and a goal's lines, from anyone else.
 
 import { kinOf, validChecks } from './check.ts';
-import { canonical, lockedBy, revokeOf, stamp } from './line.ts';
+import { canonical, inForce, lockedBy, revokeOf, stamp } from './line.ts';
 import { reduce, whenHolds } from './reduce.ts';
 import type {
   Change,
@@ -125,6 +125,8 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
     }
     const final = lockedBy(line, lines);
     if (final !== undefined) return refuse('not-revocable', `The "${line.gist}" line "${target}" was written by a final goal.`);
+    // a revoke of a line already out of force would change nothing, and the offers leave it out
+    if (!inForce(lines, gists).inForce.some((l) => l.id === target)) return refuse('not-revocable', `The "${line.gist}" line "${target}" is already out of force.`);
   }
   return undefined;
 }

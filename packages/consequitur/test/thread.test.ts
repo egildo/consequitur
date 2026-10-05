@@ -2133,6 +2133,15 @@ describe('posting to a thread', () => {
       expect(admit(lines, mrossi('set_goal_revoke', { target: lines[1].id }), PLAIN)?.code).toBe('not-revocable');
     });
 
+    it('refuses a revoke of a line already out of force, which the offers leave out', async () => {
+      const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', { assignTo: ['x'] })]);
+      const revoked = [...lines, await stamp(mrossi('memo_revoke', { target: lines[1].id }), lines, NOW)];
+      expect(offers(revoked, 'user::mrossi', PLAIN).find((o) => o.gist === 'memo_revoke')).toBeUndefined();
+      const again = admit(revoked, mrossi('memo_revoke', { target: lines[1].id }), PLAIN);
+      expect(again?.code).toBe('not-revocable');
+      expect(again?.detail).toMatch(/out of force/);
+    });
+
     it('admits a revoke of a line of a listed gist', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', { assignTo: ['x'] })]);
       expect(admit(lines, mrossi('memo_revoke', { target: lines[1].id }), PLAIN)).toBeUndefined();

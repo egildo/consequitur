@@ -253,7 +253,8 @@ the menu still ask one question: `whenHolds(lines, writer, gist, schema)` comput
 expectations for its one gist, and `offers` asks the same part of them (`holds`) for each.
 The engine neither offers the lines it writes itself, one by a writer of kin `goal` and one of a gist
 the head's `records` names (`warning` included), nor admits them (`writer-not-allowed`): `settle`
-writes them, and they skip admission.
+writes them, and they skip admission. A revoke names only a line in force: one of a line already out
+of force is not offered, and admission refuses it (`not-revocable`).
 
 ## 9 · The SIBAR case
 

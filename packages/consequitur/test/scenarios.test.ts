@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { emptyState, lockedBy, post, type EventLine, type LineDraft, type Policy, type Refusal, type ThreadState } from '../src/index.ts';
+import { admit, dryRun, emptyState, lockedBy, offers, post, readPolicy, type EventLine, type LineDraft, type Policy, type Refusal, type ThreadState, type Writer } from '../src/index.ts';
 import { draftOf, playScenario, readScenarios, resolve, type Io, type Step } from '../../../cases/scenario.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
@@ -161,5 +161,53 @@ describe('the SIBAR scenarios', () => {
     // the goal «Verbale» was warned when its document was unlinked
     expect(lines.some((l) => l.gist === 'goal_warning')).toBe(true);
     expect(lines.some((l) => l.gist === 'memo' && l.writer.startsWith('goal::'))).toBe(true);
+  });
+});
+
+describe('the offers and admission, at every state the scenarios pass through', () => {
+  /** The refusals that say a writer may not write a gist now, or not on that line: the menu's own questions. */
+  const MENU: Array<Refusal['code']> = ['not-now', 'writer-not-allowed', 'unknown-line', 'not-revocable'];
+
+  it('agree: an offer is never refused for the moment, the writer or the line, and what is not offered is refused', async () => {
+    let states = 0;
+    let offered = 0;
+    for (const domain of ['sibar-activity', 'editorial-review']) {
+      const schema = strict(JSON.parse(readFileSync(casePath(domain, 'schema.json'), 'utf8')));
+      const policy = domain === 'sibar-activity' ? readPolicy(JSON.parse(readFileSync(casePath(domain, 'policy.json'), 'utf8')), schema).policy : [];
+      for (const scenario of readScenarios(readFileSync(casePath(domain, 'scenarios.json'), 'utf8'))) {
+        const writers = [...new Set<Writer>(scenario.steps.map((s) => s.writer))];
+        const h = host(schema, policy);
+        const check = async (state: ThreadState): Promise<void> => {
+          states++;
+          for (const writer of writers) {
+            const menu = offers(state.lines, writer, schema);
+            for (const gist of schema.gists) {
+              const offer = menu.find((o) => o.gist === gist.gist);
+              const revoking = gist.rules.find((r) => r.rule === 'revoke');
+              // a revoking gist is asked of every line of a gist it lists, in force or not
+              const lines = revoking ? state.lines.filter((l) => (revoking.gists as string[]).includes(l.gist)).map((l) => l.id) : [];
+              for (const target of lines.length > 0 ? lines : [undefined]) {
+                const draft: LineDraft = { gist: gist.gist, writer, payload: revoking && target !== undefined ? { [revoking.from as string]: target } : {} };
+                const named = `${domain} ${scenario.id}, ${writer} ${gist.gist}${target ? ` of ${target.slice(0, 8)}` : ''}`;
+                const isOffered = offer !== undefined && (!revoking || (target !== undefined && offer.targets?.includes(target) === true));
+                const refusal = admit(state.lines, draft, schema);
+                if (isOffered) {
+                  offered++;
+                  expect(MENU, `offered and refused: ${named}`).not.toContain(refusal?.code);
+                } else if (refusal === undefined) {
+                  // admitted though not offered: only the opening rule, which the dry run reads, may refuse it
+                  expect((await dryRun(state, draft, schema, NOW, { policy })).refusal?.code, `not offered and admitted: ${named}`).toBe('unreconcilable');
+                }
+              }
+            }
+          }
+        };
+        await check(h.state());
+        const played = await playScenario(scenario.steps, h.io, { after: () => check(h.state()) });
+        expect(played.failed, `${domain} ${scenario.id}`).toBeUndefined();
+      }
+    }
+    expect(states).toBeGreaterThan(40);
+    expect(offered).toBeGreaterThan(100);
   });
 });
