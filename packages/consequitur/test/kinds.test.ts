@@ -20,7 +20,7 @@ import {
   post,
   readPolicy,
   readSchema,
-  reduce,
+  consequitur,
   settle,
   stamp,
   whenHolds,
@@ -196,11 +196,11 @@ describe('a kit with kinds of its own', () => {
       ['system::toy', { key: 'votes', count: 1 }],
       ['system::toy', { key: 'votes', count: 2 }],
     ]);
-    const reading = reduce(state.lines, state.handles, schema);
+    const reading = consequitur(state.lines, state.handles, schema);
     expect(reading.settled).toBe(true);
     expect(reading.expected).toEqual(state.handles);
     // what is not the thread's is denounced, in the kit's order after the other kinds
-    const stray = reduce(state.lines, { ...state.handles, counter: { votes: 5, other: 1 } }, schema);
+    const stray = consequitur(state.lines, { ...state.handles, counter: { votes: 5, other: 1 } }, schema);
     expect(stray.denunciations).toEqual([
       { sort: 'handle', kind: 'counter', key: 'other', expected: 0, found: 1 },
       { sort: 'handle', kind: 'counter', key: 'votes', expected: 2, found: 5 },
@@ -394,7 +394,7 @@ describe('emptyState', () => {
 
   it('is what a thread starts from: its reading holds only the opening rule', () => {
     const state = emptyState(SIBAR);
-    const reading = reduce(state.lines, state.handles, SIBAR);
+    const reading = consequitur(state.lines, state.handles, SIBAR);
     expect(reading.denunciations).toEqual([{ sort: 'thread', rule: 'one-opening', found: 0 }]);
     expect(reading.expected).toEqual(state.handles);
   });
@@ -482,7 +482,7 @@ describe('the policy', () => {
   });
 
   const handleSet: Handles = hold({ status: 'closed' }, ['a']);
-  const reading = (denunciations: HandleDenunciation[]) => ({ ...reduce([], handleSet, PLAIN), denunciations });
+  const reading = (denunciations: HandleDenunciation[]) => ({ ...consequitur([], handleSet, PLAIN), denunciations });
   const joined: HandleDenunciation = { sort: 'handle', kind: 'set', key: 'assignees', member: 'a', expected: false };
   const valued: HandleDenunciation = { sort: 'handle', kind: 'value', key: 'status', expected: 'open', found: 'closed' };
 

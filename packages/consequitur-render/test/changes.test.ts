@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { emptyState, inOrder, post, readPolicy, reduce, type EventLine, type LineDraft, type Reading, type ThreadState } from 'consequitur';
+import { emptyState, inOrder, post, readPolicy, consequitur, type EventLine, type LineDraft, type Reading, type ThreadState } from 'consequitur';
 import { playScenario, readScenarios } from '../../../cases/scenario.ts';
 import { changes, keyOf, keyOfCheck, type ReadingChange } from '../src/index.ts';
 import { NOW, SIBAR } from './helpers.ts';
@@ -15,7 +15,7 @@ if (problems.length > 0) throw new Error(`The policy has problems: ${problems.jo
 async function play(id: string) {
   const steps = scenarios.find((s) => s.id === id)!.steps;
   let state: ThreadState = emptyState(SIBAR);
-  let reading = reduce(state.lines, state.handles, SIBAR);
+  let reading = consequitur(state.lines, state.handles, SIBAR);
   const trace = [{ state, reading }];
   const played = await playScenario(
     steps,
@@ -37,7 +37,7 @@ async function play(id: string) {
 /** The thread with what its goals wrote taken out, read against handles that know nothing: it is full of denunciations. */
 const unanswered = (lines: EventLine[]) => {
   const left = lines.filter((l) => !l.writer.startsWith('goal::'));
-  return reduce(left, emptyState(SIBAR).handles, SIBAR);
+  return consequitur(left, emptyState(SIBAR).handles, SIBAR);
 };
 
 describe('keyOf', () => {
@@ -101,14 +101,14 @@ describe('changes', () => {
       const list = changes(trace[i - 1].reading, trace[i].reading);
       expect(list.length).toBeGreaterThan(0);
       expect(changes(trace[i - 1].reading, trace[i].reading)).toEqual(list);
-      const again = (t: (typeof trace)[number]) => reduce(inOrder(t.state.lines).reverse(), t.state.handles, SIBAR);
+      const again = (t: (typeof trace)[number]) => consequitur(inOrder(t.state.lines).reverse(), t.state.handles, SIBAR);
       expect(changes(again(trace[i - 1]), again(trace[i]))).toEqual(list);
     }
   });
 
   it('orders by kind, line, goal, check, denunciation, settled, then by key', async () => {
     const { trace } = await play('opinion');
-    const stale = reduce(trace.at(-1)!.state.lines, emptyState(SIBAR).handles, SIBAR);
+    const stale = consequitur(trace.at(-1)!.state.lines, emptyState(SIBAR).handles, SIBAR);
     const lists = [changes(stale, trace.at(-1)!.reading), changes(trace[0].reading, trace.at(-1)!.reading)];
     const rank = ['line', 'goal', 'check', 'denunciation', 'settled'];
     for (const list of lists) {
@@ -193,7 +193,7 @@ describe('changes', () => {
   it('says a denunciation answered and the thread settled, and the other way round', async () => {
     const { trace } = await play('first');
     const { state, reading } = trace.at(-1)!;
-    const stale = reduce(state.lines, emptyState(SIBAR).handles, SIBAR);
+    const stale = consequitur(state.lines, emptyState(SIBAR).handles, SIBAR);
     expect(stale.settled).toBe(false);
     const keys = stale.denunciations.map(keyOf);
     expect(keys.length).toBeGreaterThan(0);

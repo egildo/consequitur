@@ -21,7 +21,7 @@ import {
   readLaws,
   readSchema,
   reconcile,
-  reduce,
+  consequitur,
   settle,
   stamp,
   validChecks,
@@ -271,8 +271,8 @@ describe('the opening gist', () => {
   });
 });
 
-describe('reduce', () => {
-  // gist schemas of the reduction, written here: the case's gists belong to a later step
+describe('consequitur', () => {
+  // gist schemas of the reading, written here: the case's gists belong to a later step
   const RULES = custom([
     {
       gist: 'create',
@@ -304,7 +304,7 @@ describe('reduce', () => {
 
   const empty: Handles = emptyHandles();
   const agreeing: Handles = hold({ name: 'Parere', status: 'open' }, ['mrossi']);
-  const read = (lines: EventLine[], handles: Handles = empty): Reading => reduce(lines, handles, RULES);
+  const read = (lines: EventLine[], handles: Handles = empty): Reading => consequitur(lines, handles, RULES);
   const add = async (lines: EventLine[], draft: LineDraft): Promise<EventLine[]> => [...lines, await stamp(draft, lines, NOW)];
   const last = (lines: EventLine[]) => lines[lines.length - 1];
 
@@ -679,13 +679,13 @@ describe('reduce', () => {
       const handles: Handles = hold({ stray: { a: 1 } }, ['z']);
       const linesCopy = structuredClone(lines);
       const handlesCopy = structuredClone(handles);
-      // the kit holds functions, which cannot be cloned: the gists are what the reduction reads
+      // the kit holds functions, which cannot be cloned: the gists are what the reading reads
       const gists = structuredClone(RULES.gists);
-      const reading = reduce(lines, handles, { ...RULES, gists });
+      const reading = consequitur(lines, handles, { ...RULES, gists });
       expect(lines).toEqual(linesCopy);
       expect(handles).toEqual(handlesCopy);
       expect(gists).toEqual(RULES.gists);
-      expect(reduce([...lines].reverse(), handles, RULES)).toEqual(reading);
+      expect(consequitur([...lines].reverse(), handles, RULES)).toEqual(reading);
     });
   });
 });
@@ -696,7 +696,7 @@ describe('a value that collects, and where', () => {
   const create = mrossi('create', { name: 'A', assignTo: ['mrossi'] });
   const settledHandles = (extra: Record<string, Json>): Handles => hold({ name: 'A', status: 'open', ...extra }, ['mrossi']);
   const none: Handles = hold({}, []);
-  const expectedOf = (lines: EventLine[], schema: Schema = PLAIN) => valuesOf(reduce(lines, none, schema).expected);
+  const expectedOf = (lines: EventLine[], schema: Schema = PLAIN) => valuesOf(consequitur(lines, none, schema).expected);
   const ref = (document: Json | undefined, direction?: string) =>
     mrossi('doc_ref', { ...(document === undefined ? {} : { document }), ...(direction ? { direction } : {}) });
 
@@ -721,7 +721,7 @@ describe('a value that collects, and where', () => {
   it('three references, one inbound and two outbound, give three lists in reading order; a reversed array reads the same', async () => {
     const lines = await thread([create, ref('1', 'inbound'), ref('2', 'outbound'), ref('3', 'outbound')]);
     const copy = structuredClone(lines);
-    const reading = reduce(lines, none, PLAIN);
+    const reading = consequitur(lines, none, PLAIN);
     expect(valuesOf(reading.expected)).toEqual({
       name: 'A',
       status: 'open',
@@ -729,15 +729,15 @@ describe('a value that collects, and where', () => {
       documents_in: ['1'],
       documents_out: ['2', '3'],
     });
-    expect(reduce([...lines].reverse(), none, PLAIN)).toEqual(reading);
+    expect(consequitur([...lines].reverse(), none, PLAIN)).toEqual(reading);
     expect(lines).toEqual(copy);
-    expect(reduce(lines, settledHandles({ documents: ['1', '2', '3'], documents_in: ['1'], documents_out: ['2', '3'] }), PLAIN).settled).toBe(true);
+    expect(consequitur(lines, settledHandles({ documents: ['1', '2', '3'], documents_in: ['1'], documents_out: ['2', '3'] }), PLAIN).settled).toBe(true);
   });
 
   it('an array is compared by its canonical form: the order counts', async () => {
     const lines = await thread([create, ref('1', 'outbound'), ref('2', 'outbound')]);
     const handles = settledHandles({ documents: ['2', '1'], documents_out: ['1', '2'] });
-    const { denunciations } = reduce(lines, handles, PLAIN);
+    const { denunciations } = consequitur(lines, handles, PLAIN);
     expect(denunciations).toStrictEqual([{ sort: 'handle', kind: 'value', key: 'documents', expected: ['1', '2'], found: ['2', '1'], line: lines[2].id }]);
   });
 
@@ -747,7 +747,7 @@ describe('a value that collects, and where', () => {
     expect(expected.documents).toEqual(['1', '2']);
     expect(expected.documents_in).toEqual(['1']);
     expect(expected.documents_out).toEqual(['1']);
-    const lineOf = (key: string) => reduce(lines, none, PLAIN).denunciations.find((d) => d.sort === 'handle' && d.kind === 'value' && d.key === key);
+    const lineOf = (key: string) => consequitur(lines, none, PLAIN).denunciations.find((d) => d.sort === 'handle' && d.kind === 'value' && d.key === key);
     // the second reference to document 1 added nothing to `documents`, so line 2 stands
     expect(lineOf('documents')).toMatchObject({ line: lines[2].id });
     expect(lineOf('documents_in')).toMatchObject({ line: lines[1].id });
@@ -765,7 +765,7 @@ describe('a value that collects, and where', () => {
   it('a key no line in force states is not expected, never an empty list', async () => {
     const expected = expectedOf(await thread([create]));
     expect('documents' in expected).toBe(false);
-    expect(reduce(await thread([create]), settledHandles({}), PLAIN).settled).toBe(true);
+    expect(consequitur(await thread([create]), settledHandles({}), PLAIN).settled).toBe(true);
   });
 
   it('an absent payload key adds nothing, and null is a value', async () => {
@@ -815,7 +815,7 @@ describe('a value that collects, and where', () => {
   it('a later from binding replaces a collected list with one value, and a collect after it starts a new list', async () => {
     const lines = await thread([create, ref('1'), ref('2'), mrossi('setk', { v: 'one' })]);
     expect(expectedOf(lines, TEST).documents).toBe('one');
-    expect(reduce(lines, none, TEST).denunciations).toContainEqual({ sort: 'handle', kind: 'value', key: 'documents', expected: 'one', line: lines[3].id });
+    expect(consequitur(lines, none, TEST).denunciations).toContainEqual({ sort: 'handle', kind: 'value', key: 'documents', expected: 'one', line: lines[3].id });
     const again = await thread([create, ref('1'), ref('2'), mrossi('setk', { v: 'one' }), ref('3'), ref('4')]);
     expect(expectedOf(again, TEST).documents).toEqual(['3', '4']);
     // a from binding whose key is absent states nothing, so the list stands
@@ -865,7 +865,7 @@ describe('a value that collects, and where', () => {
     // the reader would refuse this binding, so the schema is built without it
     const odd = unchecked([...PLAIN.gists, { gist: 'odd', writers: ['user'], rules: [{ rule: 'value', key: 'k', collect: 'v', where: null }] }]);
     const lines = await thread([create, mrossi('odd', { v: 1 })]);
-    expect(() => reduce(lines, none, odd)).not.toThrow();
+    expect(() => consequitur(lines, none, odd)).not.toThrow();
     expect('k' in expectedOf(lines, odd)).toBe(false);
   });
 });
@@ -1057,7 +1057,7 @@ describe('posting to a thread', () => {
       const [create, memo, link, goal, gotIt, quit, memoAgain, signed] = await replay();
       for (const posted of [create, memo, link, goal, gotIt, quit, memoAgain, signed]) {
         expect('refusal' in posted).toBe(false);
-        expect(posted.reading).toEqual(reduce(posted.state.lines, posted.state.handles, PLAIN));
+        expect(posted.reading).toEqual(consequitur(posted.state.lines, posted.state.handles, PLAIN));
       }
 
       // 1. name and status open; mrossi; two metadata_set and one assigned
@@ -1145,12 +1145,12 @@ describe('posting to a thread', () => {
       expect(new Set(stamps).size).toBe(stamps.length);
     });
 
-    it('reduce on the final state is settled; with the handles emptied it denounces each, and settle brings them back', async () => {
+    it('consequitur on the final state is settled; with the handles emptied it denounces each, and settle brings them back', async () => {
       const { state } = (await replay()).at(-1)!;
-      expect(reduce(state.lines, state.handles, PLAIN).settled).toBe(true);
+      expect(consequitur(state.lines, state.handles, PLAIN).settled).toBe(true);
 
       const emptied: ThreadState = { lines: state.lines, handles: hold({}, []) };
-      const reading = reduce(emptied.lines, emptied.handles, PLAIN);
+      const reading = consequitur(emptied.lines, emptied.handles, PLAIN);
       expect(reading.denunciations.map(labelOf)).toEqual([
         'value acknowledged',
         'value documents',
@@ -1258,7 +1258,7 @@ describe('posting to a thread', () => {
           const closed = gistNamed(state.lines, 'closed')[0];
           expect(valuesOf(state.handles).status).toBe('closed');
           expect(lockedBy(closed, state.lines)).toBe(gistNamed(state.lines, 'set_goal')[0].id);
-          expect(reduce(state.lines, state.handles, PLAIN).goals[0]).toMatchObject({ final: true, met: true, outcome: closed.id });
+          expect(consequitur(state.lines, state.handles, PLAIN).goals[0]).toMatchObject({ final: true, met: true, outcome: closed.id });
           // not offered, and posted anyway it is refused
           expect(names(offers(state.lines, 'user::mrossi', PLAIN))).toEqual(['comment', 'set_goal_revoke', 'quit']);
           const before = structuredClone(state);
@@ -1273,7 +1273,7 @@ describe('posting to a thread', () => {
           const state = await finalOf();
           const closed = gistNamed(state.lines, 'closed')[0];
           const lines = [...state.lines, await stamp(mrossi('closed_revoke', { target: closed.id }), state.lines, NOW)];
-          const reading = reduce(lines, state.handles, PLAIN);
+          const reading = consequitur(lines, state.handles, PLAIN);
           expect(reading.inForce).toContain(closed.id);
           expect(reading.inForce).toContain(lines[lines.length - 1].id);
           expect(reading.revoked).not.toContain(closed.id);
@@ -1366,11 +1366,11 @@ describe('posting to a thread', () => {
         it('a goal that states a `with` or a `final` it cannot, reads as no goal', async () => {
           for (const payload of [{ with: 'x' }, { with: null }, { with: [] }]) {
             const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], ...payload })]);
-            expect(reduce(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN).goals).toEqual([]);
+            expect(consequitur(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN).goals).toEqual([]);
           }
           // `final` is read only when it is exactly true
           const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], final: 1 })]);
-          expect(reduce(lines, hold({}, []), PLAIN).goals[0].final).toBe(false);
+          expect(consequitur(lines, hold({}, []), PLAIN).goals[0].final).toBe(false);
         });
       });
 
@@ -1526,7 +1526,7 @@ describe('posting to a thread', () => {
           const { warning: _warning, ...records } = SIBAR_JSON.records;
           const bare = sibar({ drop: ['goal_warning'], laws: [], head: { records } });
           const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ payload: { document: 'zzz' } }] })]);
-          const reading = reduce(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), bare);
+          const reading = consequitur(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), bare);
           expect(reading.goals[0].checks).toEqual([{ check: { payload: { document: 'zzz' } } }]);
           expect(reading.denunciations).toEqual([]);
           const out = await post(EMPTY, opening[0], bare, NOW);
@@ -1544,7 +1544,7 @@ describe('posting to a thread', () => {
             mrossi('set_goal', { name: 'a', then: 'closed', checks: [{ payload: { x: b } }, { gist: 'got_it' }, { payload: { y: b } }] }),
           ]);
           expect(lines[1].id).toBe(b);
-          const reading = reduce(lines, hold({}, []), PLAIN);
+          const reading = consequitur(lines, hold({}, []), PLAIN);
           expect(reading.denunciations.map((d) => (d.sort === 'line' ? `line ${d.gist} ${JSON.stringify(d.payload)}` : labelOf(d)))).toEqual([
             'line goal_warning {"check":0}',
             'line goal_warning {"check":2}',
@@ -1560,7 +1560,7 @@ describe('posting to a thread', () => {
         it('writes the denunciation\'s writer and payload', async () => {
           const lines = await thread([opening[0]]);
           const reading: Reading = {
-            ...reduce(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN),
+            ...consequitur(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN),
             denunciations: [{ sort: 'line', gist: 'memo', writer: 'goal::abc', line: 'abc', payload: { text: 't', assignTo: ['x'] } }],
           };
           const out = reconcile(reading, hold({}, []), PLAIN);
@@ -1743,7 +1743,7 @@ describe('posting to a thread', () => {
           expect(dry.added).toEqual([]);
           expect(dry.rounds).toEqual([]);
           expect(dry.state).toBe(state);
-          expect(dry.reading).toEqual(reduce(state.lines, state.handles, PLAIN));
+          expect(dry.reading).toEqual(consequitur(state.lines, state.handles, PLAIN));
         }
       });
     });
@@ -1772,7 +1772,7 @@ describe('posting to a thread', () => {
           expect(out.refusal?.detail, label).toMatch(/^[A-Za-z]/);
           expect(out.state, label).toEqual(before);
           expect(state, label).toEqual(before);
-          expect(out.reading, label).toEqual(reduce(before.lines, before.handles, PLAIN));
+          expect(out.reading, label).toEqual(consequitur(before.lines, before.handles, PLAIN));
         }
       });
 
@@ -1846,7 +1846,7 @@ describe('posting to a thread', () => {
 
         it('values read the thread, not the handles', async () => {
           const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-          expect(reduce(lines, hold({}, []), all).settled).toBe(false);
+          expect(consequitur(lines, hold({}, []), all).settled).toBe(false);
           expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(true);
         });
 
@@ -2332,7 +2332,7 @@ describe('posting to a thread', () => {
         expect(out.refusal?.detail, label).toMatch(/^[A-Za-z]/);
         expect(out.state, label).toEqual(before);
         expect(state, label).toEqual(before);
-        expect(out.reading, label).toEqual(reduce(before.lines, before.handles, PLAIN));
+        expect(out.reading, label).toEqual(consequitur(before.lines, before.handles, PLAIN));
       }
     });
 
@@ -2387,7 +2387,7 @@ describe('posting to a thread', () => {
     it('answers each denunciation, in their order, with the line that records it', async () => {
       const lines = await at();
       const handles: Handles = hold({ stray: 1, name: 'Altro' }, ['zed', 'mrossi']);
-      const reading = reduce(lines, handles, PLAIN);
+      const reading = consequitur(lines, handles, PLAIN);
       const out = reconcile(reading, handles, PLAIN);
 
       expect(out.drafts).toEqual([
@@ -2399,7 +2399,7 @@ describe('posting to a thread', () => {
       ]);
       expect('value' in out.drafts[2].payload).toBe(false);
       expect(out.handles).toEqual(hold({ name: 'Richiesta', status: 'open' }, ['lbianchi', 'mrossi']));
-      expect(reduce(lines, out.handles, PLAIN).settled).toBe(true);
+      expect(consequitur(lines, out.handles, PLAIN).settled).toBe(true);
     });
 
     it('answers a missing goal line with the goal as writer and an empty payload, and leaves the handles', async () => {
@@ -2408,7 +2408,7 @@ describe('posting to a thread', () => {
         mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }] }),
       ]);
       const handles: Handles = hold({ name: 'A', status: 'open' }, ['mrossi']);
-      const reading = reduce(lines, handles, PLAIN);
+      const reading = consequitur(lines, handles, PLAIN);
       const out = reconcile(reading, handles, PLAIN);
       expect(out.drafts).toEqual([{ gist: 'closed', writer: `goal::${lines[1].id}`, payload: {} }]);
       expect(out.handles).toEqual(handles);
@@ -2416,7 +2416,7 @@ describe('posting to a thread', () => {
 
     it('has no answer to a denunciation of the thread', () => {
       const handles: Handles = hold({}, []);
-      const reading = reduce([], handles, PLAIN);
+      const reading = consequitur([], handles, PLAIN);
       expect(reading.denunciations).toHaveLength(1);
       expect(reconcile(reading, handles, PLAIN)).toEqual({ handles, drafts: [] });
     });
@@ -2425,7 +2425,7 @@ describe('posting to a thread', () => {
       // a handle is sorted when an answer changes it: one name joins, and the list comes out in order
       const handles: Handles = hold({ k: { a: 1 } }, ['b', 'mrossi', 'B', 'a']);
       const joining: Denunciation = { sort: 'handle', kind: 'set', key: 'assignees', member: 'c', expected: true, line: 'x' };
-      const reading: Reading = { ...reduce([], handles, PLAIN), denunciations: [joining] };
+      const reading: Reading = { ...consequitur([], handles, PLAIN), denunciations: [joining] };
       const readingCopy = structuredClone(reading);
       const handlesCopy = structuredClone(handles);
       const out = reconcile(reading, handles, PLAIN);
@@ -2580,7 +2580,7 @@ describe('the package', () => {
       'laws/settles.ts',
       'line.ts',
       'offers.ts',
-      'reduce.ts',
+      'reading.ts',
       'rules/join.ts',
       'rules/leave.ts',
       'rules/value.ts',

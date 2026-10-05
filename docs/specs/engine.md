@@ -6,7 +6,7 @@ Words as in the [glossary](../glossary.md).
 
 What does not change from the ported engine is not repeated here: the line and its envelope
 (`canonical`, `stamp`, `verify`, `inOrder`), reading order, in force and revoking, the three
-steps of the reduction, goals (once, final, `with`, warnings and anchoring), `when` and the
+steps of the reading, goals (once, final, `with`, warnings and anchoring), `when` and the
 offers, the cap of three rounds, the dry run and its `added`, `rounds`, `verdicts`. Their
 behaviour is the 250 tests'; this round changes the words and opens the kinds, never the meaning.
 
@@ -59,7 +59,7 @@ export interface HandleKind {
   empty(schema: Schema): Json;
   /** The roles its answers are recorded as: the schema's `records` names a gist for each. */
   roles: string[];
-  /** A fresh accumulator for one reduction. */
+  /** A fresh accumulator for one reading. */
   start(schema: Schema): unknown;
   /** The thread's expectation, read out of the accumulator, as a handle of this kind. */
   expected(acc: unknown): Json;
@@ -217,7 +217,7 @@ the writer's: one that does not parse as a date is a mistake of the caller and n
 `dryRun` and `settle` reject with the platform's `RangeError` when they come to stamp a line, as `stamp`
 does, and the state given is unchanged.
 
-`reduce`, `admit`, `reconcile`, `payloadProblem`, `whenHolds` and `offers` take the schema where the
+`consequitur`, `admit`, `reconcile`, `payloadProblem`, `whenHolds` and `offers` take the schema where the
 ported engine took the gist schemas, since the kinds they ask live in its kit; `inForce` still takes
 the list of gist schemas, as it reads nothing else. `reconcile` writes each record as the schema's
 `authority`, under the gist its `records` gives the answer's role.

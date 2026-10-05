@@ -28,7 +28,7 @@ those marked *(new)* were proposed by the plan and accepted.
 | **kit** | The handle, rule and law kinds a schema may use. `BASE_KIT` ships with the library; a schema is read against one, and refuses a kind it lacks. |
 | **join**, **leave** | The rules that put names into a set handle, and take the writer out of one. In SIBAR, assign and release. |
 | **expectation** | What the thread says a handle should be, or that a line should exist. |
-| **reading** | The result of reducing a thread against its handles: lines in force, expectations, goals, denunciations. |
+| **reading** | What follows from a thread, against its handles: lines in force, expectations, goals, denunciations. `consequitur(lines, handles, schema)` gives it; the word names the act too. |
 | **denunciation** | One difference between an expectation and the handles (`sort: 'handle'`), a line a goal owes (`'line'`), or a breach of the opening rule (`'thread'`). |
 | **change** *(new)* | One difference between two handles, as its handle kind says it, for a host to apply to its own copy. `diff` lists them. Between two readings, a change is what `changes` lists: a line's standing, a goal, a check, a denunciation, the thread's settling, each with a key (from `keyOf` or `keyOfCheck` where the reading gives none). |
 | **reconciliation** | The answer to a denunciation: the handles change and a line records it. Settling repeats it, at most three rounds. |

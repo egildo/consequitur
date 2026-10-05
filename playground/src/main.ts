@@ -5,7 +5,7 @@
 // writer, the selection, a toggle) or writes a line, which is what `send` does:
 // the page plays the server, and the thread it brings back replaces the old one.
 
-import { dryRun, emptyState, goalWriter, inOrder, post, reduce, type Check, type EventLine, type Json, type LineDraft, type LineId, type Refusal, type Writer } from 'consequitur';
+import { dryRun, emptyState, goalWriter, inOrder, post, consequitur, type Check, type EventLine, type Json, type LineDraft, type LineId, type Refusal, type Writer } from 'consequitur';
 import { previewer } from 'consequitur-render';
 import { playScenario } from '../../cases/scenario.ts';
 import './style.css';
@@ -37,7 +37,7 @@ const find = <T extends HTMLElement>(id: string): T => {
 const first = emptyThread();
 let state: PageState = {
   thread: first,
-  reading: reduce(first.lines, first.handles, domain().schema),
+  reading: consequitur(first.lines, first.handles, domain().schema),
   writer: domain().writers[0].writer,
   draft: null,
   preview: null,
@@ -427,7 +427,7 @@ function reset(): void {
   const thread = emptyThread();
   update({
     thread,
-    reading: reduce(thread.lines, thread.handles, domain().schema),
+    reading: consequitur(thread.lines, thread.handles, domain().schema),
     answered: [],
     draft: null,
     preview: null,
@@ -492,7 +492,7 @@ function switchDomain(next: Domain): void {
   const thread = emptyThread();
   update({
     thread,
-    reading: reduce(thread.lines, thread.handles, next.schema),
+    reading: consequitur(thread.lines, thread.handles, next.schema),
     writer: next.writers[0].writer,
     answered: [],
     draft: null,
