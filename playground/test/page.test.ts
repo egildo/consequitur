@@ -176,3 +176,19 @@ describe('the dock', () => {
     await until(() => q('.draft') === null);
   });
 });
+
+describe('the composer', () => {
+  it('keeps its text enabled and read-only while the line is on its way, so the text keeps the focus', async () => {
+    click(button('Nuova attività', q('#offers')));
+    type(q('.draft .draft-input'), 'Prova');
+    await send();
+    click(button('Commento', q('#offers')));
+    const text = q<HTMLTextAreaElement>('.draft textarea')!;
+    type(text, 'Fatto');
+    click(q('.draft-send'));
+    expect(q('.draft')!.classList.contains('is-pending')).toBe(true);
+    expect(text.readOnly).toBe(true);
+    expect(text.disabled).toBe(false);
+    await until(() => q('.draft') === null);
+  });
+});

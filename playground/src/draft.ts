@@ -415,7 +415,7 @@ function lineComposer(first: Draft, ui: GistUi, handlers: ComposerHandlers): Com
       wrap(event.key === 'b' ? '**' : '_');
     }
   });
-  f.controls.push(text);
+  // the text is not among the controls a post disables, which would take its focus: `sync` makes it read-only instead
 
   const tools: HTMLElement[] = [];
   if (compose.body !== undefined && !compose.bodyOptional) {
