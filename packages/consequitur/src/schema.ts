@@ -4,9 +4,11 @@
 //
 // Payloads are free and schemas are not: an unknown key in a schema or a binding
 // is a problem, because a mistyped word there would silently change what a gist
-// does. The reader never throws, and one bad gist schema or law does not stop the
-// others. A fault in the head, or in how the head and the gists fit, leaves the
-// schema empty: nothing could be read by it.
+// does. The reader never throws and names every problem it finds, and a schema
+// with any problem is read as the empty schema: a gist or a law left out would
+// change what the rest does, since the next post would answer as though what
+// only that gist stated had never been said. `readGists` and `readLaws` read
+// their lists alone, and there one bad element does not stop the others.
 
 import { validChecks } from './check.ts';
 import type { GistSchema, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
@@ -18,7 +20,7 @@ const GIST_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 /** The rules the engine itself reads: they are mechanics, not kinds. */
 const MECHANICS = ['revoke', 'goal'];
 
-/** A schema that reads nothing: the answer when the head fails. */
+/** A schema that reads nothing: the answer when anything fails. */
 const emptySchema = (kit: Kit): Schema => ({ opening: '', authority: '::', sets: [], records: {}, judged: [], gists: [], laws: [], kit });
 
 /** Whether a `when` holds only the parts it may, each of the shape the part has. */
@@ -191,9 +193,9 @@ function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
 /**
  * Reads a schema from JSON against a kit: the head (`opening`, `authority`,
  * `sets`, `records`, `judged`), the gist schemas and the laws. Never throws. A
- * gist schema or a law that fails is left out and named; the rest are kept. A
- * schema whose head fails, or whose head names a gist that is not there, is empty
- * and its problems say why. A rule or a law that names a kind the kit lacks is a
+ * schema with any problem is empty, and its problems say why: a head that fails,
+ * a gist schema or a law that fails, or a head that names a gist that is not
+ * there or does not fit. A rule or a law that names a kind the kit lacks is a
  * problem.
  */
 export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems: string[] } {
@@ -211,9 +213,9 @@ export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems:
   const { gists, problems } = readGists(json.gists, kit, head);
   const { laws, problems: lawProblems } = 'laws' in json ? readLaws(json.laws, kit, head) : { laws: [], problems: [] };
   problems.push(...lawProblems);
-  const unfit = fitProblems(head, gists);
-  if (unfit.length > 0) return { schema: emptySchema(kit), problems: [...unfit, ...problems] };
-  return { schema: { ...head, gists, laws, kit }, problems };
+  const all = [...fitProblems(head, gists), ...problems];
+  if (all.length > 0) return { schema: emptySchema(kit), problems: all };
+  return { schema: { ...head, gists, laws, kit }, problems: [] };
 }
 
 /** Whether an object holds only the keys given. */

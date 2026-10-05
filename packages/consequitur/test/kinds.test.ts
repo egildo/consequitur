@@ -165,16 +165,14 @@ describe('a kit with kinds of its own', () => {
     const refused = readSchema(TOY, BASE_KIT);
     expect(refused.schema.gists).toEqual([]);
     expect(refused.problems.join(' ')).toMatch(/count/);
-    // with the role dropped, the gist that tallies names a rule the kit lacks, and is left out alone
+    // with the role dropped, the gist that tallies and the law that caps name kinds the kit lacks: each named, and nothing read
     const { count: _count, ...records } = TOY.records;
-    const partial = readSchema({ ...TOY, records }, BASE_KIT);
-    expect(partial.schema.gists.map((g) => g.gist)).not.toContain('vote');
-    expect(partial.schema.gists.map((g) => g.gist)).toContain('open');
-    // the gist that tallies, and the law that caps: each named, each left out alone
-    expect(partial.problems).toHaveLength(2);
-    expect(partial.problems[0]).toMatch(/"vote".*tally/);
-    expect(partial.problems[1]).toMatch(/cap/);
-    expect(partial.schema.laws).toEqual([]);
+    const lacking = readSchema({ ...TOY, records }, BASE_KIT);
+    expect(lacking.problems).toHaveLength(2);
+    expect(lacking.problems[0]).toMatch(/"vote".*tally/);
+    expect(lacking.problems[1]).toMatch(/cap/);
+    expect(lacking.schema.gists).toEqual([]);
+    expect(lacking.schema.laws).toEqual([]);
   });
 
   it('refuses a rule whose handle kind the kit lacks', () => {
@@ -340,23 +338,36 @@ describe('readSchema', () => {
     expect(out.problems.join(' ')).toMatch(/"begin"/);
   });
 
-  it('a rule or a law of a kind the kit lacks is a problem, and only that gist or law is left out', () => {
+  it('a rule or a law of a kind the kit lacks is a problem, and the schema is read as the empty one', () => {
     const gists = [...SIBAR_JSON.gists, { gist: 'odd', writers: ['user'], rules: [{ rule: 'tally', counter: 'c' }] }];
     const laws = [...SIBAR_JSON.laws, { law: 'cap', counter: 'c', limit: 1, strength: 'refuse' }];
     const out = read({ ...SIBAR_JSON, gists, laws });
     expect(out.problems).toHaveLength(2);
     expect(out.problems[0]).toMatch(/"odd".*tally/);
     expect(out.problems[1]).toMatch(/cap/);
-    expect(out.schema.gists).toHaveLength(19);
-    expect(out.schema.laws).toHaveLength(3);
+    expect(out.schema.gists).toEqual([]);
+    expect(out.schema.laws).toEqual([]);
   });
 
-  it('a join that names a set the schema does not declare is a problem, and only that gist is left out', () => {
+  it('a join that names a set the schema does not declare is a problem, and the schema is read as the empty one', () => {
     const gists = [...SIBAR_JSON.gists, { gist: 'odd', writers: ['user'], rules: [{ rule: 'join', set: 'owners', from: 'x' }] }];
     const out = read({ ...SIBAR_JSON, gists });
     expect(out.problems).toHaveLength(1);
     expect(out.problems[0]).toMatch(/"odd".*owners/);
-    expect(out.schema.gists).toHaveLength(19);
+    expect(out.schema.gists).toEqual([]);
+  });
+
+  it('a mistyped word in one gist leaves nothing to read, so no post can erase what that gist stated', async () => {
+    const typo = SIBAR_JSON.gists.map((g) => (g.gist === 'stage' ? { ...g, rules: [{ rule: 'value', key: 'stage', form: 'stage' }] } : g));
+    const out = read({ ...SIBAR_JSON, gists: typo });
+    expect(out.problems).toHaveLength(1);
+    expect(out.problems[0]).toMatch(/"stage"/);
+    expect(out.schema.gists).toEqual([]);
+    // read partially, the next comment on a thread with a stage used to erase it from the handles
+    const state = await posted(PLAIN, [mrossi('create', { name: 'x', assignTo: ['mrossi'] }), mrossi('stage', { stage: 'review' })]);
+    const after = await post(state, mrossi('comment', { text: 'hi' }), out.schema, NOW);
+    expect(after.refusal?.code).toBe('unknown-gist');
+    expect(after.state).toBe(state);
   });
 
   it('a set the head declares can be joined, and is in the empty state', () => {

@@ -18,7 +18,8 @@ answers every difference by writing a line. **Goals** wait for lines and write o
 ```ts
 import { readSchema, BASE_KIT, emptyState, dryRun, post, offers } from 'consequitur';
 
-const { schema } = readSchema(activitySchema, BASE_KIT);
+const { schema, problems } = readSchema(activitySchema, BASE_KIT);
+if (problems.length > 0) throw new Error(problems.join(' ')); // a schema with a problem reads as the empty one
 let state = emptyState(schema);
 
 const draft = { gist: 'create', writer: 'user::mrossi', payload: { name: 'Richiesta parere', assignTo: ['mrossi'] } };

@@ -177,11 +177,14 @@ reader refuse, when the schema is read, a rule that states into a handle kind th
 export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems: string[] };
 ```
 
-Never throws; a gist schema or law that fails is left out and named, the rest kept; a schema whose
-head (`opening`, `authority`, `sets`, `records`, `judged`) fails gives an empty schema and the
-problems. So does a head that names a gist the reader did not keep: an opening gist, or a record
-gist, with no schema, or whose writers do not fit. A rule or law naming a kind the kit lacks is a
-problem. `readGists(value, kit, head)` and `readLaws(value, kit, head)` read the two lists alone.
+Never throws, and names every problem it finds; a schema with any problem gives an empty schema and
+the problems, since a gist schema or law left out would change what the rest does: the next post
+would answer as though what only that gist stated had never been said. A problem may be in the head
+(`opening`, `authority`, `sets`, `records`, `judged`), in a gist schema or a law, or in how the head
+fits the gists: an opening gist, or a record gist, with no schema, or whose writers do not fit, or a
+record gist with rules. A rule or law naming a kind the kit lacks is a problem. `readGists(value,
+kit, head)` and `readLaws(value, kit, head)` read the two lists alone, and keep each element that
+passes.
 
 ## 6 · Laws
 
