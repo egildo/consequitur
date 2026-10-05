@@ -64,7 +64,9 @@ const examplesEl = find('examples');
 const quitDialog = find<HTMLDialogElement>('quit-dialog');
 const panel = createPanel(find('panel'), { onTab: (tab) => update({ tab }), onGist: (gist) => update({ gist }) });
 mountBand(find('column'));
+// the band is drawn over the column, and both the ledger and the dock scroll inside it
 find('scroll').addEventListener('scroll', redraw);
+find('dock').addEventListener('scroll', redraw);
 
 // ── the server's part ──
 
