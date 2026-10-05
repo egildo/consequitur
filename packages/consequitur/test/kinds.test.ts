@@ -571,6 +571,8 @@ describe('offers, with the expectations computed once', () => {
       if (seen.has(gist.gist)) continue;
       seen.add(gist.gist);
       if (kin === undefined || !gist.writers.includes(kin)) continue;
+      // a goal's lines and the records are the engine's own
+      if (kin === 'goal' || Object.values(schema.records).includes(gist.gist)) continue;
       if (!whenHolds(lines, writer, gist, schema)) continue;
       if (gist.gist === schema.opening ? openings !== 0 : openings !== 1) continue;
       const revoking = gist.rules.find((r) => r.rule === 'revoke');

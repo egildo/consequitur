@@ -1,6 +1,7 @@
 // What a writer may post to a thread as it stands. The menu a screen draws from
 // these offers and the admission of a line are one answer: `holds` decides both,
-// and the opening rule is read here the way `post` enforces it.
+// the opening rule is read here the way `post` enforces it, and the lines the
+// engine writes itself, a goal's and the records, are offered to nobody.
 
 import { kinOf } from './check.ts';
 import { lockedBy, revokeOf } from './line.ts';
@@ -20,6 +21,7 @@ export function offers(lines: EventLine[], writer: Writer, schema: Schema): Offe
   const expected = expectations(lines, schema);
   const standing = expected.standing.inForce;
   const openings = standing.filter((l) => l.gist === schema.opening).length;
+  const records = Object.values(schema.records);
   const seen = new Set<string>();
   const out: Offer[] = [];
 
@@ -27,7 +29,8 @@ export function offers(lines: EventLine[], writer: Writer, schema: Schema): Offe
     // the first schema of a gist is the one read
     if (seen.has(gist.gist)) continue;
     seen.add(gist.gist);
-    if (kin === undefined || !gist.writers.includes(kin)) continue;
+    if (kin === undefined || kin === 'goal' || !gist.writers.includes(kin)) continue;
+    if (records.includes(gist.gist)) continue;
     if (gist.when && !holds(expected, writer, gist.when)) continue;
     if (gist.gist === schema.opening ? openings !== 0 : openings !== 1) continue;
 

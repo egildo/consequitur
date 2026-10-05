@@ -1843,7 +1843,15 @@ describe('posting to a thread', () => {
           const { lines } = afterCreate;
           expect(names(offers(lines, 'user::mrossi', PLAIN))).toEqual(['memo', 'comment', 'doc_ref', 'set_goal', 'stage', 'closed', 'quit']);
           expect(offers(lines, 'user::gverdi', PLAIN)).toEqual([]);
-          expect(names(offers(lines, 'system::sibardoc', PLAIN))).toEqual(['doc_signed', 'doc_created', 'assigned', 'unassigned', 'metadata_set']);
+          // the records are the engine's own: the authority writes them only through settle
+          expect(names(offers(lines, 'system::sibardoc', PLAIN))).toEqual(['doc_signed', 'doc_created']);
+        });
+
+        it('offers nothing to a goal, whose lines the engine writes', async () => {
+          const { final } = await states();
+          const goal = gistNamed(final.lines, 'set_goal')[0];
+          expect(offers(final.lines, goalWriter(goal.id), PLAIN)).toEqual([]);
+          expect(offers(final.lines, 'goal::x', PLAIN)).toEqual([]);
         });
 
         it('after the memo to lbianchi: a revoking gist comes with its targets, the others with none', async () => {
@@ -1906,9 +1914,6 @@ describe('posting to a thread', () => {
             quit: {},
             doc_signed: { document: '1' },
             doc_created: { document: '1' },
-            assigned: { set: 'assignees', member: 'x' },
-            unassigned: { set: 'assignees', member: 'x' },
-            metadata_set: { key: 'k' },
           };
           let offered = 0;
           for (const [label, state] of Object.entries(s)) {
@@ -2092,6 +2097,29 @@ describe('posting to a thread', () => {
       const out = await post(state, draft as LineDraft, PLAIN, NOW);
       expect(out.refusal?.code).toBe(code);
       expect(out.added).toEqual([]);
+    });
+
+    it('refuses the lines the engine writes itself: one by a goal, and one of a record gist, whoever writes it', async () => {
+      const lines = await thread([
+        mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
+        mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'doc_signed' }] }),
+        by(SYSTEM_WRITER, 'doc_signed', { document: '1' }),
+      ]);
+      const goal = goalWriter(lines[1].id);
+      for (const draft of [
+        by(goal, 'closed', {}),
+        by(goal, 'goal_warning', { check: 0 }),
+        by(SYSTEM_WRITER, 'metadata_set', { key: 'status', value: 'closed' }),
+        by(SYSTEM_WRITER, 'assigned', { set: 'assignees', member: 'gverdi' }),
+        by(SYSTEM_WRITER, 'unassigned', { set: 'assignees', member: 'mrossi' }),
+      ]) {
+        const refusal = admit(lines, draft, PLAIN);
+        expect(refusal?.code, `${draft.writer} ${draft.gist}`).toBe('writer-not-allowed');
+        expect(refusal?.detail).toMatch(/engine/);
+      }
+      // the goal writes its own line, through settle: a forged one would have stood in its place
+      const state = await settle({ lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) }, PLAIN, NOW);
+      expect(state.state.lines.some((l) => l.gist === 'closed' && l.writer === goal)).toBe(true);
     });
 
     it('refuses a revoke of an id that no line has, and of a line whose gist is not listed', async () => {

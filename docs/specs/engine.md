@@ -241,6 +241,9 @@ after? }`; `set` gives `{ kind: 'set', key, member, change: 'join' | 'leave' }`.
 `offers` computes the expectations once per call, not once per gist. Same result. Admission and
 the menu still ask one question: `whenHolds(lines, writer, gist, schema)` computes the
 expectations for its one gist, and `offers` asks the same part of them (`holds`) for each.
+The engine neither offers the lines it writes itself, one by a writer of kin `goal` and one of a gist
+the head's `records` names (`warning` included), nor admits them (`writer-not-allowed`): `settle`
+writes them, and they skip admission.
 
 ## 9 · The SIBAR case
 

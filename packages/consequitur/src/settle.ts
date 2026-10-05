@@ -1,7 +1,8 @@
 // Posting to a thread: a draft is admitted against what its gist's rules read,
 // appended, and the thread is brought into agreement with its handles by
 // reconciliation. The authority is the one that stamps every line, and the lines
-// that record a reconciliation are its own, so they skip admission.
+// that record a reconciliation are its own, so they skip admission; admission
+// refuses them, and a goal's lines, from anyone else.
 
 import { kinOf, validChecks } from './check.ts';
 import { canonical, lockedBy, revokeOf, stamp } from './line.ts';
@@ -63,7 +64,8 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
  * gist's rules read: every other key of the payload is free. The refusals come in
  * a fixed order, so two readers give the same answer. The drafts `settle` writes
  * never come through here, so a goal writes its line whatever that gist's `when`
- * says.
+ * says; and a draft that would be one of them, a line by a goal or of a record
+ * gist, is refused.
  */
 export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Refusal | undefined {
   const { gists } = schema;
@@ -73,6 +75,10 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   if (!gist) return refuse('unknown-gist', `The gist "${draft.gist}" has no schema.`);
 
   const kin = kinOf(draft.writer);
+  if (kin === 'goal') return refuse('writer-not-allowed', `The writer "${draft.writer}" is a goal, whose lines the engine writes.`);
+  if (Object.values(schema.records).includes(gist.gist)) {
+    return refuse('writer-not-allowed', `The gist "${draft.gist}" is a record, which the engine writes.`);
+  }
   if (kin === undefined || !gist.writers.includes(kin)) {
     return refuse('writer-not-allowed', `The writer "${draft.writer}" is not of a kin that may write "${draft.gist}".`);
   }
