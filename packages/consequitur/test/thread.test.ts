@@ -120,6 +120,16 @@ describe('stamp', () => {
     expect(await verify(line)).toBe(true);
   });
 
+  it('stores the payload as JSON holds it, so a line verifies after a JSON round trip', async () => {
+    // what a host may hand over whatever the type says: values JSON drops or writes otherwise
+    const payload = { text: 'a', gone: undefined, at: new Date(0), run: () => 1, n: Number.NaN } as unknown as Payload;
+    const line = await stamp({ gist: 'note', writer: 'user::mrossi', payload }, [], NOW);
+    expect(Object.keys(line.payload)).toEqual(['text', 'at', 'n']);
+    expect(line.payload).toEqual({ text: 'a', at: '1970-01-01T00:00:00.000Z', n: null });
+    expect(await verify(line)).toBe(true);
+    expect(await verify(JSON.parse(JSON.stringify(line)) as EventLine)).toBe(true);
+  });
+
   it('changes none of its arguments', async () => {
     const lines = await thread([note]);
     const copy = structuredClone(lines);
@@ -2055,6 +2065,25 @@ describe('posting to a thread', () => {
       const refusal = admit(lines, draft, PLAIN);
       expect(refusal?.code).toBe(code);
       expect(refusal?.detail).toMatch(/^[A-Za-z]/);
+    });
+
+    it.each<[string, unknown, Refusal['code']]>([
+      ['no draft at all', null, 'writer-not-allowed'],
+      ['a draft that is a list', [], 'writer-not-allowed'],
+      ['a writer that is not a string', { gist: 'comment', writer: 7, payload: {} }, 'writer-not-allowed'],
+      ['no payload', { gist: 'comment', writer: 'user::mrossi' }, 'invalid-payload'],
+      ['a payload that is null', { gist: 'comment', writer: 'user::mrossi', payload: null }, 'invalid-payload'],
+      ['a payload that is a list', { gist: 'comment', writer: 'user::mrossi', payload: [1] }, 'invalid-payload'],
+      ['a payload that is a string', { gist: 'comment', writer: 'user::mrossi', payload: 'text' }, 'invalid-payload'],
+      ['a payload that is a date', { gist: 'comment', writer: 'user::mrossi', payload: new Date(0) }, 'invalid-payload'],
+    ])('refuses %s, and post says so without throwing', async (_, draft, code) => {
+      // a host hands over what it was sent: the type is a promise the engine cannot rely on
+      const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
+      expect(admit(lines, draft as LineDraft, PLAIN)?.code).toBe(code);
+      const state: ThreadState = { lines, handles: hold({}, []) };
+      const out = await post(state, draft as LineDraft, PLAIN, NOW);
+      expect(out.refusal?.code).toBe(code);
+      expect(out.added).toEqual([]);
     });
 
     it('refuses a revoke of an id that no line has, and of a line whose gist is not listed', async () => {

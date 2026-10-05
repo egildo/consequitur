@@ -67,6 +67,8 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
  */
 export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Refusal | undefined {
   const { gists } = schema;
+  // a draft comes from outside, so its type is a promise and not a fact
+  if (!isObject(draft) || typeof draft.writer !== 'string') return refuse('writer-not-allowed', 'A draft must be an object whose writer is a string.');
   const gist = gists.find((g) => g.gist === draft.gist);
   if (!gist) return refuse('unknown-gist', `The gist "${draft.gist}" has no schema.`);
 
@@ -81,6 +83,9 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
 
   const invalid = (detail: string) => refuse('invalid-payload', `${detail} in a "${draft.gist}" line.`);
   const { payload } = draft;
+  // a plain object, which a JSON round trip gives back as one: `stamp` stores what JSON holds
+  const plain = isObject(payload) && [Object.prototype, null].includes(Object.getPrototypeOf(payload));
+  if (!plain) return invalid('The payload must be an object');
 
   const problem = payloadProblem(schema, gist, payload);
   if (problem !== undefined) return refuse('invalid-payload', problem);

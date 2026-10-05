@@ -4,7 +4,7 @@
 // Strings are compared with `<` everywhere, never `localeCompare`: two readers
 // must agree on an order whatever their locale.
 
-import type { EventLine, GistSchema, Json, LineDraft, LineId } from './types.ts';
+import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload } from './types.ts';
 import { compare } from './util.ts';
 
 /**
@@ -36,7 +36,9 @@ async function hashOf(line: Omit<EventLine, 'id'>): Promise<LineId> {
 /**
  * The authority's envelope for a draft. The id is computed here, once, and stored:
  * nothing else recomputes it but `verify`. A timestamp never repeats inside a
- * thread, because the reading order depends on it.
+ * thread, because the reading order depends on it. The payload is stored as JSON
+ * holds it, so what is hashed is what a stored line gives back: a key that holds
+ * `undefined` or a function is left out, a date is its string.
  */
 export async function stamp(draft: LineDraft, lines: EventLine[], now: string): Promise<EventLine> {
   const instant = new Date(now).toISOString();
@@ -47,7 +49,7 @@ export async function stamp(draft: LineDraft, lines: EventLine[], now: string): 
     gist: draft.gist,
     writer: draft.writer,
     timestamp,
-    payload: draft.payload,
+    payload: JSON.parse(JSON.stringify(draft.payload)) as Payload,
   };
   return { id: await hashOf(body), ...body };
 }

@@ -131,9 +131,9 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
 
 `post(state, draft, schema, now, options)` is `dryRun` and then a decision.
 
-1. **Admit** the draft: gist, writer's kin, `when`, payload (each rule kind's `admit`, then the
-   mechanics of revoke and goal).
-2. **Append** it, stamped, and refuse it if the opening rule would break.
+1. **Admit** the draft: an object whose writer is a string, gist, writer's kin, `when`, payload (a
+   plain object, then each rule kind's `admit`, then the mechanics of revoke and goal).
+2. **Append** it, stamped, with its payload as JSON holds it, and refuse it if the opening rule would break.
 3. **Settle**: reduce; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);
    `reconcile` has each handle kind answer its own, and writes each record as the authority; repeat,
