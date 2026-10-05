@@ -224,7 +224,16 @@ export type Policy = Array<{
   leave: { sort?: 'handle' | 'line'; kind?: string; key?: string; member?: string; gist?: string };
   while?: { values?: Record<string, Json> };   // read on the handles as they stand
 }>;
+
+export function readPolicy(json: unknown, schema: Schema): { policy: Policy; problems: string[] };
 ```
+
+A policy is conf, as a schema is, and `readPolicy` reads it against the schema it will be passed
+with. It never throws, and every key is checked at every level, since a mistyped word would silently
+change what the authority answers: an entry has `leave` and may have `while`; `leave` has only
+`sort` (`handle` or `line`), `kind` (a handle kind of the schema's kit), `key` and `member`
+(strings) and `gist` (a gist of the schema); `while` has only `values`, an object of JSON with at
+least one key. A policy with any problem is read as the empty policy, and the problems say why.
 
 `settle` answers every denunciation `answer` returns: all but those of the thread and those a
 policy entry leaves. The condition is read on the handles as they stand at the start of each

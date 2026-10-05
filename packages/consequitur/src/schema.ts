@@ -1,5 +1,6 @@
-// The reader for schemas. A schema is conf, so it comes from outside and is
-// checked once, here; `admit` and `reduce` then take it as given.
+// The readers for schemas, and for the policy passed with one. Both are conf, so
+// they come from outside and are checked once, here; `admit`, `reduce` and
+// `settle` then take them as given.
 //
 // Payloads are free and schemas are not: an unknown key in a schema or a binding
 // is a problem, because a mistyped word there would silently change what a gist
@@ -8,7 +9,7 @@
 // schema empty: nothing could be read by it.
 
 import { validChecks } from './check.ts';
-import type { GistSchema, Kit, LawBinding, Schema, SchemaHead, Writer } from './types.ts';
+import type { GistSchema, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
 import { isJson, isObject, isStrings, keysAre } from './util.ts';
 import { canonical } from './line.ts';
 
@@ -213,4 +214,35 @@ export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems:
   const unfit = fitProblems(head, gists);
   if (unfit.length > 0) return { schema: emptySchema(kit), problems: [...unfit, ...problems] };
   return { schema: { ...head, gists, laws, kit }, problems };
+}
+
+/** Whether an object holds only the keys given. */
+const only = (value: Record<string, unknown>, keys: string[]): boolean => Object.keys(value).every((k) => keys.includes(k));
+
+/** The first thing wrong with one entry of a policy, as an English sentence, or undefined when it passes. */
+function entryProblem(entry: unknown, label: string, schema: Schema): string | undefined {
+  if (!isObject(entry) || !('leave' in entry) || !only(entry, ['leave', 'while'])) return `${label}: must have the key leave, and may have while, and no other.`;
+  const { leave } = entry;
+  if (!isObject(leave) || !only(leave, ['sort', 'kind', 'key', 'member', 'gist'])) return `${label}: leave must be an object with only sort, kind, key, member and gist.`;
+  if ('sort' in leave && leave.sort !== 'handle' && leave.sort !== 'line') return `${label}: leave.sort must be "handle" or "line".`;
+  if ('kind' in leave && !schema.kit.handles.some((h) => h.kind === leave.kind)) return `${label}: leave.kind must name a handle kind of the kit.`;
+  if ('key' in leave && typeof leave.key !== 'string') return `${label}: leave.key must be a string.`;
+  if ('member' in leave && typeof leave.member !== 'string') return `${label}: leave.member must be a string.`;
+  if ('gist' in leave && !schema.gists.some((g) => g.gist === leave.gist)) return `${label}: leave.gist must name a gist of the schema.`;
+  if (!('while' in entry)) return undefined;
+  const { while: condition } = entry;
+  const fits = isObject(condition) && only(condition, ['values']) && isObject(condition.values) && Object.keys(condition.values).length > 0 && isJson(condition.values);
+  return fits ? undefined : `${label}: while must be an object with only values, an object with at least one key.`;
+}
+
+/**
+ * Reads a policy from JSON against the schema it will be passed with. Never throws.
+ * A policy is conf as a schema is, so every key is checked at every level: a
+ * mistyped word would silently change what the authority answers. A policy with
+ * any problem is the empty policy, and its problems say why.
+ */
+export function readPolicy(json: unknown, schema: Schema): { policy: Policy; problems: string[] } {
+  if (!Array.isArray(json)) return { policy: [], problems: ['The policy must be a list.'] };
+  const problems = json.flatMap((entry, at) => entryProblem(entry, `entry ${at}`, schema) ?? []);
+  return { policy: problems.length > 0 ? [] : (json as Policy), problems };
 }

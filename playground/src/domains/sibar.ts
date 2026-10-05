@@ -2,7 +2,7 @@
 // `cases/sibar-activity/`; this is the application's side of it: the words, the cards, how a line is
 // composed, how a goal awaits it, the people, and the document system the page plays.
 
-import { kinOf, type EventLine, type Policy } from 'consequitur';
+import { kinOf, type EventLine } from 'consequitur';
 import policyText from '../../../cases/sibar-activity/policy.json?raw';
 import scenariosText from '../../../cases/sibar-activity/scenarios.json?raw';
 import schemaText from '../../../cases/sibar-activity/schema.json?raw';
@@ -211,7 +211,7 @@ export const sibar = defineDomain({
   id: 'sibar',
   label: 'Attività (SIBAR)',
   file: schemaText,
-  policy: JSON.parse(policyText) as Policy,
+  policyFile: policyText,
   words: {
     title: 'Banco delle attività · consequitur',
     ledger: "Le righe dell'attività",

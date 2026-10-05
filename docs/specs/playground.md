@@ -20,7 +20,7 @@ here, not reinvented: every behaviour it has, it keeps.
   by law and set.
 - **The schema is the case**: `cases/sibar-activity/schema.json`, read with `readSchema` and
   `BASE_KIT`. The SIBAR **policy** («quits on a closed activity are not answered») is the
-  playground's, passed to `post` and `dryRun`.
+  playground's, read with `readPolicy` and passed to `post` and `dryRun`.
 - **Render**: the ledger uses `keyed`, the composer's preview `previewer`, pointing `band`, and
   every card's reading `lineFacts`. What the bench had in its own `ledger.ts`, `deduce.ts` and
   `band.ts` and is now in `consequitur-render` is deleted from the port.
@@ -57,7 +57,7 @@ Where the build had to choose:
   gist, and «Leggi» (the laws, as code); the laws keep their own tab, «Leggi», too, so the four tabs stay.
 - **Verdicts in Italian**: `laws` in the domain, keyed by law and, for `keeps-set`, by
   the verdict's `set`; a law or a set the table lacks says so in general words.
-- **The policy** of SIBAR is one entry in `cases/sibar-activity/policy.json` (since round 5, so the tests read it too), passed to `post` and `dryRun`. The panel lists the
+- **The policy** of SIBAR is one entry in `cases/sibar-activity/policy.json` (since round 5, so the tests read it too), read with `readPolicy`, which `defineDomain` refuses on any problem as it does the schema, and passed to `post` and `dryRun`. The panel lists the
   denunciations it leaves, marked «lasciata senza risposta», beside «In accordo con le righe».
 - **Render** takes the place of the bench's ledger cache (`keyed`), preview scheduling (`previewer`),
   band (`band`, with a thin adapter in `pointing.ts`; whether a drag holds the band is `band.dragging`,
@@ -75,8 +75,8 @@ Where the build had to choose:
 
 The page runs one **domain** at a time and a picker in its header, «Dominio», switches: «Attività
 (SIBAR)» and «Revisione editoriale». A domain is a module in `src/domains/`, made by `defineDomain` in
-`src/domain.ts` from its case (the schema read with `readSchema` and `BASE_KIT`, its policy if any, its
-scenarios) and the application's side of it, the **UI schema**: the words (the page's titles, what it
+`src/domain.ts` from its case (the schema read with `readSchema` and `BASE_KIT`, its policy if any, read
+with `readPolicy`, its scenarios) and the application's side of it, the **UI schema**: the words (the page's titles, what it
 calls the subject, the refusals, the laws, the keys of the value handle and the sets), each gist's label,
 card and way of being composed and awaited, the people and the «Scrivo come» list, the goals' outcomes,
 and its examples, which are the case's scenarios played through the shared resolver

@@ -5,7 +5,7 @@
 // in the page names a gist. The page reads the domain in use through `domain()`, and switching
 // domains is `useDomain`.
 
-import { BASE_KIT, readSchema, type EventLine, type Handles, type Json, type LineDraft, type LineId, type Policy, type Reading, type Refusal, type Schema, type ThreadState, type Writer } from 'consequitur';
+import { BASE_KIT, readPolicy, readSchema, type EventLine, type Handles, type Json, type LineDraft, type LineId, type Policy, type Reading, type Refusal, type Schema, type ThreadState, type Writer } from 'consequitur';
 import type { Step } from '../../cases/scenario.ts';
 
 /** The payload key of the optional comment on an action. */
@@ -202,7 +202,8 @@ export interface DomainSpec {
   label: string;
   /** The text of the case's schema file, as it is. */
   file: string;
-  policy?: Policy;
+  /** The text of the case's policy file, as it is, when it has one. */
+  policyFile?: string;
   words: Words;
   people: Person[];
   /** The «Scrivo come» list, the first who the page starts as. */
@@ -223,6 +224,8 @@ export interface DomainSpec {
 
 export interface Domain extends DomainSpec {
   schema: Schema;
+  /** The policy file, read against the schema. */
+  policy?: Policy;
   /** The head of the schema, as the file writes it: what is neither a gist nor a law. */
   head: Json;
   /** The laws, as the file writes them. */
@@ -240,11 +243,13 @@ export interface Domain extends DomainSpec {
   mention: RegExp;
 }
 
-/** Reads a domain's case, and refuses a domain whose words name what its schema has not. */
+/** Reads a domain's case, and refuses a case with problems and a domain whose words name what its schema has not. */
 export function defineDomain(spec: DomainSpec): Domain {
   const file = JSON.parse(spec.file) as Record<string, Json>;
   const { schema, problems } = readSchema(file, BASE_KIT);
   if (problems.length > 0) throw new Error(`The case "${spec.id}" has problems: ${problems.join(' ')}`);
+  const read = spec.policyFile === undefined ? undefined : readPolicy(JSON.parse(spec.policyFile), schema);
+  if (read && read.problems.length > 0) throw new Error(`The policy of the case "${spec.id}" has problems: ${read.problems.join(' ')}`);
 
   const gists = new Set(schema.gists.map((g) => g.gist));
   const unknown = [...spec.ui.map((ui) => ui.gist), ...spec.examples.flatMap((e) => e.steps.map((s) => s.gist))].filter((gist) => !gists.has(gist));
@@ -258,6 +263,7 @@ export function defineDomain(spec: DomainSpec): Domain {
   return {
     ...spec,
     schema,
+    policy: read?.policy,
     head,
     lawsData: file.laws,
     gistData: (gist) => (file.gists as Array<{ gist: string }>).find((entry) => entry.gist === gist) as Json | undefined,

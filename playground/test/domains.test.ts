@@ -5,7 +5,7 @@
 import { emptyState, post, type Check, type EventLine, type LineDraft, type Refusal, type ThreadState } from 'consequitur';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { playScenario } from '../../cases/scenario.ts';
-import { useDomain, type Domain } from '../src/domain.ts';
+import { defineDomain, useDomain, type Domain } from '../src/domain.ts';
 import { DOMAINS } from '../src/domains/index.ts';
 import { checkSentence, lineLabel, outcomeSentence, recordSentence, sayOf, uiOf, warningSentence, writerName } from '../src/ui-schema.ts';
 
@@ -33,6 +33,15 @@ describe('the domains', () => {
     expect(DOMAINS.map((d) => d.label)).toEqual(['Attività (SIBAR)', 'Revisione editoriale']);
     expect(new Set(DOMAINS.map((d) => d.id)).size).toBe(DOMAINS.length);
     expect(new Set(DOMAINS.map((d) => d.words.title)).size).toBe(DOMAINS.length);
+  });
+
+  it('read a case\'s policy against its schema, and refuse one with a problem', () => {
+    const sibar = DOMAINS.find((d) => d.id === 'sibar')!;
+    expect(sibar.policy).toEqual([{ leave: { kind: 'set', key: 'assignees' }, while: { values: { status: 'closed' } } }]);
+    expect(DOMAINS.find((d) => d.id === 'editorial')!.policy).toBeUndefined();
+    // a mistyped word would have left quits answered on a closed activity
+    const typo = '[{ "leave": { "kind": "set", "key": "assignees" }, "whlie": { "values": { "status": "closed" } } }]';
+    expect(() => defineDomain({ ...sibar, policyFile: typo })).toThrow(/policy of the case "sibar"/);
   });
 
   for (const domain of DOMAINS) {

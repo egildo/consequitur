@@ -44,7 +44,7 @@ types.ts       every type, kits' interfaces included
 util.ts        small guards, `compare` (never localeCompare), `keysAre`
 line.ts        canonical, stamp, verify, inOrder, inForce, lockedBy, revokeOf
 check.ts       validChecks, matches, whereMatches, kinOf, idOf
-schema.ts      readSchema, readGists, readLaws
+schema.ts      readSchema, readGists, readLaws, readPolicy
 reduce.ts      expectations, holds, whenHolds, reduce
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState
 offers.ts      offers

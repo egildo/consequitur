@@ -2,6 +2,8 @@
 // for the whole schema, the policy, the diff, the empty state, and the offers
 // computed once. The semantics of the ported engine are in `thread.test.ts`.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_KIT,
@@ -16,6 +18,7 @@ import {
   lockedBy,
   offers,
   post,
+  readPolicy,
   readSchema,
   reduce,
   settle,
@@ -500,6 +503,66 @@ describe('the policy', () => {
     expect(answer(reading([joined]), handleSet, entry({ status: 'open' }))).toEqual([joined]);
     expect(answer(reading([joined]), handleSet, entry({ status: 'closed', other: 1 }))).toEqual([joined]);
     expect(answer(reading([joined]), hold({ status: { b: 1, a: 2 } }, ['a']), entry({ status: { a: 2, b: 1 } }))).toEqual([]);
+  });
+});
+
+describe('readPolicy', () => {
+  const read = (json: unknown) => readPolicy(json, SIBAR);
+
+  it('reads the case\'s policy file with no problem, as the file holds it', () => {
+    const json: unknown = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', '..', 'cases', 'sibar-activity', 'policy.json'), 'utf8'));
+    expect(read(json)).toEqual({ policy: json, problems: [] });
+    expect(read([])).toEqual({ policy: [], problems: [] });
+  });
+
+  it('reads every part an entry may state', () => {
+    const policy = [
+      { leave: {} },
+      { leave: { sort: 'line', gist: 'closed' } },
+      { leave: { sort: 'handle', kind: 'set', key: 'assignees', member: 'mrossi' }, while: { values: { status: 'closed', stage: { a: [1] } } } },
+    ];
+    expect(read(policy)).toEqual({ policy, problems: [] });
+  });
+
+  const broken: Array<[string, unknown, RegExp]> = [
+    ['no list', { leave: {} }, /list/],
+    ['an entry that is not an object', [null], /entry 0/],
+    ['an entry with no leave', [{ while: { values: { status: 'closed' } } }], /leave/],
+    ['a mistyped while', [{ leave: { kind: 'set' }, whlie: { values: { status: 'closed' } } }], /entry 0.*leave.*while/],
+    ['a leave that is not an object', [{ leave: 'set' }], /leave/],
+    ['a mistyped part of leave', [{ leave: { knid: 'set' } }], /sort, kind, key, member and gist/],
+    ['a sort of the thread', [{ leave: { sort: 'thread' } }], /sort/],
+    ['a kind the kit lacks', [{ leave: { kind: 'counter' } }], /kind/],
+    ['a gist the schema lacks', [{ leave: { gist: 'mystery' } }], /gist/],
+    ['a key that is not a string', [{ leave: { key: 1 } }], /key/],
+    ['a member that is not a string', [{ leave: { member: null } }], /member/],
+    ['a while that is not an object', [{ leave: {}, while: 'closed' }], /while/],
+    ['a mistyped part of while', [{ leave: {}, while: { value: { status: 'closed' } } }], /while/],
+    ['a while with no value', [{ leave: {}, while: { values: {} } }], /while/],
+    ['a while whose values JSON cannot hold', [{ leave: {}, while: { values: { status: undefined } } }], /while/],
+  ];
+
+  it.each(broken)('a policy with %s is read as the empty policy, and says why', (_, json, why) => {
+    const out = read(json);
+    expect(out.policy).toEqual([]);
+    expect(out.problems).toHaveLength(1);
+    expect(out.problems[0]).toMatch(why);
+  });
+
+  it('a problem in one entry leaves the whole policy empty, and names each entry that has one', () => {
+    const out = read([{ leave: { kind: 'set' } }, { leave: { gist: 'mystery' } }, { leave: { sort: 'thread' } }]);
+    expect(out.policy).toEqual([]);
+    expect(out.problems).toHaveLength(2);
+    expect(out.problems[0]).toMatch(/entry 1/);
+    expect(out.problems[1]).toMatch(/entry 2/);
+  });
+
+  it('never throws, and changes nothing it is given', () => {
+    for (const json of [undefined, null, 5, 'x', [[]], [{ leave: null }], [{ leave: [] }], [{ leave: {}, while: null }]]) {
+      const copy = structuredClone(json);
+      expect(() => read(json)).not.toThrow();
+      expect(json).toEqual(copy);
+    }
   });
 });
 
