@@ -155,7 +155,7 @@ is new, `answered` when its key is gone; `settled` and `unsettled` say the threa
 Two identical readings give no change. The list is ordered by kind, in the order above, then by key
 with `compare`, so a host that is given the same two readings animates the same.
 
-`reduce` builds fresh objects every time, so a host that memoises by reference, or keeps nodes by
+`consequitur` builds fresh objects every time, so a host that memoises by reference, or keeps nodes by
 `keyed`, needs a string that stays the same across readings. Lines and goals have one already
 (`line.id`, `goal.line`); a denunciation and a check do not. `keyOf` is equal for two
 denunciations that say the same thing in two readings and different otherwise: a `handle` one by its

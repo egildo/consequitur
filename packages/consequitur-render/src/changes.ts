@@ -1,5 +1,5 @@
 // What a host animates or tells a person when a reading becomes another: the changes between two
-// readings, each with a key. `reduce` builds fresh objects every time, so a host that memoises by
+// readings, each with a key. `consequitur` builds fresh objects every time, so a host that memoises by
 // reference needs a key for the things a reading holds with no id of their own. Pure and without
 // DOM: the same two readings give the same list.
 
