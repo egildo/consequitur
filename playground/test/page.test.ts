@@ -121,6 +121,22 @@ describe('«Scrivo come»', () => {
   });
 });
 
+describe('«Dominio»', () => {
+  it('cannot change while a line is on its way, as «Scrivo come» cannot', async () => {
+    const picker = q<HTMLSelectElement>('#domain')!;
+    expect(picker.disabled).toBe(false);
+    click(button('Nuova attività', q('#offers')));
+    type(q('.draft .draft-input'), 'Prova');
+    click(q('.draft-send'));
+    expect(picker.disabled).toBe(true);
+    choose(picker, 'editorial');
+    expect(picker.value).toBe('sibar');
+    await until(() => !picker.disabled);
+    expect(q('.draft')).toBeNull();
+    expect(picker.value).toBe('sibar');
+  });
+});
+
 describe('the ledger', () => {
   it('keeps the cards that draw the same when a goal is being composed', async () => {
     click(button('Nuova attività', q('#offers')));

@@ -374,6 +374,8 @@ function render(): void {
   if (writerSelect.value !== state.writer) writerSelect.value = state.writer;
   // the lines on their way are written as the writer who sent them
   writerSelect.disabled = state.pending;
+  // and to the thread of the domain they were sent in
+  domainSelect.disabled = state.pending;
   if (recordsBox.checked !== state.show.records) recordsBox.checked = state.show.records;
   if (goalsBox.checked !== state.show.goals) goalsBox.checked = state.show.goals;
 
