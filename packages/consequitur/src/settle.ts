@@ -6,7 +6,7 @@
 
 import { validChecks } from './check.ts';
 import { asStored, canonical, inForce, lockedBy, revokeOf, stamp } from './line.ts';
-import { reduce, whenHolds } from './reduce.ts';
+import { consequitur, whenHolds } from './reading.ts';
 import type {
   Change,
   Denunciation,
@@ -198,7 +198,7 @@ function counted(reading: Reading, handles: Handles, policy: Policy): Reading {
 
 /**
  * Reduces, and while the reading holds a denunciation the authority answers and
- * fewer than `MAX_ROUNDS` reconciliations have run, reconciles and reduces again.
+ * fewer than `MAX_ROUNDS` reconciliations have run, reconciles and reads again.
  * Each draft is stamped against the thread with the drafts before it already
  * appended, so the `previous` ids stay a chain. `settled: false` in the result
  * after the last round means the thread is not settled yet. `rounds` holds, for
@@ -211,7 +211,7 @@ export async function settle(
   policy: Policy = [],
 ): Promise<{ state: ThreadState; reading: Reading; rounds: Denunciation[][] }> {
   let { lines, handles } = state;
-  let reading = reduce(lines, handles, schema);
+  let reading = consequitur(lines, handles, schema);
   const rounds: Denunciation[][] = [];
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const answered = answer(reading, handles, policy);
@@ -222,7 +222,7 @@ export async function settle(
     const next = [...lines];
     for (const draft of out.drafts) next.push(await stamp(draft, next, now));
     lines = next;
-    reading = reduce(lines, handles, schema);
+    reading = consequitur(lines, handles, schema);
   }
   return { state: { lines, handles }, reading: counted(reading, handles, policy), rounds };
 }
@@ -249,13 +249,13 @@ function judge(schema: Schema, before: { reading: Reading; handles: Handles }, a
  */
 export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schema, now: string, options: { policy?: Policy } = {}): Promise<DryRun> {
   const policy = options.policy ?? [];
-  const before = counted(reduce(state.lines, state.handles, schema), state.handles, policy);
+  const before = counted(consequitur(state.lines, state.handles, schema), state.handles, policy);
   const refused = (refusal: Refusal): DryRun => ({ state, reading: before, refusal, added: [], rounds: [], verdicts: [] });
   const refusal = admit(state.lines, draft, schema);
   if (refusal) return refused(refusal);
 
   const lines = [...state.lines, await stamp(draft, state.lines, now)];
-  const broken = reduce(lines, state.handles, schema).denunciations.find((d) => d.sort === 'thread');
+  const broken = consequitur(lines, state.handles, schema).denunciations.find((d) => d.sort === 'thread');
   if (broken?.sort === 'thread') {
     return refused(refuse('unreconcilable', `The thread would hold ${broken.found} "${schema.opening}" lines in force; it must hold exactly one.`));
   }
@@ -282,7 +282,7 @@ export async function post(
   // a refusal leaves the state as it was, so it reads that state, not the one the dry run settled
   const refused = (refusal: Refusal): PostResult => ({
     state,
-    reading: counted(reduce(state.lines, state.handles, schema), state.handles, options.policy ?? []),
+    reading: counted(consequitur(state.lines, state.handles, schema), state.handles, options.policy ?? []),
     refusal,
     added: [],
     rounds: [],

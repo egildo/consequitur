@@ -1,5 +1,5 @@
 // The readers for schemas, and for the policy passed with one. Both are conf, so
-// they come from outside and are checked once, here; `admit`, `reduce` and
+// they come from outside and are checked once, here; `admit`, `consequitur` and
 // `settle` then take them as given.
 //
 // Payloads are free and schemas are not: an unknown key in a schema or a binding

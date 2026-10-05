@@ -243,7 +243,7 @@ export interface HandleKind {
   /** The roles its answers are recorded as; the schema's `records` names a gist for each. */
   roles: string[];
   empty(schema: Schema): Json;
-  /** A fresh accumulator for one reduction. */
+  /** A fresh accumulator for one reading. */
   start(schema: Schema): unknown;
   /** The thread's expectation, read out of the accumulator, as a handle of this kind. */
   expected(acc: unknown): Json;

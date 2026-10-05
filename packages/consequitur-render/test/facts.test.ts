@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { post, reduce, stamp, type Json, type EventLine, type LineDraft, type Payload, type PostResult } from 'consequitur';
+import { post, consequitur, stamp, type Json, type EventLine, type LineDraft, type Payload, type PostResult } from 'consequitur';
 import { lineFacts } from '../src/index.ts';
 import { NOW, SIBAR, lbianchi, mrossi, opening, system, written } from './helpers.ts';
 
@@ -15,7 +15,7 @@ describe('lineFacts', () => {
       const r = await written([opening]);
       const lines = [...r.state.lines];
       for (const draft of [mrossi('memo_revoke', payload), { gist: 'goal_warning', writer: 'goal::x', payload } satisfies LineDraft]) lines.push(await stamp(draft, lines, NOW));
-      const facts = lineFacts(lines, reduce(lines, r.state.handles, SIBAR), SIBAR);
+      const facts = lineFacts(lines, consequitur(lines, r.state.handles, SIBAR), SIBAR);
       expect(facts).toHaveLength(lines.length);
       expect(facts.every((f) => f.inForce && f.revokedBy === undefined && f.goal === undefined)).toBe(true);
     }
@@ -38,7 +38,7 @@ describe('lineFacts', () => {
       odd(memo, 'timestamp', 7),
       odd(memo, 'id', 7),
     ];
-    const facts = lineFacts(lines, reduce(lines, r.state.handles, SIBAR), SIBAR);
+    const facts = lineFacts(lines, consequitur(lines, r.state.handles, SIBAR), SIBAR);
     expect(facts).toHaveLength(lines.length);
     expect(facts.every((f) => f.writtenBy === undefined && f.goal === undefined && f.revokedBy === undefined)).toBe(true);
   });
@@ -132,7 +132,7 @@ describe('lineFacts', () => {
 
   it('reads a thread the reading was made of, line for line, with the records of the authority', async () => {
     const r = await written([opening, system('doc_signed', { document: '1', signedAt: 'x' })]);
-    expect(reduce(r.state.lines, r.state.handles, SIBAR)).toEqual(r.reading);
+    expect(consequitur(r.state.lines, r.state.handles, SIBAR)).toEqual(r.reading);
     expect(factsOf(r).map((f) => f.line.gist)).toEqual(['create', 'metadata_set', 'metadata_set', 'assigned', 'doc_signed']);
   });
 });

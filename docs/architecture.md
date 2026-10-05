@@ -45,7 +45,7 @@ util.ts        small guards, `compare` (never localeCompare), `keysAre`, `kinOf`
 line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
 check.ts       validChecks, matches, whereMatches
 schema.ts      readSchema, readGists, readLaws, readPolicy
-reduce.ts      expectations, holds, whenHolds, reduce
+reading.ts     expectations, holds, whenHolds, consequitur
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState
 offers.ts      offers
 kit.ts         BASE_KIT
@@ -55,7 +55,7 @@ laws/          keeps-set, keeps-goals, settles
 ```
 
 Each file imports only from those above it in this list, apart from `kit.ts`, which gathers the
-kinds and is imported by nothing but `index.ts` and the consumer. The reading (`reduce.ts`) is
+kinds and is imported by nothing but `index.ts` and the consumer. The reading (`reading.ts`) is
 synchronous and pure; only the lines that must be hashed (`stamp`, so `settle`, `dryRun`, `post`)
 are asynchronous.
 
@@ -98,7 +98,7 @@ the engine and render know nothing of it.
 
 **Mechanics** are the thread's own and the engine reads them: the envelope and its hash, reading
 order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, the
-three steps of the reduction, the loop and cap of reconciliation, and where laws sit in a post.
+three steps of the reading, the loop and cap of reconciliation, and where laws sit in a post.
 A schema names a mechanic and gives it its words; it cannot replace it.
 
 **Kinds** are everything a domain's words can mean beyond that, and each is registered by name:
@@ -135,7 +135,7 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
    will be stored, after a JSON round trip (a plain object, then each rule kind's `admit`, then the
    mechanics of revoke and goal).
 2. **Append** it, stamped, with its payload as JSON holds it, and refuse it if the opening rule would break.
-3. **Settle**: reduce; the handle kinds compare what the thread expects with the handles; `answer`
+3. **Settle**: read; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);
    `reconcile` has each handle kind answer its own, and writes each record as the authority; repeat,
    at most three rounds.

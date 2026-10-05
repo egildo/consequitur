@@ -1,4 +1,4 @@
-// The reduction: thread, handles and schema in, a reading out. Rules state what
+// The reading, `consequitur`: thread, handles and schema in, a reading out. Rules state what
 // the lines in force expect, into the accumulators of the handle kinds; the
 // comparison with the handles is made here, once, by each kind, so a rule never
 // compares.
@@ -84,7 +84,7 @@ export interface Expectations {
 }
 
 /**
- * The first two steps of the reduction: which lines are in force, and what they
+ * The first two steps of the reading: which lines are in force, and what they
  * expect, goals included. It does not look at the handles, so `whenHolds` can ask
  * what the thread expects without having a record to compare it with.
  */
@@ -184,7 +184,7 @@ export function whenHolds(lines: EventLine[], writer: Writer, gist: GistSchema, 
   return gist.when === undefined || holds(expectations(lines, schema), writer, gist.when);
 }
 
-export function reduce(lines: EventLine[], handles: Handles, schema: Schema): Reading {
+export function consequitur(lines: EventLine[], handles: Handles, schema: Schema): Reading {
   const expected = expectations(lines, schema);
 
   // 3. the comparison with the handles

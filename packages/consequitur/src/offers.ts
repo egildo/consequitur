@@ -4,7 +4,7 @@
 // engine writes itself, a goal's and the records, are offered to nobody.
 
 import { lockedBy, revokeOf } from './line.ts';
-import { expectations, holds } from './reduce.ts';
+import { expectations, holds } from './reading.ts';
 import type { EventLine, Offer, Schema, Writer } from './types.ts';
 import { kinOf } from './util.ts';
 

@@ -16,7 +16,7 @@ import {
   offers,
   post,
   readSchema,
-  reduce,
+  consequitur,
   type EventLine,
   type Handles,
   type Json,
@@ -79,7 +79,7 @@ function thread(schema: Schema = SCHEMA) {
     /** What a writer is offered now, by gist. */
     offered: (who: string) => offers(state.lines, by(who), schema).map((o) => o.gist),
     /** The reading of the thread as it stands. */
-    reading: () => reduce(state.lines, state.handles, schema),
+    reading: () => consequitur(state.lines, state.handles, schema),
     line: (label: string): EventLine => state.lines.find((l) => l.id === labels.get(label))!,
   };
 }
