@@ -158,13 +158,22 @@ describe('band', () => {
       expect(svg().hasAttribute('hidden')).toBe(true);
     });
 
-    it('ends when its start left the page', async () => {
-      const done = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
+    it('ends with null when its start left the page, so the next drag holds the band alone', async () => {
+      const first = b.drag(slot, pointer('pointerdown', 10, 10), spec(['a']));
       slot.remove();
+      // the move is over a candidate, but the drag ended on drawing it
       window.dispatchEvent(pointer('pointermove', 20, 10));
       expect(svg().hasAttribute('hidden')).toBe(true);
+      expect(b.dragging).toBe(false);
+      expect(await first).toBeNull();
+      expect(targets).toEqual([]);
+      // a drag from another start is its own: one drop answers it, and nothing else
+      const other = layer.appendChild(document.createElement('button'));
+      const second = b.drag(other, pointer('pointerdown', 10, 10), spec(['a']));
+      expect(b.dragging).toBe(true);
       window.dispatchEvent(pointer('pointerup', 20, 10));
-      expect(await done).toBe('a');
+      expect(await second).toBe('a');
+      expect(b.dragging).toBe(false);
     });
   });
 

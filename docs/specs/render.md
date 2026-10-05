@@ -124,8 +124,9 @@ target is `document.elementFromPoint` at the `pointerup`; Esc cancels. Drawn syn
 move. Colours come from CSS: the band sets classes, never colours (`band`, `band-path`, `band-dot`,
 `band-start`, `band-end`). The svg covers the layer (inline `position: absolute; inset: 0`, so the
 layer is positioned), and a node with `data-line-id` is met at the edge that faces the other end.
-`dragging` is true from the call of `drag` to the end of the drag (a drop, Esc, a `pointercancel`), so an
-application asks the band whether one holds it and keeps no flag of its own. `onTarget` is called when
+`dragging` is true from the call of `drag` to the end of the drag (a drop, Esc, a `pointercancel`, or its
+start leaving the page, which ends it with null), so an application asks the band whether one holds it and
+keeps no flag of its own. `onTarget` is called when
 the candidate under the pointer changes, and with null once the drag ends over one. A second drag while
 one is going, or a button other than the first, resolves null.
 

@@ -71,13 +71,14 @@ export function band(layer: HTMLElement): Band {
 
   let from: Anchor | undefined;
   let to: Anchor | undefined;
-  let mode: Mode | undefined;
   let dragging = false;
+  // ends the drag in hand with what it picked; set only while one holds the band
+  let finishDrag: ((picked: string | null) => void) | undefined;
 
   function draw(): void {
     if (!from || !to) return;
-    // an end that left the page (its node was built again) ends the band
-    if ((from instanceof Element && !from.isConnected) || (to instanceof Element && !to.isConnected)) return clear();
+    // an end that left the page (its node was built again) ends the band, and a drag with null
+    if ((from instanceof Element && !from.isConnected) || (to instanceof Element && !to.isConnected)) return finishDrag ? finishDrag(null) : clear();
     const origin = svg.getBoundingClientRect();
     const a = pointOf(from, to);
     const b = pointOf(to, from);
@@ -94,7 +95,7 @@ export function band(layer: HTMLElement): Band {
   }
 
   function clear(): void {
-    from = to = mode = undefined;
+    from = to = undefined;
     svg.toggleAttribute('hidden', true);
     svg.removeAttribute('data-mode');
   }
@@ -102,7 +103,6 @@ export function band(layer: HTMLElement): Band {
   function show(a: Anchor, b: Anchor, as: Mode): void {
     from = a;
     to = b;
-    mode = as;
     svg.removeAttribute('hidden');
     svg.setAttribute('data-mode', as);
     draw();
@@ -116,7 +116,7 @@ export function band(layer: HTMLElement): Band {
     },
 
     drag(handle, event, spec) {
-      if (mode === 'drag' || event.button !== 0) return Promise.resolve(null);
+      if (dragging || event.button !== 0) return Promise.resolve(null);
       event.preventDefault();
       const lineOf = spec.lineOf ?? lineOfDefault;
       const lineUnder = (e: PointerEvent): string | null => {
@@ -127,14 +127,14 @@ export function band(layer: HTMLElement): Band {
 
       let over: string | null = null;
       dragging = true;
-      show(handle, { x: event.clientX, y: event.clientY }, 'drag');
 
-      return new Promise((resolve) => {
+      const done = new Promise<string | null>((resolve) => {
         const finish = (picked: string | null): void => {
           window.removeEventListener('pointermove', move, true);
           window.removeEventListener('pointerup', up, true);
           window.removeEventListener('pointercancel', cancel, true);
           window.removeEventListener('keydown', escape, true);
+          finishDrag = undefined;
           dragging = false;
           clear();
           if (over !== null) spec.onTarget(null);
@@ -143,6 +143,8 @@ export function band(layer: HTMLElement): Band {
         const move = (e: PointerEvent): void => {
           to = { x: e.clientX, y: e.clientY };
           draw();
+          // drawing may have ended the drag: its start left the page
+          if (!dragging) return;
           const now = lineUnder(e);
           if (now === over) return;
           over = now;
@@ -160,11 +162,15 @@ export function band(layer: HTMLElement): Band {
         window.addEventListener('pointerup', up, true);
         window.addEventListener('pointercancel', cancel, true);
         window.addEventListener('keydown', escape, true);
+        finishDrag = finish;
       });
+      // drawn once the drag can be finished, so a start already gone ends it at once
+      show(handle, { x: event.clientX, y: event.clientY }, 'drag');
+      return done;
     },
 
     point(a, b) {
-      if (mode === 'drag') return;
+      if (dragging) return;
       if (a === null || b === null) return clear();
       show(a, b, 'hover');
     },
