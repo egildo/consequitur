@@ -2336,6 +2336,18 @@ describe('posting to a thread', () => {
       }
     });
 
+    it('a now that is not a date is the caller\'s mistake, not a refusal: each rejects with a RangeError, and the state given is unchanged', async () => {
+      const { afterMemo } = await cases();
+      const before = structuredClone(afterMemo);
+      const draft = mrossi('comment', { text: 'ciao' });
+      await expect(post(afterMemo, draft, PLAIN, 'yesterday')).rejects.toThrow(RangeError);
+      await expect(dryRun(afterMemo, draft, PLAIN, 'yesterday')).rejects.toThrow(RangeError);
+      // a thread the authority must answer, so settling writes a line
+      await expect(settle({ lines: afterMemo.lines, handles: hold({}, []) }, PLAIN, 'yesterday')).rejects.toThrow(RangeError);
+      await expect(stamp(draft, afterMemo.lines, 'yesterday')).rejects.toThrow(RangeError);
+      expect(afterMemo).toEqual(before);
+    });
+
     it('a refusal on an empty thread reads one-opening with found 0', async () => {
       const out = await post(EMPTY, by(SYSTEM_WRITER, 'doc_signed', { document: '1' }), PLAIN, NOW);
       expect(out.refusal?.code).toBe('unreconcilable');

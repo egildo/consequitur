@@ -212,7 +212,10 @@ export function answer(reading: Reading, handles: Handles, policy?: Policy): Den
 export function diff(before: Handles, after: Handles, kit: Kit): Change[];
 ```
 
-`dryRun` takes the policy too, so a preview is the post it previews.
+`dryRun` takes the policy too, so a preview is the post it previews. `now` is the host's argument, not
+the writer's: one that does not parse as a date is a mistake of the caller and not a refusal, so `post`,
+`dryRun` and `settle` reject with the platform's `RangeError` when they come to stamp a line, as `stamp`
+does, and the state given is unchanged.
 
 `reduce`, `admit`, `reconcile`, `payloadProblem`, `whenHolds` and `offers` take the schema where the
 ported engine took the gist schemas, since the kinds they ask live in its kit; `inForce` still takes
