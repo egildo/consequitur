@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { post, reduce, type Json, type EventLine, type LineDraft, type PostResult } from 'consequitur';
+import { post, reduce, stamp, type Json, type EventLine, type LineDraft, type Payload, type PostResult } from 'consequitur';
 import { lineFacts } from '../src/index.ts';
 import { NOW, SIBAR, lbianchi, mrossi, opening, system, written } from './helpers.ts';
 
@@ -9,6 +9,18 @@ const factsOf = (r: PostResult) => lineFacts(r.state.lines, r.reading, SIBAR);
 const of = (facts: ReturnType<typeof factsOf>, line: EventLine) => facts.find((f) => f.line.id === line.id)!;
 
 describe('lineFacts', () => {
+  it('reads a stored line whose payload is not an object as stating nothing, and does not throw', async () => {
+    // the engine never writes one: such a line comes from storage the engine did not keep
+    for (const payload of [null, 'text', [1]] as unknown as Payload[]) {
+      const r = await written([opening]);
+      const lines = [...r.state.lines];
+      for (const draft of [mrossi('memo_revoke', payload), { gist: 'goal_warning', writer: 'goal::x', payload } satisfies LineDraft]) lines.push(await stamp(draft, lines, NOW));
+      const facts = lineFacts(lines, reduce(lines, r.state.handles, SIBAR), SIBAR);
+      expect(facts).toHaveLength(lines.length);
+      expect(facts.every((f) => f.inForce && f.revokedBy === undefined && f.goal === undefined)).toBe(true);
+    }
+  });
+
   it('has one entry per line, in reading order, whatever the order given', async () => {
     const r = await written([opening, mrossi('memo', { text: 'uno' })]);
     const shuffled = [...r.state.lines].reverse();

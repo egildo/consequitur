@@ -2,7 +2,7 @@
 // thread. Pure and without DOM: the same lines, reading and schema give the same answer.
 // A domain's own facts (the signatures on a document) are the application's.
 
-import { inOrder, type EventLine, type GoalReading, type LineId, type Reading, type Schema } from 'consequitur';
+import { inOrder, type EventLine, type GoalReading, type LineId, type Payload, type Reading, type Schema } from 'consequitur';
 
 export interface LineFacts {
   line: EventLine;
@@ -33,7 +33,7 @@ export function lineFacts(lines: EventLine[], reading: Reading, schema: Schema):
     if (!standing.has(line.id)) continue;
     const binding = schema.gists.find((g) => g.gist === line.gist)?.rules.find((r) => r.rule === 'revoke');
     if (binding === undefined || typeof binding.from !== 'string' || !Array.isArray(binding.gists)) continue;
-    const target = line.payload[binding.from];
+    const target = payloadOf(line)[binding.from];
     if (typeof target !== 'string' || !revoked.has(target)) continue;
     const at = position.get(target);
     if (at !== undefined && at < position.get(line.id)! && binding.gists.includes(ordered[at].gist)) revokers.set(target, line);
@@ -43,8 +43,9 @@ export function lineFacts(lines: EventLine[], reading: Reading, schema: Schema):
   const warned = new Map<LineId, Record<number, EventLine>>();
   for (const line of ordered) {
     const goal = writerGoal(line);
-    if (goal === undefined || line.gist !== schema.records.warning || typeof line.payload.check !== 'number') continue;
-    warned.set(goal, { ...warned.get(goal), [line.payload.check]: line });
+    const { check } = payloadOf(line);
+    if (goal === undefined || line.gist !== schema.records.warning || typeof check !== 'number') continue;
+    warned.set(goal, { ...warned.get(goal), [check]: line });
   }
 
   return ordered.map((line): LineFacts => {
@@ -61,6 +62,12 @@ export function lineFacts(lines: EventLine[], reading: Reading, schema: Schema):
     }
     return facts;
   });
+}
+
+/** A line's payload, or an empty one when what was stored is not an object: such a line states nothing. */
+function payloadOf(line: EventLine): Payload {
+  const { payload } = line;
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload) ? payload : {};
 }
 
 /** The id of the goal that wrote a line: its writer is `goal::<id of the goal's line>`. */

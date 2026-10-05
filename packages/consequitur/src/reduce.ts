@@ -39,8 +39,9 @@ interface StoredGoal {
   final: boolean;
 }
 
-/** `with` that is present and not an object, like bad checks, leaves a goal stating nothing. */
+/** `with` that is present and not an object, like bad checks or a payload that is not an object, leaves a goal stating nothing. */
 function readGoal(line: EventLine): StoredGoal | undefined {
+  if (!isRecord(line.payload)) return undefined;
   const { name, then, checks } = line.payload;
   if (typeof name !== 'string' || typeof then !== 'string' || !validChecks(checks)) return undefined;
   const goal: StoredGoal = { line, name, then, checks, final: line.payload.final === true };

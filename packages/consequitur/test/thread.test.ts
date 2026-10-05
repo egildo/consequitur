@@ -596,6 +596,21 @@ describe('reduce', () => {
       expect(read(two, agreeing).denunciations).toStrictEqual([{ sort: 'thread', rule: 'one-opening', found: 2 }]);
     });
 
+    it('a stored line whose payload is not an object states nothing, and neither the reading nor the offers throw', async () => {
+      // the engine never writes one: such a line comes from storage the engine did not keep
+      for (const payload of [null, 'text', [1]] as unknown as Payload[]) {
+        const lines = await thread([create, mrossi('goal', payload), mrossi('memo', payload), mrossi('memo_revoke', payload)]);
+        // a line written by the goal that states nothing, so nothing locks it, and a revoke of it
+        const written = [...lines, await stamp(by(goalWriter(lines[1].id), 'proof', {}), lines, NOW)];
+        const all = [...written, await stamp(mrossi('proof_revoke', { target: written[4].id }), written, NOW)];
+        const reading = read(all, agreeing);
+        expect(reading.goals).toEqual([]);
+        expect(reading.revoked).toEqual([written[4].id]);
+        expect(reading.settled).toBe(true);
+        expect(offers(all, 'user::mrossi', RULES).find((o) => o.gist === 'memo_revoke')).toEqual({ gist: 'memo_revoke', targets: [lines[2].id] });
+      }
+    });
+
     it('a line whose gist has no schema is in force and states nothing', async () => {
       const lines = await thread([create, mrossi('mystery', { assignTo: ['x'], v: 1 })]);
       const reading = read(lines, agreeing);

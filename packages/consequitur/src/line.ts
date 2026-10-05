@@ -5,7 +5,7 @@
 // must agree on an order whatever their locale.
 
 import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload } from './types.ts';
-import { compare } from './util.ts';
+import { compare, isRecord } from './util.ts';
 
 /**
  * What a gist's revoke binding says, or nothing when it has none: only the first
@@ -74,7 +74,8 @@ export function lockedBy(line: EventLine, lines: EventLine[]): LineId | undefine
   const at = line.writer.indexOf('::');
   if (at < 0 || line.writer.slice(0, at) !== 'goal') return undefined;
   const id = line.writer.slice(at + 2);
-  return lines.some((l) => l.id === id && l.payload.final === true) ? id : undefined;
+  // a stored payload that is not an object states nothing, so it locks nothing
+  return lines.some((l) => l.id === id && isRecord(l.payload) && l.payload.final === true) ? id : undefined;
 }
 
 /**
@@ -99,7 +100,8 @@ export function inForce(lines: EventLine[], gists: GistSchema[]): { inForce: Eve
     standing.push(line);
     const binding = revokeOf(schemaOf(line.gist));
     if (!binding) continue;
-    const target = line.payload[binding.from];
+    // a stored payload that is not an object states nothing, so it names no line
+    const target = isRecord(line.payload) ? line.payload[binding.from] : undefined;
     if (typeof target !== 'string') continue;
     const at = position.get(target);
     // only an earlier line can be revoked, only a listed gist, and never one a final goal wrote
