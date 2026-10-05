@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, dryRun, emptyState, lockedBy, offers, post, readPolicy, type EventLine, type LineDraft, type Policy, type Refusal, type ThreadState, type Writer } from '../src/index.ts';
+import { admit, dryRun, emptyState, lockedBy, offers, post, readPolicy, type EventLine, type LineDraft, type Policy, type Refusal, type Schema, type ThreadState, type Writer } from '../src/index.ts';
 import { draftOf, playScenario, readScenarios, resolve, type Io, type Step } from '../../../cases/scenario.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
@@ -24,6 +24,13 @@ function host(schema = strict(SIBAR_JSON), policy: Policy = []) {
     },
   };
   return { io, state: () => state };
+}
+
+/** SIBAR's policy, read against the schema it is passed with, as the playground reads it; a problem fails the test. */
+function sibarPolicy(schema: Schema = strict(SIBAR_JSON)): Policy {
+  const { policy, problems } = readPolicy(JSON.parse(readFileSync(casePath('sibar-activity', 'policy.json'), 'utf8')), schema);
+  expect(problems).toEqual([]);
+  return policy;
 }
 
 const line = (id: string, gist: string, writer: EventLine['writer'], payload: EventLine['payload'] = {}): EventLine => ({ id, previous: null, gist, writer, timestamp: `2026-10-03T10:00:0${id}.000Z`, payload });
@@ -136,11 +143,10 @@ describe('reading a scenarios file', () => {
 });
 
 describe('the SIBAR scenarios', () => {
-  const policy = JSON.parse(readFileSync(casePath('sibar-activity', 'policy.json'), 'utf8')) as Policy;
   const scenarios = new Map(readScenarios(readFileSync(casePath('sibar-activity', 'scenarios.json'), 'utf8')).map((s) => [s.id, s]));
 
   it('«first»: the memo is confirmed, the signature closes the activity, and the quit before it was allowed', async () => {
-    const h = host(undefined, policy);
+    const h = host(undefined, sibarPolicy());
     const played = await playScenario(scenarios.get('first')!.steps, h.io);
     expect(played.failed).toBeUndefined();
     const { handles, lines } = h.state();
@@ -150,7 +156,7 @@ describe('the SIBAR scenarios', () => {
   });
 
   it('«opinion»: two goals, one warned, a final wrapper that closes the activity for good', async () => {
-    const h = host(undefined, policy);
+    const h = host(undefined, sibarPolicy());
     const played = await playScenario(scenarios.get('opinion')!.steps, h.io);
     expect(played.failed).toBeUndefined();
     const { handles, lines } = h.state();
@@ -173,7 +179,7 @@ describe('the offers and admission, at every state the scenarios pass through', 
     let offered = 0;
     for (const domain of ['sibar-activity', 'editorial-review']) {
       const schema = strict(JSON.parse(readFileSync(casePath(domain, 'schema.json'), 'utf8')));
-      const policy = domain === 'sibar-activity' ? readPolicy(JSON.parse(readFileSync(casePath(domain, 'policy.json'), 'utf8')), schema).policy : [];
+      const policy = domain === 'sibar-activity' ? sibarPolicy(schema) : [];
       for (const scenario of readScenarios(readFileSync(casePath(domain, 'scenarios.json'), 'utf8'))) {
         const writers = [...new Set<Writer>(scenario.steps.map((s) => s.writer))];
         const h = host(schema, policy);
