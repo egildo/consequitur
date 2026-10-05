@@ -44,7 +44,7 @@ TypeScript and DOM, no framework; `markdown-it` its one dependency besides the t
 Both examples run to the end in a browser with a clean console; the checks the bench met hold:
 the thread written by hand writer by writer, refusals in words, the dry-run preview with
 «Conferma e invia», the band filling a slot, the goal dock with two goals and the wrapper,
-«Cambia» as revoke and new, the inspector's four tabs with the schema as code, the records and
+«Cambia» as a new goal and then a revoke of the old, the inspector's four tabs with the schema as code, the records and
 goal lines switchable.
 
 ## 5 · As built

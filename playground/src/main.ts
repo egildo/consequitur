@@ -185,7 +185,7 @@ async function sendDraft(): Promise<void> {
   const replaced = draft.goal?.replaces ? state.thread.lines.find((l) => l.id === draft.goal!.replaces) : undefined;
   update({ pending: true, refusal: null });
   try {
-    const refusal = replaced ? await replaceGoal(replaced, draft.id, line, confirmed) : await send(line, 400, { draft: null, preview: null }, confirmed);
+    const refusal = replaced ? await replaceGoal(replaced, line, confirmed) : await send(line, 400, { draft: null, preview: null }, confirmed);
     if (refusal) update({ refusal: shownOf(refusal, state.thread.lines) });
   } finally {
     update({ pending: false });
@@ -220,19 +220,21 @@ async function rewriteWrapper(wrapper: EventLine, old: EventLine, replacement: E
 }
 
 /**
- * «Cambia»: the old goal is revoked and the new goal written, two lines; when the
- * old goal is awaited by the wrapper, the wrapper follows. A refusal of the second
- * leaves the first standing, and the draft open, now taking no goal's place: that goal is gone.
+ * «Cambia»: the new goal is written and the old goal revoked, two lines; when the
+ * old goal is awaited by the wrapper, the wrapper follows. The new goal goes first, so
+ * a refusal of it changes nothing and leaves the draft open, still taking the old
+ * goal's place; a refusal of the revoke leaves both goals standing, and the wrapper
+ * awaiting the old one.
  */
-async function replaceGoal(old: EventLine, draftId: number, next: LineDraft, confirmed: boolean, delay = 400): Promise<Refusal | undefined> {
+async function replaceGoal(old: EventLine, next: LineDraft, confirmed: boolean, delay = 400): Promise<Refusal | undefined> {
   const wrapper = wrapperFollowing(derive(state.thread, state.reading, state.writer), old.id);
-  const revoked = await revokeGoal(old, delay);
-  if (revoked) return revoked;
-  if (state.draft?.id === draftId && state.draft.goal) update({ draft: { ...state.draft, goal: { ...state.draft.goal, replaces: null } } });
   const before = state.thread.lines.length;
   const made = await send(next, delay, { draft: null, preview: null }, confirmed);
   if (made) return made;
-  return wrapper ? rewriteWrapper(wrapper.line, old, state.thread.lines[before], delay) : undefined;
+  const replacement = state.thread.lines[before];
+  const revoked = await revokeGoal(old, delay);
+  if (revoked) return revoked;
+  return wrapper ? rewriteWrapper(wrapper.line, old, replacement, delay) : undefined;
 }
 
 /** «Rimuovi»: the goal is revoked, and the wrapper that awaited it follows. */
