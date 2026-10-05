@@ -8,7 +8,7 @@ It is not a view layer. It draws no card and owns no markup or styles: the appli
 every node. It keeps nodes, schedules previews and draws a pointer line — the three things every
 screen of a thread needed and that are easy to get wrong.
 
-Zero runtime dependencies; it imports `consequitur` for types and for `inForce`/`inOrder`.
+Zero runtime dependencies; it imports `consequitur` for types and for `inForce`, `inOrder`, `canonical` and `compare`.
 
 ## 1 · `lineFacts` — the reading, line by line (pure, no DOM)
 
@@ -130,8 +130,26 @@ keeps no flag of its own. `onTarget` is called when
 the candidate under the pointer changes, and with null once the drag ends over one. A second drag while
 one is going, or a button other than the first, resolves null.
 
-## 5 · Tests
+## 5 · `keyOf`, `keyOfCheck` — keys for what a reading holds without an id (pure, no DOM)
 
-`lineFacts` on the SIBAR case's scenarios (revoked, goals, outcomes, warnings, locked).
+```ts
+export function keyOf(denunciation: Denunciation): string;
+export function keyOfCheck(goal: GoalReading, index: number): string;
+```
+
+`reduce` builds fresh objects every time, so a host that memoises by reference, or keeps nodes by
+`keyed`, needs a string that stays the same across readings. Lines and goals have one already
+(`line.id`, `goal.line`); a denunciation and a check do not. `keyOf` is equal for two
+denunciations that say the same thing in two readings and different otherwise: a `handle` one by its
+kind, key and member, a `line` one by the goal's line, the gist and the payload (the outcome and a
+warning of one goal differ by both), a `thread` one by its rule. It does not read what a handle
+expects or holds, so a denunciation whose expectation changes keeps its key. `keyOfCheck` is the goal's line id
+and the check's index: two equal checks of one goal still have two keys. The parts a person writes
+(a key, a member, a payload) are written canonical or last, so no key can be read two ways.
+
+## 6 · Tests
+
+`lineFacts` on the SIBAR case's scenarios (revoked, goals, outcomes, warnings, locked); `keyOf` and
+`keyOfCheck` on denunciations read from the same case's threads.
 `keyed`, `previewer` (fake timers: debounce, stale drop, `fresh`), `band` (dispatched pointer
 events, `elementFromPoint` stubbed, Esc) under vitest's jsdom environment.

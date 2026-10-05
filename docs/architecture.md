@@ -63,13 +63,14 @@ are asynchronous.
 
 ```
 facts.ts       lineFacts: each line's facts, from the lines, the reading and the schema (pure)
+changes.ts     keyOf, keyOfCheck: keys for a denunciation and a check, which a reading gives no id (pure)
 keyed.ts       keyed: nodes kept by line id, rebuilt only when their key changes
 previewer.ts   previewer: the debounced dry run while composing, stale answers dropped, a failed run told to `onError`
 band.ts        band: the pointer line over a layer, a drag from a slot to a line (`dragging` says one holds it), a hover
 ```
 
-Its one dependency is `consequitur`, for types and `inOrder`. It owns no markup and no style: the
-application builds every node and paints the band's classes. Only `facts.ts` is pure; the other
+Its one dependency is `consequitur`, for types and `inOrder`, `canonical` and `compare`. It owns no markup and no style: the
+application builds every node and paints the band's classes. Only `facts.ts` and `changes.ts` are pure; the other
 three touch the DOM and take it as an argument or from `document`, and their tests run under jsdom.
 
 ## The playground
