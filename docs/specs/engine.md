@@ -225,7 +225,7 @@ pattern and an optional condition, «leave this unanswered when that holds»:
 ```ts
 export type Policy = Array<{
   leave: { sort?: 'handle' | 'line'; kind?: string; key?: string; member?: string; gist?: string };
-  while?: { values?: Record<string, Json> };   // read on the handles as they stand
+  while?: { values: Record<string, Json> };    // read on the handles as they stand
 }>;
 
 export function readPolicy(json: unknown, schema: Schema): { policy: Policy; problems: string[] };

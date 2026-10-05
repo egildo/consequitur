@@ -209,7 +209,7 @@ export type Policy = Array<{
   /** A denunciation is left when it equals every part stated. */
   leave: { sort?: 'handle' | 'line'; kind?: string; key?: string; member?: string; gist?: string };
   /** Read on the handles as they stand: each key of the value handle holds the value given. */
-  while?: { values?: Record<string, Json> };
+  while?: { values: Record<string, Json> };
 }>;
 
 /** What a schema says before any of its gists or laws: the words the kinds read it by. */
