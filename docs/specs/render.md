@@ -138,6 +138,7 @@ export type ReadingChange =
   | { of: 'goal'; key: LineId; change: 'set' | 'met' | 'unmet' | 'gone' }
   | { of: 'check'; key: string; change: 'found' | 'lost' | 'orphan' }
   | { of: 'denunciation'; key: string; change: 'raised' | 'answered' }
+  | { of: 'hole'; key: string; change: 'opened' | 'filled' }
   | { of: 'settled'; change: 'settled' | 'unsettled' };
 
 export function changes(before: Reading, after: Reading): ReadingChange[];
@@ -152,7 +153,10 @@ that flips, `gone` when the reading no longer holds it. A check, a `line` node o
 by its goal and its path, `found` a line (it had none, or another), `lost` the one it had, or became an
 `orphan` (it is marked as one that can no longer hold); the checks of a goal newly set are read against
 checks that found nothing. A denunciation is `raised` when its key
-is new, `answered` when its key is gone; `settled` and `unsettled` say the thread's settling flipped.
+is new, `answered` when its key is gone. A hole, a value some line in force refers to and no line states
+(`Reading.holes`), is `opened` when its key is newly in the list and `filled` when it is gone, the key being the hole's
+own; a hole is awaited and never denounced, so it is no denunciation and does not unsettle the thread.
+`settled` and `unsettled` say the thread's settling flipped.
 Two identical readings give no change. The list is ordered by kind, in the order above, then by key
 with `compare`, so a host that is given the same two readings animates the same.
 

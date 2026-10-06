@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { emptyState, inOrder, playScenario, post, readPolicy, readScenarios, consequitur, type EventLine, type LineDraft, type Reading, type ThreadState } from 'consequitur';
+import { emptyState, inOrder, playScenario, post, readPolicy, readScenarios, consequitur, type EventLine, type LineDraft, type Reading, type Schema, type ThreadState } from 'consequitur';
 import { changes, keyOf, keyOfCheck, type ReadingChange } from '../src/index.ts';
-import { NOW, SIBAR } from './helpers.ts';
+import { NOW, SIBAR, mrossi } from './helpers.ts';
 
 const casesDir = join(import.meta.dirname, '..', '..', '..', 'cases', 'sibar-activity');
 const scenarios = readScenarios(readFileSync(join(casesDir, 'scenarios.json'), 'utf8'));
@@ -108,17 +108,17 @@ describe('changes', () => {
     }
   });
 
-  it('orders by kind, line, goal, check, denunciation, settled, then by key', async () => {
+  it('orders by kind, line, goal, check, denunciation, hole, settled, then by key', async () => {
     const { trace } = await play('opinion');
     const stale = consequitur(trace.at(-1)!.state.lines, emptyState(SIBAR).handles, SIBAR);
     const lists = [changes(stale, trace.at(-1)!.reading), changes(trace[0].reading, trace.at(-1)!.reading)];
-    const rank = ['line', 'goal', 'check', 'denunciation', 'settled'];
+    const rank = ['line', 'goal', 'check', 'denunciation', 'hole', 'settled'];
     for (const list of lists) {
       expect(list.length).toBeGreaterThan(1);
       const keyed = list.map((c) => [rank.indexOf(c.of), 'key' in c ? c.key : ''] as const);
       expect(keyed).toEqual([...keyed].sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0)));
     }
-    expect(new Set(lists.flat().map((c) => c.of))).toEqual(new Set(rank));
+    expect(new Set(lists.flat().map((c) => c.of))).toEqual(new Set(rank.filter((of) => of !== 'hole')));
   });
 
   it('says a line newly in force, and a goal newly set, with no check found', async () => {
@@ -207,5 +207,26 @@ describe('changes', () => {
   it('says the opening rule answered by the thread denunciation, which has a key of its own', async () => {
     const { trace } = await play('first');
     expect(changes(trace[0].reading, trace[1].reading)).toContainEqual({ of: 'denunciation', key: 'thread:one-opening', change: 'answered' });
+  });
+
+  it('says a hole opened when a line in force newly refers to a value no line states, and filled when one states it', async () => {
+    // SIBAR's schema with a fill: a gist whose value rule takes its key from the payload
+    const schema: Schema = { ...SIBAR, gists: [...SIBAR.gists, { gist: 'fill', writers: ['user'], rules: [{ rule: 'value', keyFrom: 'key', from: 'value' }] }] };
+    const posting = async (state: ThreadState, draft: LineDraft) => {
+      const out = await post(state, draft, schema, NOW, { policy });
+      expect(out.refusal).toBeUndefined();
+      return out;
+    };
+    const opened = await posting(emptyState(schema), mrossi('create', { name: 'Richiesta parere', assignTo: ['mrossi'] }));
+    const asking = await posting(opened.state, mrossi('memo', { text: 'T', assignTo: [{ $value: 'second' }, { $value: 'third' }] }));
+    expect(only(changes(opened.reading, asking.reading), 'hole')).toEqual([
+      { of: 'hole', key: 'second', change: 'opened' },
+      { of: 'hole', key: 'third', change: 'opened' },
+    ]);
+    const filled = await posting(asking.state, mrossi('fill', { key: 'second', value: 'gverdi' }));
+    expect(only(changes(asking.reading, filled.reading), 'hole')).toEqual([{ of: 'hole', key: 'second', change: 'filled' }]);
+    // a hole that stays open is no change, and the thread went on settled all the while
+    expect(changes(asking.reading, asking.reading)).toEqual([]);
+    expect([opened, asking, filled].map((r) => r.reading.settled)).toEqual([true, true, true]);
   });
 });

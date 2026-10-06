@@ -14,6 +14,8 @@ export type ReadingChange =
   | { of: 'check'; key: string; change: 'found' | 'lost' | 'orphan' }
   /** A denunciation that appeared, or disappeared; `key` is from `keyOf`. */
   | { of: 'denunciation'; key: string; change: 'raised' | 'answered' }
+  /** A value awaited that a line in force newly refers to and no line states, or that a line newly states; `key` is the hole's key. */
+  | { of: 'hole'; key: string; change: 'opened' | 'filled' }
   /** The thread's settling flipped. */
   | { of: 'settled'; change: 'settled' | 'unsettled' };
 
@@ -40,9 +42,9 @@ export function keyOfCheck(goal: GoalReading, path: string): string {
 const checksOf = (trace: Trace | undefined): Map<string, Trace> =>
   new Map(trace === undefined ? [] : nodes(trace).flatMap(({ path, node }) => ('line' in node.condition ? [[path, node] as const] : [])));
 
-const ORDER = ['line', 'goal', 'check', 'denunciation', 'settled'];
+const ORDER = ['line', 'goal', 'check', 'denunciation', 'hole', 'settled'];
 
-/** What changed from `before` to `after`: by kind (line, goal, check, denunciation, settled), then by key. */
+/** What changed from `before` to `after`: by kind (line, goal, check, denunciation, hole, settled), then by key. */
 export function changes(before: Reading, after: Reading): ReadingChange[] {
   const out: ReadingChange[] = [];
 
@@ -74,6 +76,11 @@ export function changes(before: Reading, after: Reading): ReadingChange[] {
   const standingNow = new Set(after.denunciations.map(keyOf));
   for (const key of standingNow) if (!raised.has(key)) out.push({ of: 'denunciation', key, change: 'raised' });
   for (const key of raised) if (!standingNow.has(key)) out.push({ of: 'denunciation', key, change: 'answered' });
+
+  const open = new Set(before.holes.map((h) => h.key));
+  const awaited = new Set(after.holes.map((h) => h.key));
+  for (const key of awaited) if (!open.has(key)) out.push({ of: 'hole', key, change: 'opened' });
+  for (const key of open) if (!awaited.has(key)) out.push({ of: 'hole', key, change: 'filled' });
 
   if (before.settled !== after.settled) out.push({ of: 'settled', change: after.settled ? 'settled' : 'unsettled' });
 
