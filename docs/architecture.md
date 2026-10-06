@@ -99,7 +99,7 @@ the engine and render know nothing of it.
 
 **Mechanics** are the thread's own and the engine reads them: the envelope and its hash, reading
 order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, the
-three steps of the reading, the loop and cap of reconciliation, and where laws sit in a post.
+three steps of the reading, the loop and bound of reconciliation, and where laws sit in a post.
 A schema names a mechanic and gives it its words; it cannot replace it.
 
 **Kinds** are everything a domain's words can mean beyond that, and each is registered by name:
@@ -139,7 +139,7 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
 3. **Settle**: read; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);
    `reconcile` has each handle kind answer its own, and writes each record as the authority; repeat,
-   at most three rounds.
+   one goal's outcome a round, within the bound the goals give.
 4. **Judge** what the line left behind, if its writer's kin is judged: each law of the schema.
 5. **Decide**: a `refuse` verdict refuses; a `confirm` verdict needs `confirmed`.
 

@@ -1,5 +1,5 @@
 // `settles`: broken when the thread, after the line and the reconciliations it
-// causes, would still hold a denunciation: the cap of rounds was reached.
+// causes, would still hold a denunciation: the bound of rounds was reached.
 
 import type { LawBinding, LawKind } from '../types.ts';
 import { keysAre } from '../util.ts';

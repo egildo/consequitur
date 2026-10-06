@@ -6,13 +6,15 @@ import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_KIT,
-  MAX_ROUNDS,
   admit,
   canonical,
+  compare,
   dryRun,
+  emptyState,
   inForce,
   goalWriter,
   inOrder,
+  keysAre,
   lockedBy,
   offers,
   payloadProblem,
@@ -31,13 +33,16 @@ import {
   type EventLine,
   type GistSchema,
   type HandleDenunciation,
+  type HandleKind,
   type Handles,
   type Json,
+  type Kit,
   type LineDraft,
   type Offer,
   type Payload,
   type Reading,
   type Refusal,
+  type RuleKind,
   type Schema,
   type ThreadState,
   type When,
@@ -1019,6 +1024,39 @@ describe('posting to a thread', () => {
   const gistsOf = (lines: EventLine[]) => lines.map((l) => l.gist);
   const gistNamed = (lines: EventLine[], gist: string) => lines.filter((l) => l.gist === gist);
 
+  // A toy handle kind that never cures what it answers: the answer records the difference and leaves the
+  // handle as it was, so its denunciation is there at every round. Only a kit's own kind can be this.
+  type StuckAcc = Set<string>;
+  const stuckHandle: HandleKind = {
+    kind: 'stuck',
+    roles: ['note'],
+    empty: () => [],
+    start: (): StuckAcc => new Set(),
+    expected: (acc) => [...(acc as StuckAcc)].sort(compare),
+    compare: (acc, found) =>
+      [...(acc as StuckAcc)]
+        .sort(compare)
+        .filter((key) => !Array.isArray(found) || !found.includes(key))
+        .map((key): HandleDenunciation => ({ sort: 'handle', kind: 'stuck', key, expected: true })),
+    answer: (d, found) => ({ handle: found, role: 'note', payload: { key: d.key } }),
+    diff: () => [],
+  };
+  const wishRule: RuleKind = {
+    rule: 'wish',
+    handles: ['stuck'],
+    read: (binding) => (keysAre(binding, ['wish']) && typeof binding.wish === 'string' ? { rule: 'wish', wish: binding.wish } : 'a wish binding names a wish.'),
+    admit: () => undefined,
+    expect: (binding, _line, acc) => void (acc('stuck') as StuckAcc).add(binding.wish as string),
+  };
+  const STUCK_KIT: Kit = { handles: [...BASE_KIT.handles, stuckHandle], rules: [...BASE_KIT.rules, wishRule], laws: BASE_KIT.laws };
+  const STUCK_EXTRA: GistSchema[] = [
+    { gist: 'wish', writers: ['user'], rules: [{ rule: 'wish', wish: 'never granted' }] },
+    { gist: 'noted', writers: ['system'], rules: [] },
+    { gist: 'reply', writers: ['goal'], rules: [] },
+  ];
+  /** The case with the toy kind, and with its laws or none. */
+  const stuckSchema = (laws: unknown[] = []): Schema => sibar({ add: STUCK_EXTRA, laws, kit: STUCK_KIT, head: { records: { ...SIBAR_JSON.records, note: 'noted' } } });
+
   describe('the scenario', () => {
     type Posted = Awaited<ReturnType<typeof post>>;
 
@@ -1696,30 +1734,18 @@ describe('posting to a thread', () => {
       });
 
       it('settles: a thread that would stay unsettled gives the verdict, and post refuses it', async () => {
-        const extra: GistSchema[] = [
-          { gist: 'start', writers: ['user'], rules: [] },
-          { gist: 'step_a', writers: ['goal'], rules: [] },
-          { gist: 'step_b', writers: ['goal'], rules: [] },
-          { gist: 'step_c', writers: ['goal'], rules: [{ rule: 'value', key: 'reached', value: 'yes' }] },
-        ];
-        const withLaws = sibar({ add: extra });
-        const withoutLaws = sibar({ add: extra, laws: [] });
-        let state = EMPTY;
-        for (const draft of [
-          mrossi('create', { name: 'Catena', assignTo: ['mrossi'] }),
-          mrossi('set_goal', { name: 'a', then: 'step_a', checks: [{ gist: 'start' }] }),
-          mrossi('set_goal', { name: 'b', then: 'step_b', checks: [{ gist: 'step_a' }] }),
-          mrossi('set_goal', { name: 'c', then: 'step_c', checks: [{ gist: 'step_b' }] }),
-        ]) {
-          state = (await post(state, draft, withoutLaws, NOW)).state;
-        }
-        const start = mrossi('start', {});
-        const dry = await dryRun(state, start, withLaws, NOW);
+        const withLaws = stuckSchema([{ law: 'settles', strength: 'refuse' }]);
+        const withoutLaws = stuckSchema();
+        let state = (await post(emptyState(withoutLaws), mrossi('create', { name: 'Bloccato', assignTo: ['mrossi'] }), withoutLaws, NOW)).state;
+        state = (await post(state, mrossi('set_goal', { name: 'later', then: 'reply', checks: [{ gist: 'comment' }] }), withoutLaws, NOW)).state;
+        const wish = mrossi('wish', {});
+        const dry = await dryRun(state, wish, withLaws, NOW);
         expect(dry.reading.settled).toBe(false);
+        // the bound: one goal that has not written its outcome, plus two
         expect(dry.rounds).toHaveLength(3);
         expect(dry.verdicts).toEqual([{ law: 'settles', strength: 'refuse', detail: 'The thread would not settle.' }]);
-        expect((await post(state, start, withLaws, NOW)).refusal?.code).toBe('law');
-        expect((await post(state, start, withoutLaws, NOW)).reading.settled).toBe(false);
+        expect((await post(state, wish, withLaws, NOW)).refusal?.code).toBe('law');
+        expect((await post(state, wish, withoutLaws, NOW)).reading.settled).toBe(false);
       });
 
       it('gives verdicts in the order of the laws', async () => {
@@ -2036,59 +2062,108 @@ describe('posting to a thread', () => {
     });
   });
 
-  describe('the cap', () => {
-    const EXTRA: GistSchema[] = [
+  describe('the bound', () => {
+    const STEPS: GistSchema[] = [
       { gist: 'start', writers: ['user'], rules: [] },
       { gist: 'step_a', writers: ['goal'], rules: [] },
       { gist: 'step_b', writers: ['goal'], rules: [] },
       { gist: 'step_c', writers: ['goal'], rules: [{ rule: 'value', key: 'reached', value: 'yes' }] },
+      { gist: 'step_d', writers: ['goal'], rules: [] },
     ];
-    const CAPPED = sibar({ add: EXTRA, laws: [] });
+    const CHAINED = sibar({ add: STEPS, laws: [] });
 
-    async function buildChain(): Promise<ThreadState> {
+    /** A thread that holds the opening and a goal for each link of a chain: `start` brings the first, each outcome the next. */
+    async function chained(links: string[], schema = CHAINED): Promise<ThreadState> {
       let state = EMPTY;
       const go = async (draft: LineDraft) => {
-        const out = await post(state, draft, CAPPED, NOW);
+        const out = await post(state, draft, schema, NOW);
         expect(out.refusal).toBeUndefined();
         expect(out.reading.settled).toBe(true);
         state = out.state;
       };
       await go(mrossi('create', { name: 'Catena', assignTo: ['mrossi'] }));
-      await go(mrossi('set_goal', { name: 'a', then: 'step_a', checks: [{ gist: 'start' }] }));
-      await go(mrossi('set_goal', { name: 'b', then: 'step_b', checks: [{ gist: 'step_a' }] }));
-      await go(mrossi('set_goal', { name: 'c', then: 'step_c', checks: [{ gist: 'step_b' }] }));
+      for (const [i, then] of links.entries()) {
+        await go(mrossi('set_goal', { name: String.fromCharCode(97 + i), then, checks: [{ gist: i === 0 ? 'start' : links[i - 1] }] }));
+      }
       return state;
     }
 
-    it('a thread that needs a fourth reconciliation pauses after three, and a second settle finishes it', async () => {
-      expect(MAX_ROUNDS).toBe(3);
-      const chain = await buildChain();
-      const paused = await post(chain, mrossi('start', {}), CAPPED, NOW);
+    async function chainIsWhole(lines: EventLine[]): Promise<void> {
+      for (const line of lines) expect(await verify(line)).toBe(true);
+      lines.slice(1).forEach((line, i) => expect(line.previous).toBe(lines[i].id));
+    }
 
-      expect(paused.refusal).toBeUndefined();
-      expect(paused.reading.settled).toBe(false);
-      const written = paused.state.lines.slice(chain.lines.length);
-      expect(gistsOf(written)).toEqual(['start', 'step_a', 'step_b', 'step_c']);
-      const goalIds = gistNamed(paused.state.lines, 'set_goal').map((l) => l.id);
-      expect(written.slice(1).map((l) => l.writer)).toEqual(goalIds.map((id) => `goal::${id}`));
-      const [stepC] = gistNamed(paused.state.lines, 'step_c');
-      expect(paused.reading.denunciations).toEqual([{ sort: 'handle', kind: 'value', key: 'reached', expected: 'yes', line: stepC.id }]);
-      expect('reached' in valuesOf(paused.state.handles)).toBe(false);
+    it('a chain of three goals settles in one post, one outcome per round, and the handle in the round after the last', async () => {
+      const chain = await chained(['step_a', 'step_b', 'step_c']);
+      const out = await post(chain, mrossi('start', {}), CHAINED, NOW);
 
-      const done = await settle(paused.state, CAPPED, NOW);
-      expect(done.reading.settled).toBe(true);
-      expect(valuesOf(done.state.handles).reached).toBe('yes');
-      expect(done.state.lines.at(-1)).toMatchObject({ gist: 'metadata_set', payload: { key: 'reached', value: 'yes' } });
-      for (const line of done.state.lines) expect(await verify(line)).toBe(true);
-      done.state.lines.slice(1).forEach((line, i) => expect(line.previous).toBe(done.state.lines[i].id));
+      expect(out.refusal).toBeUndefined();
+      expect(out.reading.settled).toBe(true);
+      const written = out.state.lines.slice(chain.lines.length);
+      expect(gistsOf(written)).toEqual(['start', 'step_a', 'step_b', 'step_c', 'metadata_set']);
+      expect(gistsOf(out.added)).toEqual(gistsOf(written));
+      const goalIds = gistNamed(out.state.lines, 'set_goal').map((l) => l.id);
+      expect(written.slice(1, 4).map((l) => l.writer)).toEqual(goalIds.map((id) => `goal::${id}`));
+      expect(written[4].writer).toBe(SYSTEM_WRITER);
+      expect(out.rounds.map((round) => round.length)).toEqual([1, 1, 1, 1]);
+      expect(valuesOf(out.state.handles).reached).toBe('yes');
+      await chainIsWhole(out.state.lines);
     });
 
-    it('the next post resumes from a pause', async () => {
-      const paused = await post(await buildChain(), mrossi('start', {}), CAPPED, NOW);
-      const out = await post(paused.state, mrossi('memo', { assignTo: ['lbianchi'] }), CAPPED, NOW);
+    it('a chain of four settles too: the fourth goal and the handle the third stated share a round', async () => {
+      const chain = await chained(['step_a', 'step_b', 'step_c', 'step_d']);
+      const out = await post(chain, mrossi('start', {}), CHAINED, NOW);
       expect(out.reading.settled).toBe(true);
+      expect(gistsOf(out.added)).toEqual(['start', 'step_a', 'step_b', 'step_c', 'step_d', 'metadata_set']);
+      expect(out.rounds.map((round) => round.length)).toEqual([1, 1, 1, 2]);
       expect(valuesOf(out.state.handles).reached).toBe('yes');
-      expect(membersOf(out.state.handles)).toEqual(['lbianchi', 'mrossi']);
+      await chainIsWhole(out.state.lines);
+    });
+
+    it('two goals waiting on the same line fire one per round, the one set earlier first, whatever their names', async () => {
+      let state = (await post(EMPTY, mrossi('create', { name: 'Due', assignTo: ['mrossi'] }), CHAINED, NOW)).state;
+      // the goal set later has the name that comes first in the reading's list of goals
+      state = (await post(state, mrossi('set_goal', { name: 'zeta', then: 'step_a', checks: [{ gist: 'start' }] }), CHAINED, NOW)).state;
+      state = (await post(state, mrossi('set_goal', { name: 'alpha', then: 'step_b', checks: [{ gist: 'start' }] }), CHAINED, NOW)).state;
+      const [zeta, alpha] = gistNamed(state.lines, 'set_goal');
+
+      const out = await post(state, mrossi('start', {}), CHAINED, NOW);
+      expect(out.reading.settled).toBe(true);
+      expect(out.added.map((l) => [l.gist, l.writer])).toEqual([
+        ['start', 'user::mrossi'],
+        ['step_a', `goal::${zeta.id}`],
+        ['step_b', `goal::${alpha.id}`],
+      ]);
+      expect(out.rounds.map((round) => round.map((d) => d.sort === 'line' && d.gist))).toEqual([['step_a'], ['step_b']]);
+      expect(out.reading.goals.map((g) => g.name)).toEqual(['alpha', 'zeta']);
+    });
+
+    it('a post that only a kind that does not cure can leave unsettled pauses at the bound: the goals that have not fired, plus two', async () => {
+      const schema = stuckSchema();
+      let state = (await post(emptyState(schema), mrossi('create', { name: 'Bloccato', assignTo: ['mrossi'] }), schema, NOW)).state;
+      const wish = await post(state, mrossi('wish', {}), schema, NOW);
+      expect(wish.refusal).toBeUndefined();
+      expect(wish.reading.settled).toBe(false);
+      expect(wish.rounds).toHaveLength(2);
+      expect(gistsOf(wish.added)).toEqual(['wish', 'noted', 'noted']);
+      expect(wish.reading.denunciations).toEqual([{ sort: 'handle', kind: 'stuck', key: 'never granted', expected: true }]);
+      await chainIsWhole(wish.state.lines);
+
+      // a goal that waits for a line that never comes is one more round
+      state = (await post(state, mrossi('set_goal', { name: 'waiting', then: 'reply', checks: [{ gist: 'comment' }] }), schema, NOW)).state;
+      expect((await post(state, mrossi('wish', {}), schema, NOW)).rounds).toHaveLength(3);
+      // and a goal that has fired is not counted
+      state = (await post(state, mrossi('comment', {}), schema, NOW)).state;
+      expect(gistNamed(state.lines, 'reply')).toHaveLength(1);
+      expect((await post(state, mrossi('wish', {}), schema, NOW)).rounds).toHaveLength(2);
+    });
+
+    it('a pause is resumed by the next settle, which is again a pause', async () => {
+      const schema = stuckSchema();
+      const first = await post((await post(emptyState(schema), mrossi('create', { name: 'Bloccato', assignTo: ['mrossi'] }), schema, NOW)).state, mrossi('wish', {}), schema, NOW);
+      const again = await settle(first.state, schema, NOW);
+      expect(again.reading.settled).toBe(false);
+      expect(again.rounds).toHaveLength(2);
     });
   });
 

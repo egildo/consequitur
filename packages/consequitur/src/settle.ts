@@ -5,7 +5,7 @@
 // refuses them, and a goal's lines, from anyone else.
 
 import { validChecks } from './check.ts';
-import { asStored, canonical, inForce, lockedBy, revokeOf, stamp } from './line.ts';
+import { asStored, canonical, inForce, inOrder, lockedBy, revokeOf, stamp } from './line.ts';
 import { consequitur, whenHolds } from './reading.ts';
 import type {
   Change,
@@ -26,9 +26,6 @@ import type {
   Verdict,
 } from './types.ts';
 import { has, isObject, isRecord, kinOf } from './util.ts';
-
-/** Reaching the cap is a pause, not an error: the next `post` or `settle` resumes. */
-export const MAX_ROUNDS = 3;
 
 const refuse = (code: Refusal['code'], detail: string): Refusal => ({ code, detail });
 
@@ -197,11 +194,30 @@ function counted(reading: Reading, handles: Handles, policy: Policy): Reading {
 }
 
 /**
- * Reduces, and while the reading holds a denunciation the authority answers and
- * fewer than `MAX_ROUNDS` reconciliations have run, reconciles and reads again.
- * Each draft is stamped against the thread with the drafts before it already
- * appended, so the `previous` ids stay a chain. `settled: false` in the result
- * after the last round means the thread is not settled yet. `rounds` holds, for
+ * What one round answers: every denunciation the authority answers but the
+ * outcomes of goals, and the outcome of one goal, the one whose line comes first
+ * in reading order. The others wait for the next round, so a goal whose check
+ * reads what another goal wrote finds it, and two goals never fire because the
+ * other has not.
+ */
+function nextRound(reading: Reading, handles: Handles, policy: Policy, lines: EventLine[], schema: Schema): Denunciation[] {
+  const answered = answer(reading, handles, policy);
+  const position = new Map(inOrder(lines).map((l, i) => [l.id, i] as const));
+  const outcomes = answered.filter((d): d is Extract<Denunciation, { sort: 'line' }> => d.sort === 'line' && d.gist !== schema.records.warning);
+  const [first] = [...outcomes].sort((a, b) => position.get(a.line)! - position.get(b.line)!);
+  const waiting = new Set<Denunciation>(outcomes.filter((d) => d !== first));
+  return answered.filter((d) => !waiting.has(d));
+}
+
+/**
+ * Reads, and while the reading holds a denunciation the authority answers and
+ * the bound has not been reached, reconciles and reads again: a post runs to its
+ * end. The bound is the goals in force that have not written their outcome,
+ * plus two, counted once when the loop starts; a goal cannot set a goal, so
+ * nothing a round writes raises it. Each draft is stamped against the thread with the drafts
+ * before it already appended, so the `previous` ids stay a chain. Reaching the
+ * bound is a pause, not an error: `settled: false` in the result means the thread
+ * is not settled yet, and the next `post` or `settle` resumes. `rounds` holds, for
  * each reconciliation that ran, the denunciations it answered.
  */
 export async function settle(
@@ -212,9 +228,10 @@ export async function settle(
 ): Promise<{ state: ThreadState; reading: Reading; rounds: Denunciation[][] }> {
   let { lines, handles } = state;
   let reading = consequitur(lines, handles, schema);
+  const bound = reading.goals.filter((g) => g.outcome === undefined).length + 2;
   const rounds: Denunciation[][] = [];
-  for (let round = 0; round < MAX_ROUNDS; round++) {
-    const answered = answer(reading, handles, policy);
+  for (let round = 0; round < bound; round++) {
+    const answered = nextRound(reading, handles, policy, lines, schema);
     if (answered.length === 0) break;
     rounds.push(answered);
     const out = reconcile({ ...reading, denunciations: answered }, handles, schema);

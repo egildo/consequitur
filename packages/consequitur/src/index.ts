@@ -5,7 +5,7 @@ export { compare, idOf, isJson, keysAre, kinOf, optionalFlag } from './util.ts';
 export { expectations, goalWriter, holds, consequitur, whenHolds } from './reading.ts';
 export type { Expectations } from './reading.ts';
 export { readGists, readLaws, readPolicy, readSchema } from './schema.ts';
-export { MAX_ROUNDS, admit, answer, diff, dryRun, emptyState, payloadProblem, post, reconcile, settle } from './settle.ts';
+export { admit, answer, diff, dryRun, emptyState, payloadProblem, post, reconcile, settle } from './settle.ts';
 export { offers } from './offers.ts';
 export { BASE_KIT } from './kit.ts';
 export { valueHandle } from './handles/value.ts';
