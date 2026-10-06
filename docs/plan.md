@@ -1,6 +1,6 @@
 # The plan — extracting the engine into a library
 
-Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 8 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. This file is the brief for the
+Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 8 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. «Chain order» added as 9 the same day, «Publish» moves to 10. This file is the brief for the
 rounds; as each lands, what it made true moves into `architecture.md`, and a ruling worth
 keeping into `decisions/`.
 
@@ -132,7 +132,8 @@ The ProseMirror correspondence, which the library should feel like:
    Done: `condition.ts` on `kdlet-guards` 0.2 (which has the third answer), `when`, goals and `keeps-set`'s `while` as conditions with the references and the two words, the trace in `GoalReading` and one warning per path, named guards in the head, `collect-writer` in `BASE_KIT`, the three cases rewritten and the five misfits fitting; `consequitur-kdl` reads and writes a schema in KDL, each case has `schema.kdl`, and the playground draws the trace as a tree and shows the schema in KDL or JSON.
 8. **Holes**, as [specs/conditions.md](specs/conditions.md) §7 says, from [holes are unstated values](decisions/holes-are-unstated-values.md): a reference may stand in any payload, the reading resolves it in two passes, the `value` rule's `keyFrom` form, `Reading.holes`, `holed` in the package, and the warehouse's «Saved» with its holes and fills.
    Done: a `$value` reference stands in any payload and the reading resolves it in two passes (`resolvePayload` in `check.ts`, which `resolveCheck` reads too); `Reading.holes` lists what is awaited, and `changes` says a hole opened or filled; the `value` rule's `keyFrom` form is the fill, and admission refuses a fill that names a key the schema states or holds a reference, reads a hole as present and checks a resolved value's shape; a goal's `with` may hold a reference and its outcome completes when the key is stated; `holed` is in the package; the warehouse has the gist `fill`, «Saved» has its three holes and fills, and «Second assignee» fires a goal on a fill. The stopping law is not built, as the spec says.
-9. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
+9. **Chain order**, as [the chain is the order](decisions/the-chain-is-the-order.md) says: the reading order walks `previous` from the first line, a thread that is not one chain is refused, and `stamp` no longer bends the timestamp. The first of the three decisions that change ids for ever; the other two, what the hash covers and whether a thread names its schema and policy, may join this round once written.
+10. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
 ## 5 · Settled
 
