@@ -9,7 +9,7 @@ export type { Expectations } from './reading.ts';
 export { readGists, readLaws, readPolicy, readSchema } from './schema.ts';
 export { admit, answer, diff, dryRun, emptyState, payloadProblem, post, reconcile, settle } from './settle.ts';
 export { offers } from './offers.ts';
-export { draftOf, playScenario, prune, readScenarios, resolve, stepsOf } from './scenario.ts';
+export { draftOf, holed, playScenario, prune, readScenarios, resolve, stepsOf } from './scenario.ts';
 export type { Io, Labels, Played, Pruned, Scenario, Step } from './scenario.ts';
 export { BASE_KIT } from './kit.ts';
 export { valueHandle } from './handles/value.ts';

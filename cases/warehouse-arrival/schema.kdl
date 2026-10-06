@@ -22,6 +22,12 @@ gist done user {
         guard member
     }
 }
+gist fill user {
+    value from=value keyFrom=key
+    when {
+        guard member
+    }
+}
 gist comment user {
     when {
         guard member

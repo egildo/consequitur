@@ -1,6 +1,6 @@
 # Scenarios — spec
 
-Status: built in the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../decisions/templates-are-scenarios.md). Holes come with the round «Holes» and are marked so; they are not built. Words as in the [glossary](../glossary.md).
+Status: built in the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../decisions/templates-are-scenarios.md). Holes came with the round «Holes» and are marked so. Words as in the [glossary](../glossary.md).
 
 A scenario was a test device from the editorial round: a domain's story as data, played into an empty thread. It is a product device too. An application keeps a scenario as what its users call a template, plays it to open a new activity, and saves one from an activity a person configured by hand. The engine never sees a scenario; it sees the lines the player posts.
 
@@ -13,7 +13,7 @@ Unchanged from today: a list of steps, `{ label?, writer, gist, payload, confirm
 | `{ "$line": label }` | the id of the line the labelled step posted | the player |
 | `{ "$goal": label }` | `goal::` and that id | the player |
 | `{ "$find": check }` | the id of the first line in reading order the check matches | the player |
-| `{ "$value": key }`, and `$set`, `$writer`, `$draft` | a reference, see [conditions](conditions.md) §2 and §7 | nobody: it passes into the line as it is. Built in the round «Conditions», where a goal's condition holds one; a `$value` elsewhere in a payload is the round «Holes» |
+| `{ "$value": key }`, and `$set`, `$writer`, `$draft` | a reference, see [conditions](conditions.md) §2 and §7 | nobody: it passes into the line as it is. Built in the round «Conditions», where a goal's condition holds one; a `$value` elsewhere in a payload, a hole, was built in the round «Holes» |
 
 A reference is not a placeholder. The player leaves it alone, and the reading resolves it when the thread is read.
 
@@ -62,13 +62,13 @@ export function stepsOf(kept: EventLine[], all: EventLine[]): Step[];
 
 Steps carry no `confirmed` and no `refused`; the application adds `confirmed` where its person says so.
 
-*Round «Holes».*
+*Round «Holes», built.*
 
 ```ts
 export function holed(steps: Step[], holes: Record<string, Json>): Step[];
 ```
 
-`holed` replaces, in every step's payload, each value equal to one of the given values by the reference `{ "$value": key }` of its key. One value in several lines becomes one hole. The application decides which values become holes; a text with a piece missing is not a hole and is the application's to complete before posting.
+`holed` replaces, in every step's payload, each value equal to one of the given values by the reference `{ "$value": key }` of its key. One value in several lines becomes one hole, and a value two holes share goes to the first of them. Values are compared as JSON, so a list or an object may be a hole; a placeholder or a reference already in a payload is left as it is, and so is everything outside the payloads (the writer, the gist, the label). The application decides which values become holes; a text with a piece missing is not a hole and is the application's to complete before posting.
 
 The third act, turning a line a person wrote by hand into what a goal writes, is composing a goal, which the application already does.
 
@@ -77,9 +77,9 @@ The third act, turning a line a person wrote by hand into what a goal writes, is
 A saved scenario is checked against the thread it came from, with nothing invented:
 
 1. Play the steps into a thread nobody keeps, with `post` as `io.send`, as the saver.
-2. *(Round «Holes»)* Fill each hole with the value that was there before it was holed, by posting the fill lines.
+2. Fill each hole with the value that was there before it was holed, by posting the fill lines, as the saver: a person who is not on the team yet cannot write the lines that follow until the hole that names them is filled *(round «Holes», built)*.
 3. Feed the lines `prune` left as `found` or `outside`, in their reading order, each through `post`; and the open lines the saving session turned into what a goal awaits, in their place in that order.
-4. Compare where the handles ended with the source thread's: `diff(source.handles, played.handles, kit)` is empty.
+4. Compare where the handles ended with the source thread's: `diff(source.handles, played.handles, kit)` is empty but for the keys of the holes: a fill states its key into the value handle, where the source thread never had it, so the difference is those keys, added with their values, and nothing else.
 
 The comparison is on the handles, not line by line, because the lines the saving session changed are written by a goal in the dry run and were written by a person in the source. The check proves that the scenario reproduces the activity it came from; another order of events on another day is not proved.
 
@@ -92,15 +92,16 @@ No new function: the steps above are `playScenario`, `post` and `diff`. The case
 - `open` (opening): `name`, and `team` joined from `team`;
 - `memo`: assigns, joining `team` from `assignTo`; written by people and by goals;
 - `done`: a person says a step is finished; `steps` collects `step`;
+- `fill`: a person states a value a hole refers to, `value` from `keyFrom` and `from` (`key`, `value`);
 - `set_goal`, `set_goal_revoke`, `comment`;
 - `notice`: written by goals, states nothing;
 - `closed`: written by goals, `status` becomes `closed`;
 - `arrival_scanned`: written by `system::dock`, states nothing;
 - the records.
 
-`scenarios.json` holds two stories. «Tuesday» is the activity as it happened, with every kind of line: the manager's plan (goals that announce the arrival, assign the sorting, close the activity), a goal set by mistake and revoked, the scanner's line, a comment, the work (`done` lines), and one memo the manager wrote by hand when sorting was done, with no goal behind it. «Saved» is the scenario a person saves from it: the plan's lines, the by-hand memo turned into a goal, and, from the round «Holes» on, holes for the supplier's reference, the unloader and the sorter.
+`scenarios.json` holds three stories. «Tuesday» is the activity as it happened, with every kind of line: the manager's plan (goals that announce the arrival, assign the sorting, close the activity), a goal set by mistake and revoked, the scanner's line, a comment, the work (`done` lines), and one memo the manager wrote by hand when sorting was done, with no goal behind it. «Saved» is the scenario a person saves from it: the plan's lines, the by-hand memo turned into a goal, and holes for the supplier's reference (`ddt`), the unloader and the sorter, which end with three fills, the values Tuesday had, written by the manager. Played without them, «Saved» opens the activity with three holes and settled. «Second assignee» is a memo that names one assignee and a hole, `legal`, for a second, a goal whose condition is `has` on that reference, and a fill by the assignee who is on the team: the goal fires when the key is stated.
 
-The tests, in `packages/consequitur/test/scenarios.test.ts` or beside it: `prune` of «Tuesday» leaves out exactly the lines §3 says, for the reasons it says, and leaves open the plan's lines, the comment, the `done` of sorting, which no goal of «Tuesday» waits for, and the by-hand memo; `stepsOf` of the kept lines (the open lines but the comment, the `done` of sorting and the by-hand memo; the added goal waits for the one and writes the other) gives the steps of «Saved» but the goal the person added; and the dry run of §4 ends with no difference in the handles.
+The tests, in `packages/consequitur/test/scenarios.test.ts` or beside it: `prune` of «Tuesday» leaves out exactly the lines §3 says, for the reasons it says, and leaves open the plan's lines, the comment, the `done` of sorting, which no goal of «Tuesday» waits for, and the by-hand memo; `stepsOf` of the kept lines (the open lines but the comment, the `done` of sorting and the by-hand memo; the added goal waits for the one and writes the other) gives the steps of «Saved» but the goal the person added and the fills, once `holed` has made the three values holes; «Saved» played to its fills holds three holes and is settled, and its fills close them; the dry run of §4 ends with no difference in the handles but the three keys; and «Second assignee» fires its goal when the fill comes.
 
 The playground does not gain a third domain in this round: the case is the test's and the spec's truth.
 

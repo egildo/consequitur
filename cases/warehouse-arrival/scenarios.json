@@ -20,14 +20,27 @@
   },
   {
     "id": "saved",
-    "title": "What a person saves from Tuesday: the plan's lines, and the memo written by hand turned into a goal that waits for sorting",
+    "title": "What a person saves from Tuesday: the plan's lines with holes for the supplier's reference, the unloader and the sorter, the memo written by hand turned into a goal that waits for sorting, and the three fills whoever opens it writes",
     "steps": [
-      {"writer": "user::mrossi", "gist": "open", "payload": {"name": "Arrivo Ferrari · DDT 4471", "team": ["mrossi", "lbianchi"]}},
-      {"writer": "user::mrossi", "gist": "memo", "payload": {"assignTo": "lbianchi", "text": "Unload at bay B2"}},
-      {"label": "3", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "registered", "when": {"line": {"gist": "arrival_scanned", "payload": {"ddt": 4471}}}, "then": "notice", "with": {"to": "purchasing", "text": "arrived"}}},
-      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_sort", "when": {"line": {"gist": "done", "payload": {"step": "unload"}}}, "then": "memo", "with": {"assignTo": "gverdi", "text": "Sort by aisle"}}},
+      {"writer": "user::mrossi", "gist": "open", "payload": {"name": "Arrivo Ferrari · DDT 4471", "team": ["mrossi", {"$value": "unloader"}]}},
+      {"writer": "user::mrossi", "gist": "memo", "payload": {"assignTo": {"$value": "unloader"}, "text": "Unload at bay B2"}},
+      {"label": "3", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "registered", "when": {"line": {"gist": "arrival_scanned", "payload": {"ddt": {"$value": "ddt"}}}}, "then": "notice", "with": {"to": "purchasing", "text": "arrived"}}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_sort", "when": {"line": {"gist": "done", "payload": {"step": "unload"}}}, "then": "memo", "with": {"assignTo": {"$value": "sorter"}, "text": "Sort by aisle"}}},
       {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "complete", "when": {"all": [{"line": {"gist": "done", "payload": {"step": "shelve"}}}, {"line": {"gist": "notice", "writer": {"$goal": "3"}}}]}, "then": "closed", "final": true}},
-      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_shelves", "when": {"line": {"gist": "done", "payload": {"step": "sort"}}}, "then": "memo", "with": {"assignTo": "cneri", "text": "Put on shelves, aisle 4"}}}
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_shelves", "when": {"line": {"gist": "done", "payload": {"step": "sort"}}}, "then": "memo", "with": {"assignTo": "cneri", "text": "Put on shelves, aisle 4"}}},
+      {"writer": "user::mrossi", "gist": "fill", "payload": {"key": "ddt", "value": 4471}},
+      {"writer": "user::mrossi", "gist": "fill", "payload": {"key": "unloader", "value": "lbianchi"}},
+      {"writer": "user::mrossi", "gist": "fill", "payload": {"key": "sorter", "value": "gverdi"}}
+    ]
+  },
+  {
+    "id": "second-assignee",
+    "title": "A memo that names one assignee and leaves a second to be named, with a goal that waits for the second: another member of the team states who",
+    "steps": [
+      {"writer": "user::mrossi", "gist": "open", "payload": {"name": "Arrivo Bianchi · DDT 5120", "team": ["mrossi"]}},
+      {"writer": "user::mrossi", "gist": "memo", "payload": {"assignTo": ["lbianchi", {"$value": "legal"}], "text": "Check the contract with legal"}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "ready", "when": {"has": {"$value": "legal"}}, "then": "notice", "with": {"to": "purchasing", "text": "contract checked"}}},
+      {"writer": "user::lbianchi", "gist": "fill", "payload": {"key": "legal", "value": "cneri"}}
     ]
   }
 ]

@@ -17,14 +17,15 @@
 // refuse it, with this code, and goes on).
 //
 // A scenario is also saved from a thread: `prune` says which of its lines the engine, a revoke, the
-// world or a goal's check will bring back, and `stepsOf` turns the lines a person kept into steps.
+// world or a goal's check will bring back, and `stepsOf` turns the lines a person kept into steps;
+// `holed` then makes the values a person says must be supplied each time into references, holes.
 //
 // This module is the one resolver: the engine's tests, the playground and any application that keeps a
 // scenario import it. It knows no gist and no domain.
 
 import { matches, validCheck } from './check.ts';
 import { nodes } from './condition.ts';
-import { inOrder } from './line.ts';
+import { canonical, inOrder } from './line.ts';
 import type { Check, EventLine, Json, LineDraft, LineId, Payload, Reading, Refusal, Schema, Writer } from './types.ts';
 import { isObject, kinOf } from './util.ts';
 
@@ -221,4 +222,23 @@ export function stepsOf(kept: EventLine[], all: EventLine[]): Step[] {
     return step;
   });
   return steps.map((step, i) => (pointed.has(ordered[i].id) ? { label: String(i + 1), ...step } : step));
+}
+
+/**
+ * The steps with each payload value equal to one of `holes` replaced by the reference `{ "$value": key }` of
+ * its key, wherever a value stands, a list's item and a check's payload included: one value in several lines
+ * becomes one hole. A value two holes share goes to the first of them. A placeholder or a reference is left as
+ * it is. The application chooses which values are holes; what a hole is filled with is posted as a line.
+ */
+export function holed(steps: Step[], holes: Record<string, Json>): Step[] {
+  const keys = new Map(Object.entries(holes).map(([key, value]) => [canonical(value), key] as const).reverse());
+  const swap = (value: Json): Json => {
+    const placeholder = isObject(value) && Object.keys(value).length === 1 && Object.keys(value)[0].startsWith('$');
+    const key = placeholder ? undefined : keys.get(canonical(value));
+    if (key !== undefined) return { $value: key };
+    if (Array.isArray(value)) return value.map(swap);
+    if (value === null || typeof value !== 'object' || placeholder) return value;
+    return Object.fromEntries(Object.entries(value).map(([own, item]) => [own, swap(item)]));
+  };
+  return steps.map((step) => ({ ...step, payload: Object.fromEntries(Object.entries(step.payload).map(([key, value]) => [key, swap(value)])) }));
 }

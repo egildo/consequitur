@@ -28,6 +28,12 @@
       "rules": [{ "rule": "value", "key": "steps", "collect": "step", "required": true }],
       "when": { "guard": "member" }
     },
+    {
+      "gist": "fill",
+      "writers": ["user"],
+      "rules": [{ "rule": "value", "keyFrom": "key", "from": "value" }],
+      "when": { "guard": "member" }
+    },
     { "gist": "comment", "writers": ["user"], "rules": [], "when": { "guard": "member" } },
     { "gist": "set_goal", "writers": ["user"], "rules": [{ "rule": "goal" }], "when": { "guard": "member" } },
     {

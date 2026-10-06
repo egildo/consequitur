@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, consequitur, diff, draftOf, dryRun, emptyState, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
+import { admit, consequitur, diff, draftOf, dryRun, emptyState, holed, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
@@ -190,6 +190,42 @@ describe('saving a scenario from a thread', () => {
   });
 });
 
+describe('holing a scenario', () => {
+  const steps: Step[] = [
+    { writer: 'user::mrossi', gist: 'open', payload: { name: 'A', team: ['mrossi', 'lbianchi'], unloader: 'lbianchi' } },
+    { label: 'g', writer: 'user::mrossi', gist: 'set_goal', payload: { name: 'g', when: { line: { gist: 'done', payload: { step: 'unload', by: 'lbianchi' } } }, then: 'memo', with: { assignTo: 'gverdi', lines: [{ $line: 'g' }] } } },
+  ];
+
+  it('replaces each payload value equal to a given one by a reference to its key, wherever a value stands, and one value in several lines is one hole', () => {
+    const out = holed(steps, { unloader: 'lbianchi', sorter: 'gverdi' });
+    expect(out[0].payload).toEqual({ name: 'A', team: ['mrossi', { $value: 'unloader' }], unloader: { $value: 'unloader' } });
+    expect(out[1].payload).toEqual({
+      name: 'g',
+      when: { line: { gist: 'done', payload: { step: 'unload', by: { $value: 'unloader' } } } },
+      then: 'memo',
+      with: { assignTo: { $value: 'sorter' }, lines: [{ $line: 'g' }] },
+    });
+  });
+
+  it('compares values as JSON, a list or an object included, and leaves the steps, the writers, the gists and the labels as they are', () => {
+    const [step] = holed([{ label: 'x', writer: 'user::a', gist: 'g', payload: { list: [1, 2], object: { b: 1, a: 2 }, other: [2, 1] } }], { pair: [1, 2], both: { a: 2, b: 1 } });
+    expect(step).toEqual({ label: 'x', writer: 'user::a', gist: 'g', payload: { list: { $value: 'pair' }, object: { $value: 'both' }, other: [2, 1] } });
+    expect(holed(steps, { n: 'user::mrossi', m: 'open' })).toEqual(steps);
+  });
+
+  it('leaves a placeholder and a reference alone, and gives a value two holes share to the first', () => {
+    const [step] = holed([{ writer: 'user::a', gist: 'g', payload: { a: { $line: 'x' }, b: { $value: 'k' }, c: 'v' } }], { first: 'v', second: 'v', x: 'x', k: 'k' });
+    expect(step.payload).toEqual({ a: { $line: 'x' }, b: { $value: 'k' }, c: { $value: 'first' } });
+  });
+
+  it('does not change the steps it is given, and gives the same steps for no holes', () => {
+    const copy = JSON.parse(JSON.stringify(steps)) as Step[];
+    holed(steps, { unloader: 'lbianchi' });
+    expect(steps).toEqual(copy);
+    expect(holed(steps, {})).toEqual(steps);
+  });
+});
+
 describe('reading a scenarios file', () => {
   it('reads the cases\' files', () => {
     for (const domain of ['sibar-activity', 'editorial-review']) {
@@ -356,22 +392,58 @@ describe('the warehouse arrival', () => {
     ]);
   });
 
-  it('stepsOf the lines a person keeps gives the steps of «Saved», but the goal the person added', async () => {
+  /** The values a person says must be supplied each time: the supplier's reference, the unloader and the sorter. */
+  const HOLES = { ddt: 4471, unloader: 'lbianchi', sorter: 'gverdi' };
+
+  it('stepsOf the lines a person keeps, with the three values holed, gives the steps of «Saved», but the goal the person added and the fills', async () => {
     const { lines, pruned } = await tuesday();
     const saved = scenarios.get('saved')!.steps;
     const steps = stepsOf(kept(pruned.open), lines);
-    expect(saved.at(-1)).toMatchObject({ gist: 'set_goal', payload: { name: 'to_shelves' } });
-    expect(steps).toEqual(saved.slice(0, -1));
+    const plan = saved.filter((s) => s.gist !== 'fill' && s.payload.name !== 'to_shelves');
+    expect(saved.find((s) => s.payload.name === 'to_shelves')).toMatchObject({ gist: 'set_goal' });
+    // as the lines say it, the values are in the steps; holed, they are references, one hole for a value in several lines
+    expect(steps).not.toEqual(plan);
+    expect(holed(steps, HOLES)).toEqual(plan);
+    expect(JSON.stringify(plan).match(/"\$value":"unloader"/g)).toHaveLength(2);
   });
 
-  it('«Saved» played as the manager, with the lines of «Tuesday» that were awaited fed in, ends where «Tuesday» ended', async () => {
+  it('«Saved» ends with the three fills, each the value that was there before it was holed', () => {
+    const fills = scenarios.get('saved')!.steps.filter((s) => s.gist === 'fill');
+    expect(Object.fromEntries(fills.map((s) => [s.payload.key, s.payload.value]))).toEqual(HOLES);
+    expect(scenarios.get('saved')!.steps.slice(-3)).toEqual(fills);
+  });
+
+  it('«Saved» played as the manager opens with three holes, and the fills close them: the thread stays settled and the unloader joins the team', async () => {
+    const saved = scenarios.get('saved')!.steps;
+    const at = saved.findIndex((s) => s.gist === 'fill');
+    const h = host(schema);
+    const first = await playScenario(saved.slice(0, at), h.io, { as: MROSSI });
+    expect(first.failed).toBeUndefined();
+    const before = consequitur(h.state().lines, h.state().handles, schema);
+    expect(before.holes.map((hole) => hole.key)).toEqual(['ddt', 'sorter', 'unloader']);
+    expect(before.settled).toBe(true);
+    // unloader is a hole: lbianchi is not on the team, and may not say he unloaded
+    expect(membersOf(h.state().handles, 'team')).toEqual(['mrossi']);
+    expect(admit(h.state().lines, { gist: 'done', writer: 'user::lbianchi', payload: { step: 'unload' } }, schema)?.code).toBe('not-now');
+
+    const second = await playScenario(saved.slice(at), h.io, { as: MROSSI, labels: first.labels });
+    expect(second.failed).toBeUndefined();
+    const after = consequitur(h.state().lines, h.state().handles, schema);
+    expect(after.holes).toEqual([]);
+    expect(after.settled).toBe(true);
+    expect(valuesOf(h.state().handles)).toMatchObject(HOLES);
+    expect(h.state().handles.set).toEqual({ team: ['lbianchi', 'mrossi'] });
+    expect(admit(h.state().lines, { gist: 'done', writer: 'user::lbianchi', payload: { step: 'unload' } }, schema)).toBeUndefined();
+  });
+
+  it('«Saved» played as the manager, filled, with the lines of «Tuesday» that were awaited fed in, ends where «Tuesday» ended but for the three keys of its holes', async () => {
     const source = await tuesday();
     const h = host(schema);
     const played = await playScenario(scenarios.get('saved')!.steps, h.io, { as: MROSSI });
     expect(played.failed).toBeUndefined();
 
     // what the scenario awaits: the world's lines, a goal's finds, and the work the goal the person added waits for
-    const added = [(scenarios.get('saved')!.steps.at(-1)!.payload.when as unknown as { line: Check }).line];
+    const added = [(scenarios.get('saved')!.steps.find((s) => s.payload.name === 'to_shelves')!.payload.when as unknown as { line: Check }).line];
     const awaited = inOrder(source.lines).filter((l) => {
       const why = source.pruned.left.find((left) => left.line.id === l.id)?.why;
       return why === 'found' || why === 'outside' || (why === undefined && added.some((check) => matches(check, l)));
@@ -381,6 +453,35 @@ describe('the warehouse arrival', () => {
       const sent = await h.io.send({ gist: line.gist, writer: line.writer, payload: line.payload }, false);
       expect(sent, `${line.gist} by ${line.writer}`).toBeUndefined();
     }
-    expect(diff(source.handles, h.state().handles, schema.kit)).toEqual([]);
+    // the fills put their keys in the value handle, where «Tuesday» never had them; nothing else differs
+    expect(diff(source.handles, h.state().handles, schema.kit)).toEqual([
+      { kind: 'value', key: 'ddt', after: 4471 },
+      { kind: 'value', key: 'sorter', after: 'gverdi' },
+      { kind: 'value', key: 'unloader', after: 'lbianchi' },
+    ]);
+  });
+
+  it('«Second assignee»: a memo names one assignee and leaves a second, a goal waits on it, and a fill by a member of the team names it and the goal fires', async () => {
+    const steps = scenarios.get('second-assignee')!.steps;
+    const h = host(schema);
+    const first = await playScenario(steps.slice(0, -1), h.io);
+    expect(first.failed).toBeUndefined();
+    const { lines, handles } = h.state();
+    expect(handles.set).toEqual({ team: ['lbianchi', 'mrossi'] });
+    const memo = lines.find((l) => l.gist === 'memo')!;
+    // the memo carries the hole, and the goal waits for it
+    const goal = lines.find((l) => l.gist === 'set_goal')!;
+    expect(consequitur(lines, handles, schema)).toMatchObject({ holes: [{ key: 'legal', lines: [memo.id, goal.id] }], settled: true });
+    expect(lines.some((l) => l.gist === 'notice')).toBe(false);
+
+    const second = await playScenario(steps.slice(-1), h.io, { labels: first.labels });
+    expect(second.failed).toBeUndefined();
+    const after = h.state();
+    expect(after.handles.set).toEqual({ team: ['cneri', 'lbianchi', 'mrossi'] });
+    expect(valuesOf(after.handles)).toMatchObject({ legal: 'cneri' });
+    expect(after.lines.filter((l) => l.gist === 'notice').map((l) => l.writer.startsWith('goal::'))).toEqual([true]);
+    expect(consequitur(after.lines, after.handles, schema)).toMatchObject({ holes: [], settled: true });
+    // the memo itself still holds its reference
+    expect(after.lines.find((l) => l.id === memo.id)?.payload).toEqual({ assignTo: ['lbianchi', { $value: 'legal' }], text: 'Check the contract with legal' });
   });
 });

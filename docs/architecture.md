@@ -26,7 +26,7 @@ fixture of their own, except a toy that isolates one rule.
 cases/
   sibar-activity/          schema.json, schema.kdl, scenarios.json (first, opinion), policy.json
   editorial-review/        schema.json, schema.kdl, scenarios.json (published, late, left-alone)
-  warehouse-arrival/       schema.json, schema.kdl, scenarios.json (tuesday, saved)
+  warehouse-arrival/       schema.json, schema.kdl, scenarios.json (tuesday, saved, second-assignee)
 ```
 
 A **scenario** is a list of **steps**, `{ writer, gist, payload }`, posted to an empty thread; a step may
@@ -42,10 +42,13 @@ The reverse walk is in the same module. `prune(lines, reading, schema)` says, li
 a scenario need not say: the engine writes it again (a goal's line, a record), it is a mistake or its
 undoing (out of force, or a revoke), the world will state it again (a kin the schema does not judge), or a
 `line` node of a goal will find it again; every other line is left open for a person to decide on. `stepsOf(kept,
-all)` turns the lines kept into steps, each id in a payload made a `$line`, a `$goal` or a `$find`.
+all)` turns the lines kept into steps, each id in a payload made a `$line`, a `$goal` or a `$find`. `holed(steps, holes)` then makes
+each value an application names a reference, `{ "$value": key }`, a hole, which a fill line states when the scenario is played.
 
-`test/scenarios.test.ts` tests the resolver and plays SIBAR's two scenarios, prunes SIBAR's «opinion», and
-plays the warehouse's: «Tuesday», `prune` and `stepsOf` of it, and the dry run of «Saved» against it.
+`test/scenarios.test.ts` tests the resolver and `holed` and plays SIBAR's two scenarios, prunes SIBAR's «opinion», and
+plays the warehouse's: «Tuesday», `prune` and `stepsOf` of it, «Saved» with its holes and their fills, its dry run
+against «Tuesday», and «Second assignee». `test/holes.test.ts` tests the two passes, `Reading.holes`, the fill and
+admission of a reference on a toy schema.
 `test/editorial.test.ts` plays the review's three, with assertions at the steps that matter, and shows, one
 test each, that the five misfits of [misfits.md](misfits.md) now fit. `test/condition.test.ts` tests the
 condition module on its own: the reader's rules, the translation both ways, the evaluation with the draft
@@ -63,7 +66,7 @@ schema.ts      readSchema, readGists, readLaws, readPolicy
 reading.ts     expectations, holds, whenHolds, consequitur: the two passes over the lines in force, and the holes
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState
 offers.ts      offers
-scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, stepsOf: the one resolver of scenarios, and saving one from a thread
+scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, stepsOf, holed: the one resolver of scenarios, and saving one from a thread
 kit.ts         BASE_KIT
 handles/       value, set
 rules/         value (four forms: from, value, collect, and the fill, keyFrom), collect-writer, join, leave
