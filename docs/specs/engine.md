@@ -12,6 +12,8 @@ steps of the reading, goals (once, final, `with`, warnings and anchoring), `when
 offers, the rounds of reconciliation (capped at three then, within a bound the goals give since the round «Order and scenarios», §7), the dry run and its `added`, `rounds`, `verdicts`. Their
 behaviour is the 250 tests'; this round changes the words and opens the kinds, never the meaning.
 
+The round «Chain order» changed one of them, by [the chain is the order](../decisions/the-chain-is-the-order.md): the reading order is the chain, not the timestamps. `inOrder` walks `previous` from the line that has none, and throws an `Error` whose sentence names the last line read before the break when the thread is not one chain: no first line or two, a fork, a gap, a line the walk never reaches. `stamp` writes the instant it is given as it is, so a timestamp may repeat or go back, and no id of a thread written before moves.
+
 ## 1 · What is a mechanic and what is a kind
 
 **Mechanics** belong to the thread and are not registrable: the envelope and its hash; reading

@@ -32,7 +32,7 @@ function sibarPolicy(schema: Schema = strict(SIBAR_JSON)): Policy {
   return policy;
 }
 
-const line = (id: string, gist: string, writer: EventLine['writer'], payload: EventLine['payload'] = {}): EventLine => ({ id, previous: null, gist, writer, timestamp: `2026-10-03T10:00:0${id}.000Z`, payload });
+const line = (id: string, gist: string, writer: EventLine['writer'], payload: EventLine['payload'] = {}): EventLine => ({ id, previous: id === '1' ? null : String(Number(id) - 1), gist, writer, timestamp: `2026-10-03T10:00:0${id}.000Z`, payload });
 
 describe('the scenario resolver', () => {
   const lines = [line('1', 'memo', 'user::mrossi'), line('2', 'memo', 'goal::abc'), line('3', 'comment', 'user::lbianchi')];
@@ -162,7 +162,8 @@ describe('saving a scenario from a thread', () => {
     expect(pruned.open.map((l) => l.gist)).toEqual(['create', 'memo', 'doc_ref', 'doc_ref', 'set_goal', 'set_goal', 'set_goal', 'comment']);
     // every line is in one list or the other, and each list is in reading order
     expect(pruned.open.length + pruned.left.length).toBe(lines.length);
-    expect(pruned.left.map((l) => l.line.id)).toEqual(inOrder(pruned.left.map((l) => l.line)).map((l) => l.id));
+    const leftIds = new Set(pruned.left.map((l) => l.line.id));
+    expect(pruned.left.map((l) => l.line.id)).toEqual(inOrder(lines).filter((l) => leftIds.has(l.id)).map((l) => l.id));
   });
 
   it('makes steps of the lines kept, with the id of an earlier kept line a $line, and goal:: and it a $goal, labelled by position', async () => {
@@ -186,7 +187,7 @@ describe('saving a scenario from a thread', () => {
     const asking = line('2', 'y', 'user::a', { about: plain.id, list: [plain.id], other: 'z' });
     expect(stepsOf([asking], [plain, asking])[0].payload).toEqual({ about: { $find: { gist: 'x' } }, list: [{ $find: { gist: 'x' } }], other: 'z' });
     // a string that is no line's id is left alone
-    expect(stepsOf([asking], [asking])[0].payload).toEqual({ about: plain.id, list: [plain.id], other: 'z' });
+    expect(stepsOf([asking], [{ ...asking, previous: null }])[0].payload).toEqual({ about: plain.id, list: [plain.id], other: 'z' });
   });
 });
 

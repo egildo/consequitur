@@ -194,7 +194,9 @@ export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pru
  * `refused`: the application adds `confirmed` where its person says so.
  */
 export function stepsOf(kept: EventLine[], all: EventLine[]): Step[] {
-  const ordered = inOrder(kept);
+  // the kept lines are no chain by themselves: they are read in the order of the whole thread
+  const place = new Map(inOrder(all).map((line, i) => [line.id, i] as const));
+  const ordered = [...kept].sort((a, b) => place.get(a.id)! - place.get(b.id)!);
   const labelOf = new Map(ordered.map((line, i) => [line.id, String(i + 1)] as const));
   const pointed = new Set<LineId>();
   const awaited = new Map(all.filter((line) => !labelOf.has(line.id)).map((line) => [line.id, line] as const));

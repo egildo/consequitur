@@ -176,7 +176,7 @@ describe('the reading says what is awaited', () => {
 
   it('lists a reference in a line whose gist the schema does not know, which no rule reads', async () => {
     const state = await played([create]);
-    const stray: EventLine = { ...state.lines[0], id: 'stray', gist: 'unknown', payload: { a: ref('x') } };
+    const stray: EventLine = { ...state.lines[0], id: 'stray', previous: state.lines.at(-1)!.id, gist: 'unknown', payload: { a: ref('x') } };
     expect(consequitur([...state.lines, stray], state.handles, SCHEMA).holes).toEqual([{ key: 'x', lines: ['stray'] }]);
   });
 });
@@ -226,7 +226,7 @@ describe('the fill', () => {
 
   it('states nothing when its payload lacks the key or the value, or holds a key that is not a string, and the reading does not throw', async () => {
     const state = await played([create]);
-    const stray = (payload: Payload): EventLine => ({ ...state.lines[0], id: 'stray', gist: 'fill', payload });
+    const stray = (payload: Payload): EventLine => ({ ...state.lines[0], id: 'stray', previous: state.lines.at(-1)!.id, gist: 'fill', payload });
     const lacking: Payload[] = [{ key: 'k' }, { value: 1 }, { key: 3, value: 1 }, {}];
     for (const payload of lacking) {
       expect(consequitur([...state.lines, stray(payload)], state.handles, SCHEMA).expected.value).toEqual(valuesOf(state.handles));

@@ -1,6 +1,6 @@
 # The plan — extracting the engine into a library
 
-Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 8 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. «Chain order» added as 9 the same day, «Publish» moves to 10. This file is the brief for the
+Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 9 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. «Chain order» added as 9 the same day, «Publish» moves to 10. This file is the brief for the
 rounds; as each lands, what it made true moves into `architecture.md`, and a ruling worth
 keeping into `decisions/`.
 
@@ -133,6 +133,7 @@ The ProseMirror correspondence, which the library should feel like:
 8. **Holes**, as [specs/conditions.md](specs/conditions.md) §7 says, from [holes are unstated values](decisions/holes-are-unstated-values.md): a reference may stand in any payload, the reading resolves it in two passes, the `value` rule's `keyFrom` form, `Reading.holes`, `holed` in the package, and the warehouse's «Saved» with its holes and fills.
    Done: a `$value` reference stands in any payload and the reading resolves it in two passes (`resolvePayload` in `check.ts`, which `resolveCheck` reads too); `Reading.holes` lists what is awaited, and `changes` says a hole opened or filled; the `value` rule's `keyFrom` form is the fill, and admission refuses a fill that names a key the schema states or holds a reference, reads a hole as present and checks a resolved value's shape; a goal's `with` may hold a reference and its outcome completes when the key is stated; `holed` is in the package; the warehouse has the gist `fill`, «Saved» has its three holes and fills, and «Second assignee» fires a goal on a fill. The stopping law is not built, as the spec says.
 9. **Chain order**, as [the chain is the order](decisions/the-chain-is-the-order.md) says: the reading order walks `previous` from the first line, a thread that is not one chain is refused, and `stamp` no longer bends the timestamp. The first of the three decisions that change ids for ever; the other two, what the hash covers and whether a thread names its schema and policy, may join this round once written.
+   Done: `inOrder` walks the chain and refuses a thread that is not one (no first line or two, a fork, a gap, a line the walk never reaches), in one place, the sentence naming the last line read before the break; `stamp` writes the instant it is given; the hash and every stored id are unchanged, and the cases play as they were. `stepsOf` reads the kept lines in the order of the whole thread, since a part of a chain is no chain.
 10. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
 ## 5 · Settled

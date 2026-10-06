@@ -30,14 +30,16 @@ describe('lineFacts', () => {
     };
     const r = await written([opening, mrossi('memo', { text: 'uno' })]);
     const memo = r.state.lines.at(-1)!;
-    const lines = [
-      ...r.state.lines,
+    const strange = [
       ...[7, null, MISSING].map((writer) => odd(memo, 'writer', writer)),
       odd(memo, 'gist', 7),
       odd(memo, 'timestamp', null),
       odd(memo, 'timestamp', 7),
       odd(memo, 'id', 7),
     ];
+    // each is a copy of the memo made the next in the chain, so the thread is still one; the last keeps its odd id
+    const tail = strange.reduce<EventLine[]>((chain, l, i) => [...chain, { ...l, previous: chain.at(-1)!.id, ...(i < strange.length - 1 ? { id: `odd${i}` } : {}) }], [memo]).slice(1);
+    const lines = [...r.state.lines, ...tail];
     const facts = lineFacts(lines, consequitur(lines, r.state.handles, SIBAR), SIBAR);
     expect(facts).toHaveLength(lines.length);
     expect(facts.every((f) => f.writtenBy === undefined && f.goal === undefined && f.revokedBy === undefined)).toBe(true);

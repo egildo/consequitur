@@ -108,17 +108,24 @@ describe('stamp', () => {
     expect(first.id).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it('never repeats an instant inside a thread', async () => {
+  it('writes the instant it is given, never bent: it may repeat', async () => {
     const [first, second, third] = await thread([note, note, note]);
-    expect(first.timestamp).toBe(NOW);
-    expect(second.timestamp).toBe('2026-10-03T10:00:00.001Z');
-    expect(third.timestamp).toBe('2026-10-03T10:00:00.002Z');
+    expect([first, second, third].map((l) => l.timestamp)).toEqual([NOW, NOW, NOW]);
+    expect(new Set(idsOf([first, second, third])).size).toBe(3);
   });
 
-  it('does the same when now has no milliseconds', async () => {
+  it('writes now as an ISO instant when it has no milliseconds', async () => {
     const [first, second] = await thread([note, note], '2026-10-03T10:00:00Z');
     expect(first.timestamp).toBe('2026-10-03T10:00:00.000Z');
-    expect(second.timestamp).toBe('2026-10-03T10:00:00.001Z');
+    expect(second.timestamp).toBe('2026-10-03T10:00:00.000Z');
+  });
+
+  it('writes an instant that goes back as it is, and the chain keeps the order', async () => {
+    const [first] = await thread([note]);
+    const back = await stamp(note, [first], '2026-10-03T09:59:00.000Z');
+    expect(back.timestamp).toBe('2026-10-03T09:59:00.000Z');
+    expect(back.previous).toBe(first.id);
+    expect(idsOf(inOrder([back, first]))).toEqual([first.id, back.id]);
   });
 
   it('takes now as it is when it is later than the thread', async () => {
@@ -138,7 +145,6 @@ describe('stamp', () => {
     const lines = await thread([note, note, note]);
     const next = await stamp(note, [...lines].reverse(), NOW);
     expect(next.previous).toBe(lines[2].id);
-    expect(next.timestamp).toBe('2026-10-03T10:00:00.003Z');
     expect(next).toEqual(await stamp(note, lines, NOW));
   });
 
@@ -171,7 +177,7 @@ describe('verify', () => {
     expect(await verify({ ...second, previous: first.previous })).toBe(false);
     expect(await verify({ ...second, gist: 'fact' })).toBe(false);
     expect(await verify({ ...second, writer: 'user::lbianchi' })).toBe(false);
-    expect(await verify({ ...second, timestamp: NOW })).toBe(false);
+    expect(await verify({ ...second, timestamp: '2026-10-03T10:00:01.000Z' })).toBe(false);
     expect(await verify({ ...second, payload: { text: 'due' } })).toBe(false);
     expect(await verify({ ...second, id: first.id })).toBe(false);
   });
@@ -197,12 +203,56 @@ describe('inOrder', () => {
     expect(idsOf(reversed)).toEqual(before);
   });
 
-  it('breaks a tie by id, in either order', async () => {
-    const [a, b] = await thread([note, { ...note, payload: { text: 'due' } }]);
-    const tied = { ...b, timestamp: a.timestamp };
-    const [low, high] = a.id < tied.id ? [a, tied] : [tied, a];
-    expect(idsOf(inOrder([a, tied]))).toEqual([low.id, high.id]);
-    expect(idsOf(inOrder([tied, a]))).toEqual([low.id, high.id]);
+  it('walks the chain whatever the array order, a repeated timestamp or one that goes back', async () => {
+    const lines: EventLine[] = [];
+    for (const now of [NOW, NOW, '2026-10-03T09:00:00.000Z', '2026-10-03T11:00:00.000Z', '2026-10-03T09:30:00.000Z']) lines.push(await stamp(note, lines, now));
+    expect(lines.map((l) => l.timestamp)).toEqual([NOW, NOW, '2026-10-03T09:00:00.000Z', '2026-10-03T11:00:00.000Z', '2026-10-03T09:30:00.000Z']);
+    for (const array of [lines, [...lines].reverse(), [lines[3], lines[0], lines[4], lines[2], lines[1]]]) expect(idsOf(inOrder(array))).toEqual(idsOf(lines));
+  });
+
+  it('reads a thread stamped with the old rule as it was read: every scenario thread has its chain and its time in one order', async () => {
+    // the old rule bent a repeated or earlier instant to the last plus one millisecond
+    const lines: EventLine[] = [];
+    for (let i = 0; i < 5; i++) lines.push(await stamp(note, lines, new Date(Date.parse(NOW) + i).toISOString()));
+    const byTime = [...lines].sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : a.id < b.id ? -1 : 1));
+    expect(idsOf(inOrder([...lines].reverse()))).toEqual(idsOf(byTime));
+    expect(idsOf(inOrder(lines))).toEqual(idsOf(lines));
+  });
+
+  it('reads an empty thread as an empty chain', () => {
+    expect(inOrder([])).toEqual([]);
+  });
+
+  describe('refuses a thread that is not one chain, and names the place', () => {
+    const chain = () => thread([note, note, note, note]);
+
+    it('no first line', async () => {
+      const [a, b] = await chain();
+      expect(() => inOrder([{ ...a, previous: b.id }, b])).toThrow(/no first line/);
+    });
+
+    it('two first lines', async () => {
+      const [a, , c] = await chain();
+      expect(() => inOrder([a, { ...c, previous: null }])).toThrow(/two first lines/);
+    });
+
+    it('a fork, after the line both name', async () => {
+      const [a, b, c] = await chain();
+      expect(() => inOrder([a, b, { ...c, previous: a.id }])).toThrow(new RegExp(`forks after line ${a.id}`));
+    });
+
+    it('a gap, after the last line read before it', async () => {
+      const [a, b, , d] = await chain();
+      expect(() => inOrder([a, b, d])).toThrow(new RegExp(`gap after line ${b.id}`));
+    });
+
+    it('a line the walk never reaches, after the last line read', async () => {
+      const [a, b, c] = await chain();
+      // c and a stray that name each other: a ring the first never leads to
+      const ring = { ...c, previous: 'x' };
+      const stray = { ...b, id: 'x', previous: c.id };
+      expect(() => inOrder([a, ring, stray])).toThrow(new RegExp(`cut after line ${a.id}`));
+    });
   });
 });
 
@@ -245,8 +295,10 @@ describe('inForce', () => {
 
   it('a revoke names only an earlier line', async () => {
     const [n] = await thread([note]);
-    const early = { ...(await stamp(revoke('note_revoke', n.id), [], NOW)), timestamp: '2000-01-01T00:00:00.000Z' };
-    expect(inForce([n, early], GISTS).revoked).toEqual([]);
+    // a hash cannot name a later line, so the line is forged: the revoke is first, and the note after it keeps its id
+    const early = await stamp(revoke('note_revoke', n.id), [], NOW);
+    const late = { ...n, previous: early.id };
+    expect(inForce([early, late], GISTS).revoked).toEqual([]);
   });
 
   it('a gist without a schema is in force; the first schema and the first revoke binding are read', async () => {
@@ -664,7 +716,10 @@ describe('consequitur', () => {
         const revoking = await stamp(mrossi('memo_revoke', { target: lines[2].id }), stored, NOW);
         // and a gist, a timestamp, an id that are not strings
         const got = lines[6];
-        const all = [...stored, revoking, odd(got, 'gist', 7), odd(got, 'timestamp', null), odd(got, 'timestamp', 7), odd(got, 'id', 7)];
+        // each is a copy of the line, made the next in the chain, so the thread is still one
+        const strange = [odd(got, 'gist', 7), odd(got, 'timestamp', null), odd(got, 'timestamp', 7), odd(got, 'id', 7)];
+        const tail = strange.reduce<EventLine[]>((chain, l, i) => [...chain, { ...l, previous: chain.at(-1)!.id, ...(i < 3 ? { id: `odd${i}` } : {}) }], [revoking]).slice(1);
+        const all = [...stored, revoking, ...tail];
         const reading = read(all, agreeing);
         expect(reading.goals.map((g) => g.met)).toEqual([false]);
         expect(reading.revoked).toEqual([lines[2].id]);
@@ -1203,9 +1258,6 @@ describe('posting to a thread', () => {
       for (const line of state.lines) expect(await verify(line)).toBe(true);
       expect(state.lines[0].previous).toBeNull();
       state.lines.slice(1).forEach((line, i) => expect(line.previous).toBe(state.lines[i].id));
-      const stamps = state.lines.map((l) => l.timestamp);
-      expect(stamps).toEqual([...stamps].sort());
-      expect(new Set(stamps).size).toBe(stamps.length);
     });
 
     it('consequitur on the final state is settled; with the handles emptied it denounces each, and settle brings them back', async () => {
@@ -2607,7 +2659,6 @@ describe('posting to a thread', () => {
       expect(out.state.lines).toHaveLength(1 + 2 + 2);
       out.state.lines.slice(1).forEach((line, i) => expect(line.previous).toBe(out.state.lines[i].id));
       for (const line of out.state.lines) expect(await verify(line)).toBe(true);
-      expect(new Set(out.state.lines.map((l) => l.timestamp)).size).toBe(out.state.lines.length);
     });
 
     it('does not admit its drafts: they are the server own', async () => {

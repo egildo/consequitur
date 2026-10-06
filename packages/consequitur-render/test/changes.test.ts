@@ -35,7 +35,10 @@ async function play(id: string) {
 
 /** The thread with what its goals wrote taken out, read against handles that know nothing: it is full of denunciations. */
 const unanswered = (lines: EventLine[]) => {
-  const left = lines.filter((l) => !l.writer.startsWith('goal::'));
+  // what is left is no chain, so each line is relinked to the one before it; the ids stay, for the payloads name them
+  const left = inOrder(lines)
+    .filter((l) => !l.writer.startsWith('goal::'))
+    .map((l, i, all) => ({ ...l, previous: i === 0 ? null : all[i - 1].id }));
   return consequitur(left, emptyState(SIBAR).handles, SIBAR);
 };
 

@@ -41,21 +41,20 @@ export const asStored = (payload: unknown): unknown => JSON.parse(JSON.stringify
 
 /**
  * The authority's envelope for a draft. The id is computed here, once, and stored:
- * nothing else recomputes it but `verify`. A timestamp never repeats inside a
- * thread, because the reading order depends on it. The payload is stored as JSON
- * holds it, so what is hashed is what a stored line gives back: a key that holds
- * `undefined` or a function is left out, a date is its string.
+ * nothing else recomputes it but `verify`. The timestamp is the instant it is
+ * given, as given: it may repeat or go back, for the chain is the order, not the
+ * clock. The payload is stored as JSON holds it, so what is hashed is what a
+ * stored line gives back: a key that holds `undefined` or a function is left out,
+ * a date is its string.
  */
 export async function stamp(draft: LineDraft, lines: EventLine[], now: string): Promise<EventLine> {
-  const instant = new Date(now).toISOString();
-  // the thread's last line is the last in reading order: the array's own order is never read
+  // the thread's last line is the chain's last: the array's own order is never read
   const last = inOrder(lines).at(-1);
-  const timestamp = last && instant <= last.timestamp ? new Date(Date.parse(last.timestamp) + 1).toISOString() : instant;
   const body = {
     previous: last?.id ?? null,
     gist: draft.gist,
     writer: draft.writer,
-    timestamp,
+    timestamp: new Date(now).toISOString(),
     payload: asStored(draft.payload) as Payload,
   };
   return { id: await hashOf(body), ...body };
@@ -66,9 +65,33 @@ export async function verify(line: EventLine): Promise<boolean> {
   return (await hashOf(line)) === line.id;
 }
 
-/** The reading order: by timestamp, ties by id. The array's own order is never read. */
+/**
+ * The reading order: the chain. The first line is the one with no `previous`, each
+ * next line the one that names the last. The array's own order is never read.
+ * A thread that is not one chain is refused, and the sentence names the place: the
+ * last line read before the break. Broken is: no first line or two, a fork, a gap,
+ * a line the walk never reaches.
+ */
 export function inOrder(lines: EventLine[]): EventLine[] {
-  return [...lines].sort((a, b) => compare(a.timestamp, b.timestamp) || compare(a.id, b.id));
+  if (lines.length === 0) return [];
+  const firsts = lines.filter((l) => l.previous === null);
+  if (firsts.length === 0) throw new Error('The thread has no first line: every line names a previous one.');
+  if (firsts.length > 1) throw new Error('The thread has two first lines: more than one line has no previous.');
+  const next = new Map<LineId, EventLine>();
+  for (const line of lines) {
+    if (line.previous === null) continue;
+    if (next.has(line.previous)) throw new Error(`The thread forks after line ${line.previous}: two lines name it as their previous.`);
+    next.set(line.previous, line);
+  }
+  const ordered = [firsts[0]];
+  for (let at = next.get(firsts[0].id); at !== undefined; at = next.get(at.id)) ordered.push(at);
+  if (ordered.length < lines.length) {
+    const last = ordered[ordered.length - 1].id;
+    const ids = new Set(lines.map((l) => l.id));
+    const gap = lines.some((l) => l.previous !== null && !ids.has(l.previous));
+    throw new Error(`The thread ${gap ? 'has a gap' : 'is cut'} after line ${last}: ${lines.length - ordered.length} line(s) cannot be reached from the first.`);
+  }
+  return ordered;
 }
 
 /**

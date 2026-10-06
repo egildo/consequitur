@@ -5,7 +5,7 @@ those marked *(new)* were proposed by the plan and accepted.
 
 | Name | What it is |
 |---|---|
-| **thread** | The append-only list of lines of one record. Read in **reading order**: by timestamp, ties by id. |
+| **thread** | The append-only list of lines of one record. Read in **reading order**: by the chain: from the line with no `previous`, each next line the one that names the last. |
 | **line** | One entry: `id`, `previous`, `gist`, `writer`, `timestamp`, `payload`. The payload is free JSON. |
 | **id** | The SHA-256 of the line's content and its `previous` id, computed once when the line is written and stored. |
 | **gist** | What a line says happened: `memo`, `doc_signed`, `bank_tr_complete`. Lower snake case, at most 32 characters. |
