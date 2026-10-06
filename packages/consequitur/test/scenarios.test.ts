@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, draftOf, dryRun, emptyState, lockedBy, offers, playScenario, post, readPolicy, readScenarios, resolve, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
+import { admit, consequitur, draftOf, dryRun, emptyState, inOrder, lockedBy, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
@@ -117,11 +117,74 @@ describe('playing a scenario', () => {
     expect(other.failed?.why).toMatch(/with not-now/);
   });
 
+  it('posts every step as the writer it is given, in place of its own', async () => {
+    // a stranger's comment is refused as it stands, and posted as the one who opens
+    const comment: Step = { writer: 'user::zed', gist: 'comment', payload: { text: 'T' } };
+    expect((await playScenario([steps[0], comment], host().io)).failed?.refusal?.code).toBe('not-now');
+    const h = host();
+    const played = await playScenario([steps[0], comment], h.io, { as: 'user::mrossi' });
+    expect(played.failed).toBeUndefined();
+    expect(h.state().lines.filter((l) => l.gist === 'create' || l.gist === 'comment').map((l) => l.writer)).toEqual(['user::mrossi', 'user::mrossi']);
+  });
+
   it('carries labels on to a later play', async () => {
     const h = host();
     const first = await playScenario(steps.slice(0, 2), h.io);
     const second = await playScenario(steps.slice(2), h.io, { labels: first.labels });
     expect(second.failed).toBeUndefined();
+  });
+});
+
+describe('saving a scenario from a thread', () => {
+  const schema = strict(SIBAR_JSON);
+
+  /** The thread «opinion» leaves, and what `prune` makes of it. */
+  async function opinion() {
+    const scenario = readScenarios(readFileSync(casePath('sibar-activity', 'scenarios.json'), 'utf8')).find((s) => s.id === 'opinion')!;
+    const h = host(schema, sibarPolicy(schema));
+    await playScenario(scenario.steps, h.io);
+    const { lines, handles } = h.state();
+    return { lines, pruned: prune(lines, consequitur(lines, handles, schema), schema) };
+  }
+
+  it('leaves out what the engine, a revoke, the world or a goal will bring back, and keeps the rest open, in reading order', async () => {
+    const { lines, pruned } = await opinion();
+    const why = new Map(pruned.left.map((l) => [l.line.id, l.why] as const));
+    const records = Object.values(schema.records);
+    for (const line of lines) {
+      if (line.writer.startsWith('goal::') || records.includes(line.gist)) expect(why.get(line.id), line.gist).toBe('engine');
+    }
+    expect(pruned.left.filter((l) => l.why === 'outside').map((l) => l.line.gist)).toEqual(['doc_created', 'doc_signed', 'doc_signed']);
+    expect(pruned.left.filter((l) => l.why === 'revoked').map((l) => l.line.gist)).toEqual(['doc_ref', 'doc_ref_revoke']);
+    expect(pruned.left.filter((l) => l.why === 'found').map((l) => [l.line.gist, l.line.writer])).toEqual([['got_it', 'user::gverdi']]);
+    expect(pruned.open.map((l) => l.gist)).toEqual(['create', 'memo', 'doc_ref', 'doc_ref', 'set_goal', 'set_goal', 'set_goal', 'comment']);
+    // every line is in one list or the other, and each list is in reading order
+    expect(pruned.open.length + pruned.left.length).toBe(lines.length);
+    expect(pruned.left.map((l) => l.line.id)).toEqual(inOrder(pruned.left.map((l) => l.line)).map((l) => l.id));
+  });
+
+  it('makes steps of the lines kept, with the id of an earlier kept line a $line, and goal:: and it a $goal, labelled by position', async () => {
+    const { lines, pruned } = await opinion();
+    const steps = stepsOf(pruned.open, lines);
+    expect(steps.map((s) => s.gist)).toEqual(pruned.open.map((l) => l.gist));
+    expect(steps.map((s) => s.label)).toEqual([undefined, '2', undefined, undefined, '5', undefined, undefined, undefined]);
+    expect(steps[2].payload).toMatchObject({ about: { $line: '2' } });
+    expect(steps[6].payload).toMatchObject({ checks: [{ gist: 'memo', writer: { $goal: '5' } }, { gist: 'got_it', writer: 'user::gverdi' }] });
+    // and the steps are the lines' words, nothing the thread added
+    expect(steps.every((s) => s.confirmed === undefined && s.refused === undefined)).toBe(true);
+  });
+
+  it('makes a $find of the line a kept line named and was not kept, the check holding its gist and its payload, or its gist alone', async () => {
+    const { lines, pruned } = await opinion();
+    const memo = pruned.open.find((l) => l.gist === 'memo')!;
+    const steps = stepsOf(pruned.open.filter((l) => l !== memo), lines);
+    expect(steps[1].payload).toMatchObject({ about: { $find: { gist: 'memo', payload: memo.payload } } });
+
+    const plain = line('1', 'x', 'user::a');
+    const asking = line('2', 'y', 'user::a', { about: plain.id, list: [plain.id], other: 'z' });
+    expect(stepsOf([asking], [plain, asking])[0].payload).toEqual({ about: { $find: { gist: 'x' } }, list: [{ $find: { gist: 'x' } }], other: 'z' });
+    // a string that is no line's id is left alone
+    expect(stepsOf([asking], [asking])[0].payload).toEqual({ about: plain.id, list: [plain.id], other: 'z' });
   });
 });
 

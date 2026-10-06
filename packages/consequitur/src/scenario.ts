@@ -14,13 +14,16 @@
 // also be `confirmed` (a `confirm` law asked of it) or `refused` (the scenario expects the engine to
 // refuse it, with this code, and goes on).
 //
+// A scenario is also saved from a thread: `prune` says which of its lines the engine, a revoke, the
+// world or a goal's check will bring back, and `stepsOf` turns the lines a person kept into steps.
+//
 // This module is the one resolver: the engine's tests, the playground and any application that keeps a
 // scenario import it. It knows no gist and no domain.
 
 import { matches, validChecks } from './check.ts';
 import { inOrder } from './line.ts';
-import type { Check, EventLine, Json, LineDraft, LineId, Payload, Refusal, Writer } from './types.ts';
-import { isObject } from './util.ts';
+import type { Check, EventLine, Json, LineDraft, LineId, Payload, Reading, Refusal, Schema, Writer } from './types.ts';
+import { isObject, kinOf } from './util.ts';
 
 export interface Step {
   /** Names the line this step posts, for a later `$line` or `$goal`. */
@@ -92,17 +95,20 @@ export interface Played {
 /**
  * Plays the steps in order, resolving each against the thread as it stands, and stops at the first
  * that does not go as the scenario says. `after` is told of each step once it is done, so a test
- * can look at the thread where it matters; `labels` carries the labels of an earlier play on.
+ * can look at the thread where it matters; `labels` carries the labels of an earlier play on; `as`
+ * is the writer every step is posted as, in place of its own, for an application that plays a
+ * scenario for the person who opens it.
  */
 export async function playScenario(
   steps: Step[],
   io: Io,
-  options: { after?(done: { index: number; step: Step; labels: Labels; refusal?: Refusal }): void | Promise<void>; labels?: Labels } = {},
+  options: { after?(done: { index: number; step: Step; labels: Labels; refusal?: Refusal }): void | Promise<void>; labels?: Labels; as?: Writer } = {},
 ): Promise<Played> {
   const played: Played = { refused: [], labels: options.labels ?? new Map() };
   for (const [index, step] of steps.entries()) {
     const before = io.lines().length;
-    const refusal = await io.send(draftOf(step, io.lines(), played.labels), step.confirmed === true);
+    const draft = draftOf(step, io.lines(), played.labels);
+    const refusal = await io.send(options.as === undefined ? draft : { ...draft, writer: options.as }, step.confirmed === true);
     if (refusal && step.refused === undefined) {
       played.failed = { index, step, why: `The step was refused: ${refusal.code}.`, refusal };
       return played;
@@ -138,4 +144,75 @@ export function readScenarios(text: string): Scenario[] {
     });
     return scenario as unknown as Scenario;
   });
+}
+
+export interface Pruned {
+  /** The lines a person decides on, in reading order: kept as steps, dropped, or made into what a goal writes or awaits. */
+  open: EventLine[];
+  /** Every other line, in reading order, with why it is left out. */
+  left: Array<{ line: EventLine; why: 'engine' | 'revoked' | 'outside' | 'found' }>;
+}
+
+/**
+ * What of a thread a scenario need not say, line by line, the first answer that applies: the engine writes
+ * it again (a goal's line, a record), it is a mistake and its undoing (out of force, or a revoke), the
+ * world will state it again (a kin the schema does not judge), or a goal's check will find it again.
+ * Every other line is open, for a person to decide on. `reading` is the reading of `lines` under `schema`.
+ */
+export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pruned {
+  const standing = new Set(reading.inForce);
+  const found = new Set(reading.goals.flatMap((goal) => goal.checks.flatMap((c) => (c.foundIn === undefined ? [] : [c.foundIn]))));
+  const records = Object.values(schema.records);
+  const pruned: Pruned = { open: [], left: [] };
+  for (const line of inOrder(lines)) {
+    const kin = kinOf(line.writer);
+    const why: Pruned['left'][number]['why'] | undefined =
+      kin === 'goal' || records.includes(line.gist) ? 'engine'
+      : !standing.has(line.id) || schema.gists.find((g) => g.gist === line.gist)?.rules.some((r) => r.rule === 'revoke') ? 'revoked'
+      : kin === undefined || !schema.judged.includes(kin) ? 'outside'
+      : found.has(line.id) ? 'found'
+      : undefined;
+    if (why === undefined) pruned.open.push(line);
+    else pruned.left.push({ line, why });
+  }
+  return pruned;
+}
+
+/**
+ * The steps of the lines a person kept, in reading order, with every id in a payload made a placeholder:
+ * the id of an earlier kept line, a `$line` of that step's label, and `goal::` and such an id a `$goal`;
+ * the id of a line of `all` that was not kept, a `$find` of the check the line states (its gist and its
+ * payload), since that line will be awaited and not replayed. A step is labelled, by its position among
+ * the kept lines from "1", when a later step points at it. A step carries no `confirmed` and no
+ * `refused`: the application adds `confirmed` where its person says so.
+ */
+export function stepsOf(kept: EventLine[], all: EventLine[]): Step[] {
+  const ordered = inOrder(kept);
+  const labelOf = new Map(ordered.map((line, i) => [line.id, String(i + 1)] as const));
+  const pointed = new Set<LineId>();
+  const awaited = new Map(all.filter((line) => !labelOf.has(line.id)).map((line) => [line.id, line] as const));
+
+  const before = new Set<LineId>();
+  const replace = (value: Json): Json => {
+    if (typeof value === 'string') {
+      const id = value.startsWith('goal::') ? value.slice('goal::'.length) : value;
+      if (before.has(id)) {
+        pointed.add(id);
+        return value === id ? { $line: labelOf.get(id)! } : { $goal: labelOf.get(id)! };
+      }
+      const line = awaited.get(value);
+      if (line === undefined) return value;
+      return { $find: Object.keys(line.payload).length > 0 ? { gist: line.gist, payload: line.payload } : { gist: line.gist } };
+    }
+    if (Array.isArray(value)) return value.map(replace);
+    if (value === null || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replace(item)]));
+  };
+
+  const steps = ordered.map((line): Step => {
+    const step: Step = { writer: line.writer, gist: line.gist, payload: replace(line.payload) as Payload };
+    before.add(line.id);
+    return step;
+  });
+  return steps.map((step, i) => (pointed.has(ordered[i].id) ? { label: String(i + 1), ...step } : step));
 }

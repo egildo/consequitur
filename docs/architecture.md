@@ -46,7 +46,7 @@ schema.ts      readSchema, readGists, readLaws, readPolicy
 reading.ts     expectations, holds, whenHolds, consequitur
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState
 offers.ts      offers
-scenario.ts    Step, resolve, draftOf, playScenario, readScenarios: the one resolver of scenarios
+scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, stepsOf: the one resolver of scenarios, and saving one from a thread
 kit.ts         BASE_KIT
 handles/       value, set
 rules/         value, join, leave
