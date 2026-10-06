@@ -37,6 +37,10 @@ describe('conditionProblem', () => {
     expect(conditionProblem({ is: { $draft: 'version' }, values: [{ $value: 'version' }, { $writer: 'kin' }] }, NAMES, true)).toBeUndefined();
   });
 
+  it('refuses a $set on the left of is: a set stands for its members only among the values', () => {
+    expect(conditionProblem({ is: { $set: 'reviewers' }, values: ['bgalli'] }, NAMES, true)).toMatch(/left operand of is/);
+  });
+
   it('names a node of the wrong shape, a key too many, an empty list, a quorum out of range', () => {
     const bad: unknown[] = [
       null,

@@ -29,7 +29,7 @@ The old shapes are not kept: the cases are rewritten.
 
 | Condition | Holds when |
 |---|---|
-| `{ "is": A, "values": [B…] }` | A equals one of the Bs; a `$set` operand among the Bs stands for its members |
+| `{ "is": A, "values": [B…] }` | A equals one of the Bs; a `$set` operand among the Bs stands for its members, and may not be A |
 | `{ "has": A }` | A is there, and not null, empty text or an empty list |
 | `{ "not": C }`, `{ "all": [C…] }`, `{ "any": [C…] }` | as their names say |
 | `{ "guard": "name" }` | the schema's named guard holds |

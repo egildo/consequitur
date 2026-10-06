@@ -59,6 +59,8 @@ export function conditionProblem(value: unknown, names: Names, inWhen: boolean):
     const shape = (...words: string[]) => keys.length === words.length && words.every((w) => keys.includes(w));
     if (shape('is', 'values')) {
       if (!Array.isArray(node.values) || node.values.length === 0) return 'is must have a non-empty list of values.';
+      // a set stands for its members only among the values: on the left it could never equal one
+      if (isObject(node.is) && has(node.is, '$set')) return 'the left operand of is cannot be a $set: a set stands for its members among the values.';
       for (const operand of [node.is, ...node.values]) {
         const problem = operandProblem(operand, names, inWhen);
         if (problem !== undefined) return problem;

@@ -209,7 +209,8 @@ export function metadataValue(key: string, value: Json, lines: EventLine[]): str
     const line = typeof value === 'string' ? lines.find((l) => l.id === value) : undefined;
     return line ? lineLabel(line) : 'una riga';
   }
-  if (ui?.kind === 'list' && Array.isArray(value)) return value.map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join(', ');
+  // a list may hold people (the approvals): each id reads as the person's name, as a mention does
+  if (ui?.kind === 'list' && Array.isArray(value)) return value.map((v) => (typeof v === 'string' ? (domain().people.some((p) => p.id === v) ? userName(v) : v) : JSON.stringify(v))).join(', ');
   const word = ui?.words?.[String(value)];
   if (word !== undefined) return word;
   return typeof value === 'string' ? value : JSON.stringify(value);
