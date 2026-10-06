@@ -47,6 +47,7 @@ let state: PageState = {
   show: { records: false, goals: false },
   tab: 'activity',
   gist: HEAD_CHIP,
+  schemaAs: 'kdl',
   pending: false,
   refusal: null,
 };
@@ -61,7 +62,7 @@ const goalsBox = find<HTMLInputElement>('goals');
 const domainSelect = find<HTMLSelectElement>('domain');
 const examplesEl = find('examples');
 const quitDialog = find<HTMLDialogElement>('quit-dialog');
-const panel = createPanel(find('panel'), { onTab: (tab) => update({ tab }), onGist: (gist) => update({ gist }) });
+const panel = createPanel(find('panel'), { onTab: (tab) => update({ tab }), onGist: (gist) => update({ gist }), onSchemaAs: (schemaAs) => update({ schemaAs }) });
 mountBand(find('column'));
 // the band is drawn over the column, and both the ledger and the dock scroll inside it
 find('scroll').addEventListener('scroll', redraw);
@@ -317,7 +318,7 @@ const dock = createDock(find('dock'), handlers);
 
 let composer: Composer | null = null;
 let barOf: Derived | undefined;
-let panelOf: (Pick<PageState, 'selected' | 'answered' | 'tab' | 'gist'> & { derived: Derived }) | undefined;
+let panelOf: (Pick<PageState, 'selected' | 'answered' | 'tab' | 'gist' | 'schemaAs'> & { derived: Derived }) | undefined;
 
 function drawComposer(derived: Derived): void {
   const { draft } = state;
@@ -384,9 +385,9 @@ function render(): void {
 
   // the bar and the panel are drawn again only when what they read changed
   if (barOf !== derived) drawBar((barOf = derived));
-  const { selected, answered, tab, gist } = state;
-  if (!panelOf || panelOf.derived !== derived || panelOf.selected !== selected || panelOf.answered !== answered || panelOf.tab !== tab || panelOf.gist !== gist) {
-    panelOf = { derived, selected, answered, tab, gist };
+  const { selected, answered, tab, gist, schemaAs } = state;
+  if (!panelOf || panelOf.derived !== derived || panelOf.selected !== selected || panelOf.answered !== answered || panelOf.tab !== tab || panelOf.gist !== gist || panelOf.schemaAs !== schemaAs) {
+    panelOf = { derived, selected, answered, tab, gist, schemaAs };
     panel.render(state, derived);
   }
 

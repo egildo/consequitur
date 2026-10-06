@@ -1,0 +1,53 @@
+opening open
+authority system::warehouse
+sets team
+records join=assigned leave=unassigned value=metadata_set warning=goal_warning
+judged user
+guard member {
+    is (writer)id (set)team
+}
+gist open user {
+    value from=name key=name required=#true
+    join from=team required=#true set=team
+}
+gist memo user goal {
+    join from=assignTo set=team
+    when {
+        guard member
+    }
+}
+gist done user {
+    value collect=step key=steps required=#true
+    when {
+        guard member
+    }
+}
+gist comment user {
+    when {
+        guard member
+    }
+}
+gist set_goal user {
+    goal
+    when {
+        guard member
+    }
+}
+gist set_goal_revoke user {
+    revoke from=target {
+        gists set_goal
+    }
+    when {
+        guard member
+    }
+}
+gist notice goal
+gist closed goal {
+    value key=status value=closed
+}
+gist arrival_scanned system
+gist metadata_set system
+gist assigned system
+gist unassigned system
+gist goal_warning goal
+law settles strength=refuse

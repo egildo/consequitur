@@ -1,0 +1,120 @@
+opening create
+authority system::sibardoc
+sets assignees
+records join=assigned leave=unassigned value=metadata_set warning=goal_warning
+judged user
+guard assignee {
+    is (writer)id (set)assignees
+}
+guard open_assignee {
+    all {
+        guard assignee
+        is (value)status open
+    }
+}
+gist create user {
+    value from=name key=name required=#true
+    value key=status value=open
+    join from=assignTo required=#true set=assignees
+}
+gist memo user goal {
+    join from=assignTo set=assignees
+    when {
+        guard open_assignee
+    }
+}
+gist memo_revoke user {
+    revoke from=target {
+        gists memo
+    }
+    when {
+        guard open_assignee
+    }
+}
+gist comment user {
+    when {
+        guard assignee
+    }
+}
+gist got_it user {
+    value from=about key=acknowledged required=#true
+    when {
+        all {
+            guard open_assignee
+            line gist=memo
+        }
+    }
+}
+gist doc_ref user {
+    value collect=document key=documents required=#true
+    value collect=document key=documents_in {
+        where direction=inbound
+    }
+    value collect=document key=documents_out {
+        where direction=outbound
+    }
+    when {
+        guard open_assignee
+    }
+}
+gist doc_ref_revoke user {
+    revoke from=target {
+        gists doc_ref
+    }
+    when {
+        guard open_assignee
+    }
+}
+gist set_goal user {
+    goal
+    when {
+        guard open_assignee
+    }
+}
+gist set_goal_revoke user {
+    revoke from=target {
+        gists set_goal
+    }
+    when {
+        guard assignee
+    }
+}
+gist stage user goal {
+    value from=stage key=stage required=#true
+    when {
+        guard open_assignee
+    }
+}
+gist closed goal user {
+    value key=status value=closed
+    when {
+        guard open_assignee
+    }
+}
+gist closed_revoke user {
+    revoke from=target {
+        gists closed
+    }
+    when {
+        guard assignee
+    }
+}
+gist quit user {
+    leave set=assignees
+    when {
+        guard assignee
+    }
+}
+gist doc_signed system
+gist doc_created system
+gist assigned system
+gist unassigned system
+gist metadata_set system
+gist goal_warning goal
+law keeps-set set=assignees strength=refuse {
+    while {
+        is (value)status open
+    }
+}
+law keeps-goals strength=confirm
+law settles strength=refuse

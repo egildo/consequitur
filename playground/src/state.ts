@@ -73,6 +73,8 @@ export interface PageState {
   /** The inspector's tab, and the chip its «Schemi» tab shows: a gist, `HEAD_CHIP` or `LAWS_CHIP`. */
   tab: InspectorTab;
   gist: string;
+  /** How «Schemi» and «Leggi» write the schema: in KDL, as a person writes it, or in JSON, as it is read. */
+  schemaAs: 'kdl' | 'json';
   /** A post or an example is in flight: the page waits for it. */
   pending: boolean;
   refusal: ShownRefusal | null;

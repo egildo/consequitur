@@ -5,6 +5,7 @@
 // person reads an id.
 
 import { answer, verify, type Denunciation, type EventLine, type Json, type LineId } from 'consequitur';
+import { toKdl } from 'consequitur-kdl';
 import { goalFacts, goalRows } from './cards.ts';
 import { codeView } from './code.ts';
 import type { Derived } from './deduce.ts';
@@ -37,8 +38,21 @@ const section = (title: string | null, ...children: Array<Node | null>): HTMLEle
 /** The gists of the case, in the order the bar offers them. */
 const gistsOf = (): string[] => domain().schema.gists.map((schema) => schema.gist).sort((a, b) => uiIndex(a) - uiIndex(b));
 
-/** What the code of a chip shows: the head of the schema, its laws, or one gist's schema. */
-const dataOf = (chip: string): unknown => (chip === HEAD_CHIP ? domain().head : chip === LAWS_CHIP ? domain().lawsData : domain().gistData(chip));
+/**
+ * What the code of a chip shows: the head of the schema, its laws, or one gist's schema, as JSON holds it,
+ * and as the part of a schema object KDL writes it from.
+ */
+const dataOf = (chip: string): { json: Json | undefined; part: Record<string, Json> } => {
+  const { head, lawsData } = domain();
+  if (chip === HEAD_CHIP) return { json: head, part: head as Record<string, Json> };
+  if (chip === LAWS_CHIP) return { json: lawsData, part: { laws: lawsData } };
+  const gist = domain().gistData(chip);
+  return { json: gist, part: { gists: gist === undefined ? [] : [gist] } };
+};
+
+/** A part of the schema as code: in KDL, the form a person writes, or in JSON, the object as it is read. */
+const codeOf = ({ json, part }: ReturnType<typeof dataOf>, as: PageState['schemaAs'], label: string): HTMLElement =>
+  codeView(as === 'kdl' ? toKdl(part).trimEnd() : json, `${label} in ${as.toUpperCase()}`);
 
 /** The sentence every tab and chip of the laws closes with. */
 const LAWS_NOTE = 'Le leggi giudicano solo le righe scritte da persone.';
@@ -46,6 +60,7 @@ const LAWS_NOTE = 'Le leggi giudicano solo le righe scritte da persone.';
 export interface PanelHandlers {
   onTab(tab: InspectorTab): void;
   onGist(gist: string): void;
+  onSchemaAs(as: PageState['schemaAs']): void;
 }
 
 export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
@@ -179,14 +194,25 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
           : laws
             ? h('p', { class: 'panel-label' }, LAWS_NOTE)
             : h('p', { class: offered ? 'offered is-yes' : 'offered is-no' }, offered ? `Offerta adesso a ${who}` : `Non offerta adesso a ${who}`),
-        codeView(dataOf(gist), head ? 'La testa dello schema' : laws ? 'Le leggi dello schema' : `Schema di ${gist}`),
+        writtenAs(state),
+        codeOf(dataOf(gist), state.schemaAs, head ? 'La testa dello schema' : laws ? 'Le leggi dello schema' : `Schema di ${gist}`),
       ),
       ui ? details : null,
     ].filter((part): part is HTMLElement => part !== null);
   }
 
-  const laws = (): HTMLElement[] => [
-    section(null, codeView(domain().lawsData, 'Le leggi'), h('p', { class: 'panel-empty' }, LAWS_NOTE)),
+  /** The switch between the two ways of writing the schema. */
+  function writtenAs(state: PageState): HTMLElement {
+    const choice = (as: PageState['schemaAs'], label: string) => {
+      const button = h('button', { class: 'gist-chip', type: 'button', 'aria-pressed': String(state.schemaAs === as) }, h('span', { class: 'gist-label' }, label));
+      button.addEventListener('click', () => handlers.onSchemaAs(as));
+      return button;
+    };
+    return h('div', { class: 'gist-chips schema-as' }, choice('kdl', 'KDL'), choice('json', 'JSON'));
+  }
+
+  const laws = (state: PageState): HTMLElement[] => [
+    section(null, writtenAs(state), codeOf(dataOf(LAWS_CHIP), state.schemaAs, 'Le leggi'), h('p', { class: 'panel-empty' }, LAWS_NOTE)),
   ];
 
   return {
@@ -194,7 +220,7 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
       // the first tab is named for what the domain is about
       buttons[0].textContent = domain().words.tab;
       for (const button of buttons) button.setAttribute('aria-selected', String(button.dataset.tab === state.tab));
-      const content = state.tab === 'activity' ? activity(state) : state.tab === 'line' ? selected(state) : state.tab === 'schemas' ? schemas(state, derived) : laws();
+      const content = state.tab === 'activity' ? activity(state) : state.tab === 'line' ? selected(state) : state.tab === 'schemas' ? schemas(state, derived) : laws(state);
       body.replaceChildren(...content);
     },
   };

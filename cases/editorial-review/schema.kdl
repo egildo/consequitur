@@ -1,0 +1,124 @@
+opening submit
+authority system::clock
+sets team reviewers editors
+records join=joined leave=left value=value_set warning=goal_warning
+judged user
+guard member {
+    is (writer)id (set)team
+}
+guard reviewer {
+    is (writer)id (set)reviewers
+}
+guard editor {
+    is (writer)id (set)editors
+}
+guard reviewing {
+    all {
+        guard reviewer
+        is (value)status in_review
+    }
+}
+gist submit user {
+    value from=title key=title required=#true
+    value key=status value=draft
+    value from=version key=version required=#true
+    join from=authors required=#true set=team
+    join from=editor required=#true set=editors
+}
+gist revision user {
+    value from=version key=version required=#true
+    value key=status value=in_review
+    when {
+        all {
+            guard member
+            is (value)status draft changes_requested
+        }
+    }
+}
+gist request_review user {
+    join from=reviewers required=#true set=reviewers
+    join from=reviewers required=#true set=team
+    value key=status value=in_review
+    when {
+        guard member
+    }
+}
+gist approve user {
+    collect-writer key=approvals
+    when {
+        guard reviewing
+    }
+}
+gist approve_revoke user {
+    revoke from=target {
+        gists approve
+    }
+    when {
+        guard reviewing
+    }
+}
+gist request_changes user goal {
+    value key=status value=changes_requested
+    when {
+        guard reviewing
+    }
+}
+gist comment user {
+    when {
+        guard member
+    }
+}
+gist set_goal user {
+    goal
+    when {
+        guard editor
+    }
+}
+gist set_goal_revoke user {
+    revoke from=target {
+        gists set_goal
+    }
+    when {
+        guard editor
+    }
+}
+gist publish goal user {
+    value key=status value=published
+    when {
+        all {
+            guard editor
+            is (value)status in_review
+        }
+    }
+}
+gist deadline user {
+    value from=date key=deadline required=#true
+    when {
+        guard editor
+    }
+}
+gist deadline_passed system {
+    value key=late value=#true
+}
+gist leave_team user {
+    leave set=team
+    leave set=reviewers
+    when {
+        guard member
+    }
+}
+gist value_set system
+gist joined system
+gist left system
+gist goal_warning goal
+law keeps-set set=reviewers strength=refuse {
+    while {
+        all {
+            is (value)status in_review
+            line gist=request_review
+        }
+    }
+}
+law keeps-set set=editors strength=refuse
+law keeps-goals strength=confirm
+law settles strength=refuse

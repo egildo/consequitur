@@ -1,0 +1,18 @@
+{
+  "name": "consequitur-kdl",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "A consequitur schema written in KDL, read into the schema object and written back.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bgotink/kdl": "^0.4.0",
+    "consequitur": "workspace:*",
+    "kdlet-guards": "^0.2.1"
+  }
+}

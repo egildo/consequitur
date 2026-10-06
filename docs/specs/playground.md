@@ -2,7 +2,7 @@
 
 Status: settled, built (round 4, [plan](../plan.md) §4; the second domain, round 5, §6 below). A sample
 application: what a real screen built on consequitur looks like. It is private, never published, and
-built **only** on `consequitur`, `consequitur-render` and the domains' files in `cases/`. Its UI schema, its words
+built **only** on `consequitur`, `consequitur-render`, `consequitur-kdl` (since the round «Conditions») and the domains' files in `cases/`. Its UI schema, its words
 and its styles are its own.
 
 ## 1 · Where it comes from
@@ -55,6 +55,8 @@ Where the build had to choose:
   `cases/<domain>/schema.json` as text (`?raw`), `defineDomain` parses it once, hands it to `readSchema`, and cuts
   the head, each gist and the laws out of it for the inspector. «Schemi» has the chips «Testa», one per
   gist, and «Leggi» (the laws, as code); the laws keep their own tab, «Leggi», too, so the four tabs stay.
+  Since the round «Conditions» both write each part in KDL, from `toKdl` of `consequitur-kdl`, or in JSON, as
+  the file holds it, by a switch, «KDL» or «JSON», which starts on KDL and stays as the person left it.
 - **Verdicts in Italian**: `laws` in the domain, keyed by law and, for `keeps-set`, by
   the verdict's `set`; a law or a set the table lacks says so in general words.
 - **The policy** of SIBAR is one entry in `cases/sibar-activity/policy.json` (since round 5, so the tests read it too), read with `readPolicy`, which `defineDomain` refuses on any problem as it does the schema, and passed to `post` and `dryRun`. The panel lists the

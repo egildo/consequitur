@@ -9,8 +9,9 @@ why it is built so is in the [principles](principles.md); the names are in the [
 |---|---|---|
 | `packages/consequitur` | the engine: a thread, a schema, the kinds, the reading, the authority's part | built |
 | `packages/consequitur-render` | a reading made into DOM | built |
-| `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, built only on the two packages and the cases; private, never published | built |
-| `cases/<domain>/` | a domain's schema, its scenarios and, for SIBAR, its policy; not a package. The engine's `playScenario` plays them | `sibar-activity`, `editorial-review`, `warehouse-arrival` |
+| `packages/consequitur-kdl` | a schema written in KDL, read into the schema object and written back | built |
+| `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, built only on the three packages and the cases; private, never published | built |
+| `cases/<domain>/` | a domain's schema, in JSON and in KDL, its scenarios and, for SIBAR, its policy; not a package. The engine's `playScenario` plays them | `sibar-activity`, `editorial-review`, `warehouse-arrival` |
 
 The engine has one runtime dependency, `kdlet-guards` (kdlet's condition language: it evaluates a
 condition node by node, with Kleene's three values where the host says a reference is not yet known, and
@@ -23,9 +24,9 @@ fixture of their own, except a toy that isolates one rule.
 
 ```
 cases/
-  sibar-activity/          schema.json, scenarios.json (first, opinion), policy.json
-  editorial-review/        schema.json, scenarios.json (published, late, left-alone)
-  warehouse-arrival/       schema.json, scenarios.json (tuesday, saved)
+  sibar-activity/          schema.json, schema.kdl, scenarios.json (first, opinion), policy.json
+  editorial-review/        schema.json, schema.kdl, scenarios.json (published, late, left-alone)
+  warehouse-arrival/       schema.json, schema.kdl, scenarios.json (tuesday, saved)
 ```
 
 A **scenario** is a list of **steps**, `{ writer, gist, payload }`, posted to an empty thread; a step may
@@ -88,6 +89,18 @@ Its one dependency is `consequitur`, for types and `inOrder`, `canonical` and `c
 application builds every node and paints the band's classes. Only `facts.ts` and `changes.ts` are pure; the other
 three touch the DOM and take it as an argument or from `document`, and their tests run under jsdom.
 
+## The modules of `consequitur-kdl`
+
+```
+schema.ts      fromKdl, toKdl: a schema's text in KDL to the schema object, with problems at their line and column, and back
+```
+
+Its runtime dependencies are `consequitur` (the condition's two forms, `toModuleForm` and `fromModuleForm`),
+`kdlet-guards` (its `kdl` entry reads and writes a condition's nodes, the way kdlet's files write a guard)
+and `@bgotink/kdl` (kdlet-guards' optional peer: it parses and formats KDL, keeping each node's position). The
+text is checked for its shape; `readSchema` then reads the object as it reads `schema.json`. `test/schema.test.ts`
+reads each case's `schema.kdl` to the object of its `schema.json`, and holds the file to what `toKdl` writes.
+
 ## The playground
 
 ```
@@ -95,7 +108,7 @@ domain.ts      the Domain types, `defineDomain` (a case read with BASE_KIT, plus
 domains/       sibar.ts, editorial.ts: each domain's UI schema (labels, cards, compose, awaited, words, the guards' words, people, commands), its policy, its examples
 ui-schema.ts   the functions that read the domain in use: the Italian sentences of a line, a check, a condition and each of its nodes, a goal, a record, a law
 deduce.ts      the writer's offers, each line's actions, what a goal being composed may await (lineFacts feeds it)
-ledger.ts      the cards, in `keyed`; cards.ts draws one; dock.ts the goals; draft.ts the composer; panel.ts the inspector
+ledger.ts      the cards, in `keyed`; cards.ts draws one, a goal's condition as a tree; dock.ts the goals; draft.ts the composer; panel.ts the inspector
 pointing.ts    the band over the ledger's column: hover, and a drag from a slot
 state.ts, main.ts   one PageState, one `update`, and `send`, which is the only place a line is posted
 ```
@@ -107,8 +120,9 @@ beyond data is two optional parts: `commands`, buttons for what the page does it
 around the thread (SIBAR signs and makes documents), and `documents`, what it knows beyond the thread.
 The screen is a deduction: `main.ts` holds one `PageState`; `update` makes the next and
 draws it, `previewer` runs the dry run of the open draft, and nothing is read back from the DOM but the
-composer's own inputs. It imports the two packages through their public entry and reads the case's file;
-the engine and render know nothing of it.
+composer's own inputs. It imports the three packages through their public entry and reads the case's file;
+the inspector's «Schemi» and «Leggi» write it in KDL, with `toKdl`, or in JSON, as the person chooses. The
+engine, render and `consequitur-kdl` know nothing of it.
 
 ## The boundary: mechanics and kinds
 

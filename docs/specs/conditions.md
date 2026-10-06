@@ -1,6 +1,6 @@
 # Conditions — spec
 
-Status: §1 to §5 built in the round «Conditions» ([plan](../plan.md) §4), where the build chose as §8 says; §6 not built. From the decision
+Status: §1 to §6 built in the round «Conditions» ([plan](../plan.md) §4), where the build chose as §6 and §8 say. From the decision
 [conditions are kdlet's guards](../decisions/conditions-are-kdlt-guards.md). Built on the module
 `kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is for the round «Holes», from [holes are unstated values](../decisions/holes-are-unstated-values.md); the firing order of goals is in the [engine spec](engine.md) §7.
 
@@ -94,6 +94,21 @@ A package that reads a schema written in KDL into the schema object and writes o
 JSON); KDL is how a person writes a schema. Each case gains `schema.kdl`, and a test checks it
 reads to the same object as `schema.json`. The playground's «Schemi» shows the schema as KDL or
 JSON.
+
+**As built.** `packages/consequitur-kdl` exports `fromKdl(text)`, which gives `{ json, problems }`, each problem
+with its line and column, and never throws, and `toKdl(json)`, which writes a schema object, or any part of one,
+in the order the reader reads it. The head is one node a part (`opening create`, `authority "system::sibardoc"`,
+`sets assignees`, `records value=metadata_set …`, `judged user`); a guard is `guard <name> { condition }`; a gist
+is `gist <name> <writer kin>… { bindings; when { condition } }`; a law is `law <kind> <keys> { while { condition } }`.
+A binding is a node named for its rule: its plain keys are properties, a list is a child node of its items, an
+object of plain values a child node of properties (`revoke from=target { gists memo }`, `where direction=inbound`).
+A condition is written as kdlet's files write a guard's body, with the tags `(value)`, `(set)`, `(writer)` and
+`(draft)`; several nodes in one body are all of them. Two words are read and written here, not by the module:
+`line gist=… kin=… writer=… { payload key=value key=(value)key }`, since a word's arguments in the module's KDL
+hold neither a reference nor a nested value, and `at-least <n> { … }`, whose argument the module reads as a list.
+What this form cannot hold (a value inside a value of a binding, a list in a check's payload) makes `toKdl` throw a
+`RangeError`; an `is` whose first operand is not a reference reads back as a problem, as kdlet's files ask. The
+playground's «Schemi» and «Leggi» show each part in KDL, from `toKdl`, or in JSON.
 
 ## 7 · References in payloads: holes and fills
 
