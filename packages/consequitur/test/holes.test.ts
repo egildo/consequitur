@@ -165,9 +165,13 @@ describe('the reading says what is awaited', () => {
     expect(read(await played([create])).holes).toEqual([]);
   });
 
-  it('lists a goal\'s `with` that holds a reference, and not the references of its condition, which the goal only reads', async () => {
+  it('lists the keys a goal refers to, in its condition and in its `with`: the goal waits for them', async () => {
     const state = await played([create, draft('set_goal', { name: 'g', when: { has: { $value: 'later' } }, then: 'notice', with: { text: ref('wording') } })]);
-    expect(read(state).holes).toEqual([{ key: 'wording', lines: [state.lines.find((l) => l.gist === 'set_goal')!.id] }]);
+    const goal = state.lines.find((l) => l.gist === 'set_goal')!.id;
+    expect(read(state).holes).toEqual([{ key: 'later', lines: [goal] }, { key: 'wording', lines: [goal] }]);
+    // a key the schema states is no hole once a line states it
+    const named = await played([create, draft('set_goal', { name: 'g', when: { is: { $value: 'name' }, values: ['Arrivo'] }, then: 'notice', with: { text: 'x' } })]);
+    expect(read(named).holes).toEqual([]);
   });
 
   it('lists a reference in a line whose gist the schema does not know, which no rule reads', async () => {

@@ -127,8 +127,8 @@ export interface Reading {
 
 A hole is awaited, never denounced: a person answers it, so it leaves `denunciations` and `settled` as
 they were, and the application decides whether to prompt, wait or ignore. Its `lines` are the lines in
-force that hold the reference, in reading order. A goal's line holds the references of its `with`, which
-the outcome carries, and not those of its `when`, which the goal reads.
+force that hold the reference, in reading order. A goal's line holds those of its `when`, which it waits
+for, and of its `with`, which its outcome carries; so does the outcome once it is written.
 
 **Two passes.** The reading's second step reads the lines in force twice, both in reading order. The lines
 whose payload holds no reference state their values; that gives the values a reference reads. Then every

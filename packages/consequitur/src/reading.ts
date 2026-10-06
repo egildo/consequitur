@@ -146,11 +146,10 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
   // with nothing to resolve the one pass is the first, and states the values too
   if (!references) values = valuesOf(accumulators);
 
-  // the values awaited: referred to by a line in force (a goal's `when` is read, not carried) and stated by no line in the first pass
+  // the values awaited: referred to by a line in force, a goal's `when` and `with` included, and stated by no line in the first pass
   const awaited = new Map<string, LineId[]>();
   for (const line of standing.inForce) {
-    const carried = isGoal(line) ? (isRecord(line.payload) && has(line.payload, 'with') ? [line.payload.with] : []) : [line.payload];
-    for (const key of new Set(carried.flatMap(referencesOf))) if (!has(values, key)) awaited.set(key, [...(awaited.get(key) ?? []), line.id]);
+    for (const key of new Set(referencesOf(line.payload))) if (!has(values, key)) awaited.set(key, [...(awaited.get(key) ?? []), line.id]);
   }
   const holes = [...awaited].sort(([a], [b]) => compare(a, b)).map(([key, held]): Hole => ({ key, lines: held }));
 
