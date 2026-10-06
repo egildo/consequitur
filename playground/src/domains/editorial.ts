@@ -3,9 +3,9 @@
 // It has no policy, no documents and no command: the clock is a writer like the others, who posts
 // that a deadline passed, and the only thing the page adds to the thread is its words.
 
+import { readScenarios } from 'consequitur';
 import scenariosText from '../../../cases/editorial-review/scenarios.json?raw';
 import schemaText from '../../../cases/editorial-review/schema.json?raw';
-import { readScenarios } from '../../../cases/scenario.ts';
 import { defineDomain, NOTE, type GistUi } from '../domain.ts';
 
 /** In the order of the bar of offers. */

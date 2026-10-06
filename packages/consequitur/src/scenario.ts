@@ -14,10 +14,13 @@
 // also be `confirmed` (a `confirm` law asked of it) or `refused` (the scenario expects the engine to
 // refuse it, with this code, and goes on).
 //
-// This module is the one resolver: the engine's tests and the playground import it. It imports the
-// engine's source by path, since `cases/` is not a package, and knows no gist and no domain.
+// This module is the one resolver: the engine's tests, the playground and any application that keeps a
+// scenario import it. It knows no gist and no domain.
 
-import { inOrder, matches, validChecks, type Check, type EventLine, type Json, type LineDraft, type LineId, type Payload, type Refusal, type Writer } from '../packages/consequitur/src/index.ts';
+import { matches, validChecks } from './check.ts';
+import { inOrder } from './line.ts';
+import type { Check, EventLine, Json, LineDraft, LineId, Payload, Refusal, Writer } from './types.ts';
+import { isObject } from './util.ts';
 
 export interface Step {
   /** Names the line this step posts, for a later `$line` or `$goal`. */
@@ -41,8 +44,6 @@ export interface Scenario {
 
 /** The id of the line each label named, as the steps posted them. */
 export type Labels = Map<string, LineId>;
-
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Replaces every placeholder in a value by what it refers to. Throws, naming it, when a reference finds nothing. */
 export function resolve(value: Json, lines: EventLine[], labels: ReadonlyMap<string, LineId>): Json {

@@ -2,11 +2,10 @@
 // `cases/sibar-activity/`; this is the application's side of it: the words, the cards, how a line is
 // composed, how a goal awaits it, the people, and the document system the page plays.
 
-import { kinOf, type EventLine } from 'consequitur';
+import { kinOf, readScenarios, type EventLine } from 'consequitur';
 import policyText from '../../../cases/sibar-activity/policy.json?raw';
 import scenariosText from '../../../cases/sibar-activity/scenarios.json?raw';
 import schemaText from '../../../cases/sibar-activity/schema.json?raw';
-import { readScenarios } from '../../../cases/scenario.ts';
 import { defineDomain, membersIn, NOTE, valueIn, type Command, type DocumentsUi, type GistUi, type View } from '../domain.ts';
 import { gistLabel, timeOf, userName, writerName } from '../ui-schema.ts';
 

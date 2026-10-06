@@ -5,8 +5,7 @@
 // in the page names a gist. The page reads the domain in use through `domain()`, and switching
 // domains is `useDomain`.
 
-import { BASE_KIT, readPolicy, readSchema, type EventLine, type Handles, type Json, type LineDraft, type LineId, type Policy, type Reading, type Refusal, type Schema, type ThreadState, type Writer } from 'consequitur';
-import type { Step } from '../../cases/scenario.ts';
+import { BASE_KIT, readPolicy, readSchema, type EventLine, type Handles, type Json, type LineDraft, type LineId, type Policy, type Reading, type Refusal, type Schema, type Step, type ThreadState, type Writer } from 'consequitur';
 
 /** The payload key of the optional comment on an action. */
 export const NOTE = 'note';

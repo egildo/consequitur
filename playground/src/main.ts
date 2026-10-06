@@ -5,9 +5,8 @@
 // writer, the selection, a toggle) or writes a line, which is what `send` does:
 // the page plays the server, and the thread it brings back replaces the old one.
 
-import { dryRun, emptyState, goalWriter, inOrder, post, consequitur, type Check, type EventLine, type Json, type LineDraft, type LineId, type Refusal, type Writer } from 'consequitur';
+import { dryRun, emptyState, goalWriter, inOrder, playScenario, post, consequitur, type Check, type EventLine, type Json, type LineDraft, type LineId, type Refusal, type Writer } from 'consequitur';
 import { previewer } from 'consequitur-render';
-import { playScenario } from '../../cases/scenario.ts';
 import './style.css';
 import { lightingGone, type Handlers } from './cards.ts';
 import { derive, keyOfCheck, wrapperFollowing, type Derived, type DockGoal, type LineAction } from './deduce.ts';

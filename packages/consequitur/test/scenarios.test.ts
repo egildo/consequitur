@@ -1,11 +1,10 @@
-// The shared resolver of `cases/scenario.ts`, and the SIBAR scenarios it plays: the stories of the
+// The shared resolver of `scenario.ts`, and the SIBAR scenarios it plays: the stories of the
 // first case, as the playground's two examples have always told them.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, dryRun, emptyState, lockedBy, offers, post, readPolicy, type EventLine, type LineDraft, type Policy, type Refusal, type Schema, type ThreadState, type Writer } from '../src/index.ts';
-import { draftOf, playScenario, readScenarios, resolve, type Io, type Step } from '../../../cases/scenario.ts';
+import { admit, draftOf, dryRun, emptyState, lockedBy, offers, playScenario, post, readPolicy, readScenarios, resolve, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';

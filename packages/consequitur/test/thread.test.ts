@@ -2659,6 +2659,7 @@ describe('the package', () => {
       'rules/join.ts',
       'rules/leave.ts',
       'rules/value.ts',
+      'scenario.ts',
       'schema.ts',
       'settle.ts',
       'types.ts',

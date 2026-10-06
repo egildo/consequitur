@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { emptyState, inOrder, post, readPolicy, consequitur, type EventLine, type LineDraft, type Reading, type ThreadState } from 'consequitur';
-import { playScenario, readScenarios } from '../../../cases/scenario.ts';
+import { emptyState, inOrder, playScenario, post, readPolicy, readScenarios, consequitur, type EventLine, type LineDraft, type Reading, type ThreadState } from 'consequitur';
 import { changes, keyOf, keyOfCheck, type ReadingChange } from '../src/index.ts';
 import { NOW, SIBAR } from './helpers.ts';
 

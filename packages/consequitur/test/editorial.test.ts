@@ -14,23 +14,26 @@ import {
   keysAre,
   lockedBy,
   offers,
+  playScenario,
   post,
+  readScenarios,
   readSchema,
   consequitur,
   type EventLine,
   type Handles,
   type Json,
   type Kit,
+  type Labels,
   type LineDraft,
   type Refusal,
   type RuleBinding,
   type RuleKind,
   type Schema,
+  type Step,
   type ThreadState,
   type ValueAcc,
   type Writer,
 } from '../src/index.ts';
-import { playScenario, readScenarios, type Labels, type Step } from '../../../cases/scenario.ts';
 import { membersOf, strict, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';

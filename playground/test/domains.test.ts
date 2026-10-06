@@ -2,9 +2,8 @@
 // for every line its examples write, and plays its examples to the end through the engine and the
 // shared resolver, the way the page and the engine's tests do.
 
-import { emptyState, post, type Check, type EventLine, type LineDraft, type Refusal, type ThreadState } from 'consequitur';
+import { emptyState, playScenario, post, type Check, type EventLine, type LineDraft, type Refusal, type ThreadState } from 'consequitur';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { playScenario } from '../../cases/scenario.ts';
 import { defineDomain, useDomain, type Domain } from '../src/domain.ts';
 import { DOMAINS } from '../src/domains/index.ts';
 import { checkSentence, lineLabel, outcomeSentence, recordSentence, sayOf, uiOf, warningSentence, writerName } from '../src/ui-schema.ts';
