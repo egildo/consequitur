@@ -55,7 +55,7 @@ with what it does for us; the engine's reading stays pure whatever it depends on
 the platform's WebCrypto.
 
 **From** a library meant to be audited before it decides who may do what — and from the
-[decision](decisions/chosen-dependencies.md) that a condition language shared with kdlt is worth
+[decision](decisions/chosen-dependencies.md) that a condition language shared with kdlet is worth
 more than a copy kept dependency-free. Amended 2026-10-05; it was «Zero dependencies».
 
 ## Cases are the test truth

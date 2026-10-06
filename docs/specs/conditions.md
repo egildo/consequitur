@@ -1,8 +1,8 @@
 # Conditions — spec
 
-Status: proposed for round 6 ([plan](../plan.md) §4), from the decision
-[conditions are kdlt's guards](../decisions/conditions-are-kdlt-guards.md). Built on the module
-`kdlt-guards` (kdlt's repo, `docs/guards-module.md`).
+Status: proposed for the round «Conditions» ([plan](../plan.md) §4), from the decision
+[conditions are kdlet's guards](../decisions/conditions-are-kdlt-guards.md). Built on the module
+`kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is for the round «Holes», from [holes are unstated values](../decisions/holes-are-unstated-values.md); the firing order of goals is in the [engine spec](engine.md) §7.
 
 ## 1 · Where a condition stands
 
@@ -17,7 +17,7 @@ The old shapes are not kept: the cases are rewritten.
 
 ## 2 · The JSON form
 
-`kdlt-guards`' model, with consequitur's two words and a shorthand for references:
+`kdlet-guards`' model, with consequitur's two words and a shorthand for references:
 
 ```json
 { "all": [
@@ -50,11 +50,9 @@ An absent operand makes `is` false (`missing: 'false'`): the reading never throw
 
 ## 3 · Reading a condition
 
-- **A gist's `when`** is evaluated with the writer and the draft. `offers`, which has no draft,
-  evaluates it treating every node that reads `$draft` as holding; `admit` evaluates it fully. So
-  the menu may offer what admission then refuses for its payload, never the reverse.
+- **A gist's `when`** is evaluated with the writer and the draft. `admit` evaluates it fully. `offers` has no draft, so a node that reads `$draft` is neither true nor false: it is **unknown**, and unknown spreads as in three-valued logic. `not` of unknown is unknown; `all` is false when a child is false, otherwise unknown when a child is; `any` is true when a child is true, otherwise unknown when a child is; `atLeast n` is true when n children are true, false when fewer than n could still be, otherwise unknown; a named guard is as its body. A gist is offered unless its `when` is false. So the menu may offer what admission then refuses for its payload, never the reverse. (Treating a `$draft` node as holding, as first written here, breaks that promise under `not`: `not` of a node held true is false, and the menu hides what admission accepts.) `kdlet-guards` answers an absent operand with `missing: 'error' | 'false'` and has no third value; the menu needs one for the operand the draft will supply, and that is the one change asked of kdlet, recorded in the plan.
 - **A goal** is evaluated in the reading, after the handles are accumulated, against the lines in
-  force (the goal itself excluded, as now). Once, final, `with` and warnings are unchanged.
+  force (the goal itself excluded, as now). Once, final, `with` and warnings are unchanged. Goals met in one reading write their outcomes one per round, in reading order of their lines ([engine](engine.md) §7).
 - `GoalReading` carries the **trace**: each node with `holds`, and on a `line` node the line that
   met it (`foundIn`) and the check as resolved. `met` is the root's `holds`.
 
@@ -90,7 +88,36 @@ the value list under `key`, like `collect`. The editorial schema uses it and dro
 ## 6 · consequitur-kdl
 
 A package that reads a schema written in KDL into the schema object and writes one back, on
-`kdlt-guards/kdl` and `@bgotink/kdl`. JSON stays the model (a goal is a line, and payloads are
+`kdlet-guards/kdl` and `@bgotink/kdl`. JSON stays the model (a goal is a line, and payloads are
 JSON); KDL is how a person writes a schema. Each case gains `schema.kdl`, and a test checks it
 reads to the same object as `schema.json`. The playground's «Schemi» shows the schema as KDL or
 JSON.
+
+## 7 · References in payloads: holes and fills
+
+*Round «Holes».* A **hole** is a reference to a value no line in force states. The conditions above read references; this section lets a reference stand in any payload, so that a line can be written before everything it names is known, and completed later by another line.
+
+**Where a reference may stand.** `{ "$value": key }` may stand wherever a JSON value stands in a payload, a list's item included. `$set`, `$writer` and `$draft` stay in conditions. A payload value that is an object with the single key `$value` is a reference, never a literal, as [value references in checks](../decisions/value-references-in-checks.md) already settled for checks.
+
+**How the reading resolves.** In two passes over the lines in force, both in reading order:
+
+1. The lines whose payload holds no reference state their values, as today. This gives the values references may read.
+2. Every line is read with each reference replaced by that value. A reference to a key the first pass did not state stays unresolved: for a rule, the key is absent and states nothing; for a condition, `has` is false and `is` is false, which is `kdlet-guards`' `missing: 'false'`. An unfilled hole is absent, not unknown.
+
+A value stated through a reference serves no other reference, so there are neither chains nor circles, and one pass of resolution is enough. A later line that states the key resolves every reference to it; revoking that line gives the earlier value back, or the hole.
+
+**The fill.** A fill is an ordinary line of a gist whose `value` rule takes its key from the payload:
+
+| Binding | Reads |
+|---|---|
+| `{ rule: 'value', keyFrom, from, where? }` | the key under `keyFrom` in the payload, the value under `from` |
+
+`keyFrom` and `from` are payload keys. Admission refuses the line (`invalid-payload`) when the key is not a string, when it is a key some `value` binding of the schema states (a hole named `status` must not set the status), or when the value holds a reference: a fill holds plain values. The expectation is the key's value, later line wins, as for every value. The warehouse case has such a gist, `fill`, written by people.
+
+**What the reading says.** `Reading` gains `holes: Array<{ key: string; lines: LineId[] }>`: every key some line in force refers to and no line states, by key, with the lines that hold the reference in reading order. Nothing is denounced and nothing is unsettled: a hole is answered by a person, and the application decides whether to prompt, wait or ignore. Admission treats a reference where a rule reads as present, so `required` is satisfied by a hole; the rule's own checks on the value's shape apply once it is resolved.
+
+**Goals and holes.** A goal's `with` may hold a reference. The outcome is written as the goal carries it, the reference inside, and completes when the key is stated, like any line. A condition that reads a hole is false until the hole is filled, so «before things move» is `has` on the reference, in a `when` or in a goal.
+
+**Stopping on a hole.** A schema that wants no line of a judged kin while a hole is open registers a law kind for it, broken while `holes` is not empty, or while a hole it names is. It is not in the base kit until a schema asks.
+
+**Cases.** The warehouse's «Saved» scenario ([scenarios](scenarios.md) §5) has holes for the supplier's reference, the unloader and the sorter, and a run that fills them; its dry run against «Tuesday» fills them with Tuesday's values. The memo that names one assignee and leaves a second to be named, with a goal that waits on the second, is a scenario of the same case.

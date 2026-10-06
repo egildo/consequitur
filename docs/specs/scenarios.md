@@ -1,0 +1,115 @@
+# Scenarios — spec
+
+Status: proposed for the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../decisions/templates-are-scenarios.md). Holes come with the round «Holes» and are marked so. Words as in the [glossary](../glossary.md).
+
+A scenario has been a test device since the editorial round: a domain's story as data, played into an empty thread by `cases/scenario.ts`. This spec makes it a product device too. An application keeps a scenario as what its users call a template, plays it to open a new activity, and saves one from an activity a person configured by hand. The engine never sees a scenario; it sees the lines the player posts.
+
+## 1 · What a scenario is
+
+Unchanged from today: a list of steps, `{ label?, writer, gist, payload, confirmed?, refused? }`, posted one after the other to an empty thread, each through admission. A payload may hold a placeholder, an object with one key beginning with `$`:
+
+| Placeholder | Stands for | Resolved by |
+|---|---|---|
+| `{ "$line": label }` | the id of the line the labelled step posted | the player |
+| `{ "$goal": label }` | `goal::` and that id | the player |
+| `{ "$find": check }` | the id of the first line in reading order the check matches | the player |
+| `{ "$value": key }` | a reference, see [conditions](conditions.md) §7 | nobody: it passes into the line as it is *(round «Holes»)* |
+
+A reference is not a placeholder. The player leaves it alone, and the reading resolves it when the thread is read.
+
+## 2 · The player, in the package
+
+The module `cases/scenario.ts` moves into `packages/consequitur/src/scenario.ts` and is exported from the package: `Step`, `Scenario`, `Labels`, `Io`, `Played`, `resolve`, `draftOf`, `playScenario`, `readScenarios`. In the engine's import order it comes after `offers.ts`; it imports `inOrder`, `matches`, `validChecks` and the types. `cases/scenario.ts` is deleted; the tests and the playground import the package.
+
+`playScenario(steps, io, options)` gains one option:
+
+- `as?: Writer`: the writer every step is posted as. An application playing a template passes the person who opens; a test replaying a story passes nothing, and each step keeps its own writer.
+
+Everything else is as today: a step may be `confirmed`, a step may be expected `refused` with a code, the first step that does not go as the scenario says stops the play, and `after` is told of each step.
+
+## 3 · Saving a scenario from a thread
+
+Most of saving is mechanical. The package gives the mechanical part; the choices stay with the application.
+
+```ts
+export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pruned;
+
+export interface Pruned {
+  /** The lines a person decides on, in reading order: kept as steps, dropped, or made into what a goal writes or awaits. */
+  open: EventLine[];
+  /** Every other line, with why it is left out. */
+  left: Array<{ line: EventLine; why: 'engine' | 'revoked' | 'outside' | 'found' }>;
+}
+```
+
+In reading order, each line gets one answer, the first that applies:
+
+- `engine`: its writer is of kin `goal`, or its gist is one of the schema's `records`. The engine writes it again.
+- `revoked`: it is not in force, or its gist has a revoke binding. Mistakes and their undoing.
+- `outside`: its writer's kin is not among the schema's `judged`. A fact the world will state again.
+- `found`: some goal's check found it (`foundIn`). The template awaits it again.
+- otherwise it is `open`.
+
+```ts
+export function stepsOf(kept: EventLine[], all: EventLine[]): Step[];
+```
+
+`stepsOf` turns the lines a person kept into steps, in reading order, and replaces every id in a payload by a placeholder:
+
+- a string equal to the id of an earlier kept line becomes `{ "$line": label }`, with the kept line labelled by its position (`"1"`, `"2"`, …);
+- `goal::` and such an id becomes `{ "$goal": label }`;
+- a string equal to the id of a line of `all` that was not kept becomes `{ "$find": { gist, payload } }` of that line, since the line itself will be awaited, not replayed: the first line that says the same will do.
+
+Steps carry no `confirmed` and no `refused`; the application adds `confirmed` where its person says so.
+
+*Round «Holes».*
+
+```ts
+export function holed(steps: Step[], holes: Record<string, Json>): Step[];
+```
+
+`holed` replaces, in every step's payload, each value equal to one of the given values by the reference `{ "$value": key }` of its key. One value in several lines becomes one hole. The application decides which values become holes; a text with a piece missing is not a hole and is the application's to complete before posting.
+
+The third act, turning a line a person wrote by hand into what a goal writes, is composing a goal, which the application already does.
+
+## 4 · The check: a dry run of a scenario
+
+A saved scenario is checked against the thread it came from, with nothing invented:
+
+1. Play the steps into a thread nobody keeps, with `post` as `io.send`, as the saver.
+2. *(Round «Holes»)* Fill each hole with the value that was there before it was holed, by posting the fill lines.
+3. Feed the lines `prune` left as `found` or `outside`, in their reading order, each through `post`.
+4. Compare where the handles ended with the source thread's: `diff(source.handles, played.handles, kit)` is empty.
+
+The comparison is on the handles, not line by line, because the lines the saving session changed are written by a goal in the dry run and were written by a person in the source. The check proves that the scenario reproduces the activity it came from; another order of events on another day is not proved.
+
+No new function: the steps above are `playScenario`, `post` and `diff`. The case's test does them, and an application copies them.
+
+## 5 · The warehouse case
+
+`cases/warehouse-arrival/` is the third domain, chosen for this spec: an arrival of merchandise registered, announced, unloaded, sorted and shelved. Its vocabulary stays small:
+
+- `open` (opening): `name`, and `team` joined from `team`;
+- `memo`: assigns, joining `team` from `assignTo`; written by people and by goals;
+- `done`: a person says a step is finished; `steps` collects `step`;
+- `set_goal`, `set_goal_revoke`, `comment`;
+- `notice`: written by goals, states nothing;
+- `closed`: written by goals, `status` becomes `closed`;
+- `arrival_scanned`: written by `system::dock`, states nothing;
+- the records.
+
+`scenarios.json` holds two stories. «Tuesday» is the activity as it happened, with every kind of line: the manager's plan (goals that announce the arrival, assign the sorting, close the activity), a goal set by mistake and revoked, the scanner's line, a comment, the work (`done` lines), and one memo the manager wrote by hand when sorting was done, with no goal behind it. «Saved» is the scenario a person saves from it: the plan's lines, the by-hand memo turned into a goal, and, from the round «Holes» on, holes for the supplier's reference, the unloader and the sorter.
+
+The tests, in `packages/consequitur/test/scenarios.test.ts` or beside it: `prune` of «Tuesday» leaves out exactly the lines §3 says, for the reasons it says, and leaves open the plan's lines, the comment and the by-hand memo; `stepsOf` of the kept lines gives the steps of «Saved» but the goal the person added; and the dry run of §4 ends with no difference in the handles.
+
+The playground does not gain a third domain in this round: the case is the test's and the spec's truth.
+
+## 6 · What a scenario cannot say
+
+Recorded here, not solved:
+
+- **A plan that goes round again.** A repeating cycle (review, changes, review) is a new activity, or a goal set again by a person.
+- **«For each».** One goal per item of a list discovered later cannot be written at opening.
+- **Several writers.** Every step is posted by the person who opens; a step another person wrote is awaited, not replayed.
+
+Either of the first two would reopen plans written in the schema, with rules that expect lines and a cycle check in the reader.

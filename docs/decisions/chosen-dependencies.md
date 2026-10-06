@@ -5,10 +5,10 @@ Supersedes the principle «Zero dependencies».
 
 ## Context
 
-The engine needs a condition language for `when` and for goals. kdlt, Egildo's KDL template
+The engine needs a condition language for `when` and for goals. kdlet, Egildo's KDL template
 language, already has one — named guards, `is`, `has`, `not`, `all`, `any`, references, host
-guards — and it is being taken out into a module, `kdlt-guards`, that both projects use
-([conditions-are-kdlt-guards](conditions-are-kdlt-guards.md)). Writing schemas in KDL needs a KDL
+guards — and it is being taken out into a module, `kdlet-guards`, that both projects use
+([conditions-are-kdlet-guards](conditions-are-kdlt-guards.md)). Writing schemas in KDL needs a KDL
 parser too. «Zero dependencies» forbade both.
 
 ## Decision
@@ -19,5 +19,5 @@ does for us. The engine's reading stays pure, whatever it depends on.
 
 ## Consequences
 
-`consequitur` may depend on `kdlt-guards`; `consequitur-kdl` on `@bgotink/kdl`. A consumer of the
+`consequitur` may depend on `kdlet-guards`; `consequitur-kdl` on `@bgotink/kdl`. A consumer of the
 engine now installs what those bring; `architecture.md` keeps the list honest.

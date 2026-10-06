@@ -7,7 +7,7 @@ Words as in the [glossary](../glossary.md).
 What does not change from the ported engine is not repeated here: the line and its envelope
 (`canonical`, `stamp`, `verify`, `inOrder`), reading order, in force and revoking, the three
 steps of the reading, goals (once, final, `with`, warnings and anchoring), `when` and the
-offers, the cap of three rounds, the dry run and its `added`, `rounds`, `verdicts`. Their
+offers, the cap of three rounds (a bound since the round «Order and scenarios», §7), the dry run and its `added`, `rounds`, `verdicts`. Their
 behaviour is the 250 tests'; this round changes the words and opens the kinds, never the meaning.
 
 ## 1 · What is a mechanic and what is a kind
@@ -15,7 +15,7 @@ behaviour is the 250 tests'; this round changes the words and opens the kinds, n
 **Mechanics** belong to the thread and are not registrable: the envelope and its hash; reading
 order; **revoke** (a binding `{ rule: 'revoke', from, gists }`); **goal** (`{ rule: 'goal' }`,
 its checks, once, final, `with`, warnings); the opening rule (exactly one line of the opening gist
-in force); `when`; reconciliation's loop and cap; laws' place in a post.
+in force); `when`; reconciliation's loop and its bound; laws' place in a post.
 
 **Kinds** are registered in a **kit** and named by schemas:
 
@@ -212,6 +212,8 @@ export function answer(reading: Reading, handles: Handles, policy?: Policy): Den
 export function diff(before: Handles, after: Handles, kit: Kit): Change[];
 ```
 
+**Rounds.** *Proposed for the round «Order and scenarios», from [goals fire in thread order](../decisions/goals-fire-in-thread-order.md); today the loop stops after three rounds (`MAX_ROUNDS`).* `settle` runs to the thread's end. Each round answers every handle denunciation and every warning the policy does not leave, and the outcome of one goal: among the goals met and not yet fired, the one whose line comes first in reading order. The bound is derived: the goals in force that have not written their outcome, plus two. A round past the bound is not run; the thread pauses as it does today, `settled` is false, and `settles` refuses the line. Only a handle kind that does not cure the difference it answers can reach the bound, so for the base kit it is an assertion. `rounds` lists what each round answered, as now.
+
 `dryRun` takes the policy too, so a preview is the post it previews. `now` is the host's argument, not
 the writer's: one that does not parse as a date is a mistake of the caller and not a refusal, so `post`,
 `dryRun` and `settle` reject with the platform's `RangeError` when they come to stamp a line, as `stamp`
@@ -244,7 +246,7 @@ least one key. A policy with any problem is read as the empty policy, and the pr
 `settle` answers every denunciation `answer` returns: all but those of the thread and those a
 policy entry leaves. The condition is read on the handles as they stand at the start of each
 round. A reading whose only denunciations are left by the policy counts as settled (`settled:
-true`, the denunciations still listed): the cap stops being reached, and the law `settles` does
+true`, the denunciations still listed): the bound stops being reached, and the law `settles` does
 not refuse the line. Example:
 `{ leave: { kind: 'set', key: 'assignees' }, while: { values: { status: 'closed' } } }` — SIBAR's
 «quits on a done activity are not answered».

@@ -1,6 +1,6 @@
 # The plan — extracting the engine into a library
 
-Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 5 are done. This file is the brief for the
+Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 5 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. This file is the brief for the
 rounds; as each lands, what it made true moves into `architecture.md`, and a ruling worth
 keeping into `decisions/`.
 
@@ -123,11 +123,13 @@ The ProseMirror correspondence, which the library should feel like:
    Done: `cases/editorial-review/` (schema and three scenarios), the shared scenario resolver in
    `cases/scenario.ts`, SIBAR's examples in the same shape, the engine's tests of the scenarios and of the
    five misfits, [misfits.md](misfits.md), and the playground with a domain picker. The engine did not change.
-6. **Conditions**, answering the misfits in one round, as [specs/conditions.md](specs/conditions.md)
-   says: in kdlt, `kdlt-guards` taken out of kdlt; here, `when` and goals rewritten on it with
+6. **Order and scenarios**, the round that needs nothing from outside: goals fire one per round in thread order and a post runs to its end, with the bound the goals give, as [goals fire in thread order](decisions/goals-fire-in-thread-order.md) and the [engine spec](specs/engine.md) §7 say; the scenario player moves into the package, `prune` and `stepsOf` join it, and the warehouse is the third case, with its dry run against its own source, as [specs/scenarios.md](specs/scenarios.md) says, holes left for later.
+7. **Conditions**, answering the misfits in one round, as [specs/conditions.md](specs/conditions.md)
+   says: in kdlet, `kdlet-guards` (published, 0.1.1) gains the third answer the menu needs for a `$draft` operand; here, `when` and goals rewritten on it with
    `line`, `at-least` and the references, named guards in the schema, `collect-writer` in
    `BASE_KIT`; then `consequitur-kdl`, schemas written in KDL, shown so in the playground.
-7. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
+8. **Holes**, as [specs/conditions.md](specs/conditions.md) §7 says, from [holes are unstated values](decisions/holes-are-unstated-values.md): a reference may stand in any payload, the reading resolves it in two passes, the `value` rule's `keyFrom` form, `Reading.holes`, `holed` in the package, and the warehouse's «Saved» with its holes and fills.
+9. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
 ## 5 · Settled
 

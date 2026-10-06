@@ -1,4 +1,4 @@
-# Conditions are kdlt's guards
+# Conditions are kdlet's guards
 
 Status: settled 2026-10-05, not built. Built in round 6 ([plan](../plan.md) §4).
 
@@ -7,13 +7,13 @@ Status: settled 2026-10-05, not built. Built in round 6 ([plan](../plan.md) §4)
 Four of the five [misfits](../misfits.md) asked for conditions the engine could not say: a value
 now held, «A or B», «not», «at least two of three». Answering each with a key of its own would add
 four mechanisms. Prior art agrees on one small shape — XState's guards (`and`, `or`, `not`, named
-guards), json-rules-engine (`all`, `any`, `not`, named conditions), and kdlt's guards (`is`, `has`,
+guards), json-rules-engine (`all`, `any`, `not`, named conditions), and kdlet's guards (`is`, `has`,
 `not`, `all`, `any`, named, host guards, no expressions), which are Egildo's own.
 
 ## Decision
 
-One condition language for a gist's `when` and a goal's conditions: kdlt's guards, through the
-module `kdlt-guards`, with two words consequitur registers — `line` (a line like this is in force,
+One condition language for a gist's `when` and a goal's conditions: kdlet's guards, through the
+module `kdlet-guards`, with two words consequitur registers — `line` (a line like this is in force,
 today's check) and `at-least n` (a quorum of its children). References name what they read:
 `(value)key`, `(set)name` (its members: `is (writer)id (set)reviewers` is membership),
 `(writer)id`, `(writer)kin`, and `(draft)key` (the line being written, in `when` only). Named

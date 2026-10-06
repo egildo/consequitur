@@ -17,7 +17,7 @@ those marked *(new)* were proposed by the plan and accepted.
 | **gist schema** | One gist's configuration: its writers, its `when`, its rule bindings. |
 | **opening gist** *(new)* | The gist a thread starts with; exactly one is in force. In SIBAR, `create`. |
 | **rule** | A registered kind of consequence, bound to a gist by a **binding** that names the payload keys it reads. A rule states expectations; it never compares. |
-| **mechanic** *(new)* | What belongs to the thread itself and is not a kind: the envelope and its hash, reading order, **revoke**, **goal**, the opening rule, `when`, the loop and cap of reconciliation, the place of laws in a post. The engine reads them; a kit cannot replace them. |
+| **mechanic** *(new)* | What belongs to the thread itself and is not a kind: the envelope and its hash, reading order, **revoke**, **goal**, the opening rule, `when`, the loop and bound of reconciliation, the place of laws in a post. The engine reads them; a kit cannot replace them. |
 | **rule kind** *(new)* | The code behind a rule: how its binding is read, why a payload cannot carry it, what it expects, and into which handle kinds. |
 | **revoke** | The rule that takes a line out of force. Always specific: a revoking gist lists the gists it may revoke. |
 | **in force** | Not revoked by a line that is itself in force. |
@@ -31,7 +31,7 @@ those marked *(new)* were proposed by the plan and accepted.
 | **reading** | What follows from a thread, against its handles: lines in force, expectations, goals, denunciations. `consequitur(lines, handles, schema)` gives it; the word names the act too. |
 | **denunciation** | One difference between an expectation and the handles (`sort: 'handle'`), a line a goal owes (`'line'`), or a breach of the opening rule (`'thread'`). |
 | **change** *(new)* | One difference between two handles, as its handle kind says it, for a host to apply to its own copy. `diff` lists them. Between two readings, a change is what `changes` lists: a line's standing, a goal, a check, a denunciation, the thread's settling, each with a key (from `keyOf` or `keyOfCheck` where the reading gives none). |
-| **reconciliation** | The answer to a denunciation: the handles change and a line records it. Settling repeats it, at most three rounds. |
+| **reconciliation** | The answer to a denunciation: the handles change and a line records it. Settling repeats it until nothing is left to answer, one goal's outcome per round in thread order, within a bound the goals give (today: at most three rounds). |
 | **record** *(new)* | A line the authority writes to say a reconciliation changed a handle. Each has a **role** (`value`, `join`, `leave`, or one of a kit's own), and the head's `records` names the gist of each role, and of the goal's `warning`. |
 | **goal** | A line that names checks and an outcome. When every check finds a line, the goal writes its outcome, once. |
 | **check** | An equality on a line's gist, kin, writer and payload keys. |
@@ -47,9 +47,12 @@ those marked *(new)* were proposed by the plan and accepted.
 | **render** | `consequitur-render`: helpers that turn a reading into DOM, owning no markup: each line's facts, nodes kept by line id, the dry-run preview loop, the **band** (the line drawn from a slot to a line, or between two elements). |
 | **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. It runs one domain at a time and has a picker for them. |
 | **case** *(new)* | A domain's files in `cases/<domain>/`: its schema, its scenarios and, where it has one, its policy. The tests and the playground read the same files. |
-| **scenario** *(new)* | A domain's story as data: a list of **steps**, posted one after the other to an empty thread. Played by `playScenario`, from `cases/scenario.ts`. |
+| **scenario** *(new)* | A domain's story as data: a list of **steps**, posted one after the other to an empty thread, each through admission. Played by `playScenario` (today from `cases/scenario.ts`, then from the package). A scenario saved from a thread, pruned and with holes, is what an application's users call a template ([specs/scenarios.md](specs/scenarios.md)). |
 | **step** *(new)* | One line of a scenario: `{ writer, gist, payload }`, with a `label` if a later step points at the line it posts, `confirmed` if a `confirm` law asks it, `refused` if the scenario expects the engine to refuse it. |
-| **placeholder** *(new)* | In a step's payload, a reference to an earlier line, since an id is a hash nobody can write: `$line` (a labelled step's line id), `$goal` (`goal::` and that id), `$find` (the first line a check matches). |
+| **placeholder** *(new)* | In a step's payload, what the player replaces by a line's id, since an id is a hash nobody can write: `$line` (a labelled step's line id), `$goal` (`goal::` and that id), `$find` (the first line a check matches). A **reference** is not one: the player leaves it in the line. |
+| **reference** *(new)* | In a condition or a payload, what the thread expects under a name, read when the thread is read: `{ "$value": key }` (the value handle's key), `{ "$set": name }` (a set's members), and in a `when` only `$writer` and `$draft`. Only `$value` may stand in a payload. |
+| **hole** *(new)* | A reference to a value no line in force states. Awaited, never denounced: the reading lists it, with the lines that hold it, and a condition that reads it is false until a **fill** states it. |
+| **fill** *(new)* | A line that states the value a hole refers to: of a gist whose `value` rule takes its key from the payload. Later fill wins; revoking it gives back what stood before. It may not state a key a rule of the schema states. |
 | **misfit** *(new)* | Something a schema author wanted that the engine cannot say. Each is recorded in [misfits.md](misfits.md) with what the engine does today and the smallest change that would make it fit. |
 | **domain** *(new)* | In the playground, a case together with the application's side of it, the **UI schema**: one module in `playground/src/domains/`. The rest of the page reads the domain in use and names no gist. |
 | **UI schema** *(new)* | What an application needs to know about each gist beyond the schema: its words, its card, how a person composes it, how a goal awaits it. It is the application's, not the library's. |
