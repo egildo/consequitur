@@ -12,8 +12,11 @@ why it is built so is in the [principles](principles.md); the names are in the [
 | `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, built only on the two packages and the cases; private, never published | built |
 | `cases/<domain>/` | a domain's schema, its scenarios and, for SIBAR, its policy; not a package. The engine's `playScenario` plays them | `sibar-activity`, `editorial-review`, `warehouse-arrival` |
 
-The engine has no runtime dependency and imports nothing outside `src/`; `test/thread.test.ts`
-reads every import and fails on one that leaves. Tests read the cases from `cases/`, never a
+The engine has one runtime dependency, `kdlet-guards` (kdlet's condition language: it evaluates a
+condition node by node, with Kleene's three values where the host says a reference is not yet known, and
+gives the trace; consequitur registers its two words on it and resolves the references), imported by
+`condition.ts` alone; every other import stays inside `src/`. `test/thread.test.ts` reads every import and
+fails on one that leaves, but that one. Tests read the cases from `cases/`, never a
 fixture of their own, except a toy that isolates one rule.
 
 ## The cases and their scenarios
@@ -51,7 +54,8 @@ the test.
 types.ts       every type, kits' interfaces included
 util.ts        small guards, `compare` (never localeCompare), `keysAre`, `kinOf`, `idOf`
 line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
-check.ts       validChecks, matches, whereMatches
+check.ts       validCheck, validChecks, isValueReference, matches, whereMatches
+condition.ts   conditionProblem, guardsProblems, toModuleForm, fromModuleForm, resolveCheck, conditionHolds, evaluateCondition, nodes, markLost, lostAt: consequitur's form of a condition, read through kdlet-guards
 schema.ts      readSchema, readGists, readLaws, readPolicy
 reading.ts     expectations, holds, whenHolds, consequitur
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState

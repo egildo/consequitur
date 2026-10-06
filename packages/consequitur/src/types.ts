@@ -71,6 +71,50 @@ export interface Check {
   payload?: Payload;
 }
 
+/**
+ * In a condition, what the thread expects under a name, read when the condition is: the value handle under a
+ * key, the members of a set, and, in a `when` only, the writer's `id` or `kin` and a key of the draft's payload.
+ */
+export type Reference = { $value: string } | { $set: string } | { $writer: 'id' | 'kin' } | { $draft: string };
+
+/** What `is` and `has` read: a plain value, or a reference. */
+export type Operand = string | number | boolean | null | Reference;
+
+/**
+ * When a gist may be written, when a goal is met, while a law holds: consequitur's form of `kdlet-guards`'
+ * conditions, with its two words, `line` and `atLeast`, and references written `{ "$<from>": field }`.
+ */
+export type Condition =
+  /** The operand equals one of the values; a `$set` among the values stands for its members. */
+  | { is: Operand; values: Operand[] }
+  /** The operand is there, and not null, empty text or an empty list. */
+  | { has: Operand }
+  | { not: Condition }
+  | { all: Condition[] }
+  | { any: Condition[] }
+  /** The schema's guard of that name holds. */
+  | { guard: string }
+  /** A line in force matches the check; a payload value in it may be a `$value` reference. */
+  | { line: Check }
+  /** At least `atLeast` of the conditions hold. */
+  | { atLeast: number; of: Condition[] };
+
+/**
+ * What reading a condition found, node by node: the node as written, whether it holds, and its children (a
+ * named guard has one, its body). A node's path is the indexes from the root, joined by dots; the root's is "".
+ */
+export interface Trace {
+  condition: Condition;
+  holds: boolean;
+  children?: Trace[];
+  /** A `line` node: the line that met it. */
+  foundIn?: LineId;
+  /** A `line` node: the check as matched, each reference replaced; absent when a reference names a key the thread does not hold. */
+  check?: Check;
+  /** The node can no longer hold: read only where warnings are. */
+  lost?: true;
+}
+
 /** One entry per handle kind of the kit, keyed by the kind's name. */
 export type Handles = Record<string, Json>;
 

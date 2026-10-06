@@ -2642,10 +2642,11 @@ describe('the package', () => {
     expect(sourcesOf("import type {\n  A,\n  B,\n} from '../x';\nexport * from './y';\nconst from = 1;")).toEqual(['../x', './y']);
   });
 
-  it('imports and re-exports only from inside itself, and no file imports outside src', () => {
+  it('imports and re-exports only from inside itself and from kdlet-guards, and no file imports outside src', () => {
     const files = filesUnder(dir).sort();
     expect(files).toEqual([
       'check.ts',
+      'condition.ts',
       'handles/set.ts',
       'handles/value.ts',
       'index.ts',
@@ -2669,6 +2670,8 @@ describe('the package', () => {
     for (const file of files) {
       for (const path of sourcesOf(readFileSync(join(dir, file), 'utf8'))) {
         seen++;
+        // the one dependency, named in architecture.md: the condition language
+        if (path === 'kdlet-guards') continue;
         expect(path, `${file} imports ${path}`).toMatch(/^\.\.?\/(?:[a-z-]+\/)*[a-z-]+\.ts$/);
         const target = relative(dir, resolve(dir, join(file, '..', path)));
         expect(files, `${file} imports ${path}`).toContain(target);
@@ -2677,8 +2680,10 @@ describe('the package', () => {
     expect(seen).toBeGreaterThanOrEqual(40);
   });
 
-  it('has no runtime dependency', () => {
+  it('has one runtime dependency, kdlet-guards, and only condition.ts imports it', () => {
     const manifest = JSON.parse(readFileSync(join(dir, '..', 'package.json'), 'utf8')) as Record<string, unknown>;
-    expect(manifest.dependencies).toBeUndefined();
+    expect(Object.keys(manifest.dependencies as object)).toEqual(['kdlet-guards']);
+    const importing = filesUnder(dir).filter((file) => sourcesOf(readFileSync(join(dir, file), 'utf8')).includes('kdlet-guards'));
+    expect(importing).toEqual(['condition.ts']);
   });
 });

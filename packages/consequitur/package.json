@@ -9,5 +9,8 @@
   },
   "scripts": {
     "test": "vitest run"
+  },
+  "dependencies": {
+    "kdlet-guards": "^0.2.1"
   }
 }

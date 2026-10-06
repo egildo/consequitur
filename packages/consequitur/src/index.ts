@@ -1,6 +1,8 @@
 export type * from './types.ts';
 export { canonical, inForce, inOrder, lockedBy, stamp, verify } from './line.ts';
-export { matches, validChecks, whereMatches } from './check.ts';
+export { isValueReference, matches, validCheck, validChecks, whereMatches } from './check.ts';
+export { conditionHolds, conditionProblem, evaluateCondition, fromModuleForm, lostAt, nodes, resolveCheck, toModuleForm } from './condition.ts';
+export type { Names, Scope } from './condition.ts';
 export { compare, idOf, isJson, keysAre, kinOf, optionalFlag } from './util.ts';
 export { expectations, goalWriter, holds, consequitur, whenHolds } from './reading.ts';
 export type { Expectations } from './reading.ts';

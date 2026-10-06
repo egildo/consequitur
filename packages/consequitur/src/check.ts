@@ -1,11 +1,31 @@
 // How a check matches a line, and how a `where` matches a payload. A check is an equality on a line's gist, kin, writer and payload keys:
-// goals wait on them, `when` asks them, and a binding's `where` is the payload half.
+// a condition's `line` node asks one, and a binding's `where` is the payload half.
 
 import { canonical } from './line.ts';
 import type { Check, EventLine, Payload } from './types.ts';
 import { has, isObject, kinOf } from './util.ts';
 
 const CHECK_KEYS = ['gist', 'kin', 'writer', 'payload'];
+
+/** A reference to the value handle, `{ "$value": key }`: what a check's payload value may be besides a plain one. */
+export const isValueReference = (value: unknown): value is { $value: string } =>
+  isObject(value) && Object.keys(value).length === 1 && typeof value.$value === 'string';
+
+/**
+ * Whether a check can be read: an object stating at least one of `gist`, `kin`, `writer` (strings) and `payload`
+ * (an object with a key), and nothing else. A payload value that is an object holding `$value` is a reference, and
+ * must be one: `$value` beside other keys is refused.
+ */
+export function validCheck(check: unknown): check is Check {
+  if (!isObject(check)) return false;
+  const keys = Object.keys(check);
+  if (keys.length === 0 || keys.some((k) => !CHECK_KEYS.includes(k))) return false;
+  return keys.every((k) => {
+    if (k !== 'payload') return typeof check[k] === 'string';
+    const payload = check[k];
+    return isObject(payload) && Object.keys(payload).length > 0 && Object.values(payload).every((v) => !has(v, '$value') || isValueReference(v));
+  });
+}
 
 /**
  * Whether a goal's checks can be read: a non-empty array whose every element is
