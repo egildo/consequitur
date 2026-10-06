@@ -129,6 +129,7 @@ The ProseMirror correspondence, which the library should feel like:
    says: in kdlet, `kdlet-guards` (published, 0.1.1) gains the third answer the menu needs for a `$draft` operand; here, `when` and goals rewritten on it with
    `line`, `at-least` and the references, named guards in the schema, `collect-writer` in
    `BASE_KIT`; then `consequitur-kdl`, schemas written in KDL, shown so in the playground.
+   Done: `condition.ts` on `kdlet-guards` 0.2 (which has the third answer), `when`, goals and `keeps-set`'s `while` as conditions with the references and the two words, the trace in `GoalReading` and one warning per path, named guards in the head, `collect-writer` in `BASE_KIT`, the three cases rewritten and the five misfits fitting; `consequitur-kdl` reads and writes a schema in KDL, each case has `schema.kdl`, and the playground draws the trace as a tree and shows the schema in KDL or JSON.
 8. **Holes**, as [specs/conditions.md](specs/conditions.md) §7 says, from [holes are unstated values](decisions/holes-are-unstated-values.md): a reference may stand in any payload, the reading resolves it in two passes, the `value` rule's `keyFrom` form, `Reading.holes`, `holed` in the package, and the warehouse's «Saved» with its holes and fills.
 9. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
 
