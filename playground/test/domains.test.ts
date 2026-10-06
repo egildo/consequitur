@@ -2,11 +2,11 @@
 // for every line its examples write, and plays its examples to the end through the engine and the
 // shared resolver, the way the page and the engine's tests do.
 
-import { emptyState, playScenario, post, type Check, type EventLine, type LineDraft, type Refusal, type ThreadState } from 'consequitur';
+import { emptyState, nodes, playScenario, post, type EventLine, type LineDraft, type Refusal, type ThreadState } from 'consequitur';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defineDomain, useDomain, type Domain } from '../src/domain.ts';
 import { DOMAINS } from '../src/domains/index.ts';
-import { checkSentence, lineLabel, outcomeSentence, recordSentence, sayOf, uiOf, warningSentence, writerName } from '../src/ui-schema.ts';
+import { conditionSentence, lineLabel, nodeSentence, outcomeSentence, recordSentence, sayOf, uiOf, unread, warningSentence, writerName } from '../src/ui-schema.ts';
 
 const NOW = '2026-10-04T10:00:00.000Z';
 
@@ -73,6 +73,17 @@ describe('the domains', () => {
         expect(domain.goals).toBeDefined();
       });
 
+      it('has words for every guard of its case, and says every gist\'s `when` with no {placeholder} left', () => {
+        expect(Object.keys(domain.guards).sort()).toEqual(Object.keys(domain.schema.guards).sort());
+        for (const gist of domain.schema.gists) {
+          if (gist.when === undefined) continue;
+          const words = conditionSentence(gist.when, []);
+          expect(words, gist.gist).not.toMatch(/[{}]/);
+          expect(words, gist.gist).not.toBe('');
+        }
+        expect(() => defineDomain({ ...domain, guards: { ...domain.guards, nobody: 'nessuno' } })).toThrow(/guards/);
+      });
+
       it('has the people its examples write as, and a name for the system', () => {
         for (const { writer } of domain.writers) {
           const [kin, id] = writer.split('::');
@@ -97,8 +108,9 @@ describe('the domains', () => {
             if (ui?.card === 'record') words.push(recordSentence(line, state.lines));
             if (line.gist === domain.schema.records.warning) words.push(warningSentence(line, state.lines));
             if (ui?.card === 'goal') {
-              const checks = line.payload.checks as unknown as Check[];
-              words.push(...checks.map((check) => checkSentence(check, state.lines)), outcomeSentence(String(line.payload.then), line.payload.with as EventLine['payload']));
+              const trace = unread(line.payload.when);
+              expect(trace.condition, `${line.gist} holds a condition the page reads`).not.toEqual({ all: [] });
+              words.push(...nodes(trace).map(({ node }) => nodeSentence(node.condition, state.lines)), outcomeSentence(String(line.payload.then), line.payload.with as EventLine['payload']));
             }
           }
           expect(words.filter((w) => /[{}]/.test(w) || w === '')).toEqual([]);

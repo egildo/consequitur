@@ -26,7 +26,7 @@ import {
   consequitur,
   settle,
   stamp,
-  validChecks,
+  validCheck,
   verify,
   whenHolds,
   type Check,
@@ -50,7 +50,7 @@ import {
   type ThreadState,
   type Writer,
 } from '../src/index.ts';
-import { HEAD, PLAIN, RECORD_GISTS, SIBAR, SIBAR_JSON, SYSTEM_WRITER, custom, emptyHandles, hold, membersOf, sibar, unchecked, valuesOf } from './helpers.ts';
+import { HEAD, PLAIN, RECORD_GISTS, SIBAR, SIBAR_JSON, SYSTEM_WRITER, allOf, custom, emptyHandles, hold, lineNodes, membersOf, sibar, unchecked, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
 
@@ -443,7 +443,7 @@ describe('consequitur', () => {
       { gist: 'got_it', writer: 'user::lbianchi' },
       { gist: 'fact', kin: 'system', payload: { document: '34' } },
     ];
-    const goalLine = mrossi('goal', { name: 'closing', then: 'done', checks });
+    const goalLine = mrossi('goal', { name: 'closing', then: 'done', when: allOf(checks) });
     const gotIt = lbianchi('got_it', {});
     const fact = by('system::sibardoc', 'fact', { document: '34', signedAt: 'x' });
     const closed: Handles = hold({ name: 'Parere', status: 'closed' }, ['mrossi']);
@@ -452,33 +452,40 @@ describe('consequitur', () => {
       const lines = await thread([create, goalLine]);
       const none = read(lines, agreeing);
       expect(none.goals).toEqual([
-        { line: lines[1].id, name: 'closing', then: 'done', checks: [{ check: checks[0] }, { check: checks[1] }], met: false, final: false },
+        {
+          line: lines[1].id,
+          name: 'closing',
+          then: 'done',
+          trace: { condition: allOf(checks), holds: false, children: checks.map((check) => ({ condition: { line: check }, holds: false, check })) },
+          met: false,
+          final: false,
+        },
       ]);
-      expect(none.goals[0].checks.every((c) => !('foundIn' in c))).toBe(true);
+      expect(lineNodes(none.goals[0]).every((c) => !('foundIn' in c))).toBe(true);
       expect('outcome' in none.goals[0]).toBe(false);
 
       const one = await add(lines, gotIt);
-      expect(read(one, agreeing).goals[0].checks).toEqual([{ check: checks[0], foundIn: last(one).id }, { check: checks[1] }]);
+      expect(lineNodes(read(one, agreeing).goals[0]).map(({ check, foundIn }) => ({ check, foundIn }))).toEqual([{ check: checks[0], foundIn: last(one).id }, { check: checks[1], foundIn: undefined }]);
       expect(read(one, agreeing).goals[0].met).toBe(false);
       expect(read(one, agreeing).settled).toBe(true);
 
       const both = await add(one, fact);
       expect(read(both, agreeing).goals[0].met).toBe(true);
-      expect(read(both, agreeing).goals[0].checks.map((c) => c.foundIn)).toEqual([one[2].id, last(both).id]);
+      expect(lineNodes(read(both, agreeing).goals[0]).map((c) => c.foundIn)).toEqual([one[2].id, last(both).id]);
     });
 
     it('a check matches on kin alone, on writer, and on a payload key', async () => {
       const lines = await thread([create, fact, gotIt]);
       const goalOf = async (check: Json) => {
-        const all = await add(lines, mrossi('goal', { name: 'g', then: 'done', checks: [check] }));
+        const all = await add(lines, mrossi('goal', { name: 'g', then: 'done', when: allOf([check]) }));
         return read(all).goals[0];
       };
-      expect((await goalOf({ kin: 'system' })).checks[0].foundIn).toBe(lines[1].id);
-      expect((await goalOf({ writer: 'user::lbianchi' })).checks[0].foundIn).toBe(lines[2].id);
-      expect((await goalOf({ payload: { signedAt: 'x' } })).checks[0].foundIn).toBe(lines[1].id);
-      expect((await goalOf({ kin: 'user', gist: 'got_it' })).checks[0].foundIn).toBe(lines[2].id);
+      expect(lineNodes(await goalOf({ kin: 'system' }))[0].foundIn).toBe(lines[1].id);
+      expect(lineNodes(await goalOf({ writer: 'user::lbianchi' }))[0].foundIn).toBe(lines[2].id);
+      expect(lineNodes(await goalOf({ payload: { signedAt: 'x' } }))[0].foundIn).toBe(lines[1].id);
+      expect(lineNodes(await goalOf({ kin: 'user', gist: 'got_it' }))[0].foundIn).toBe(lines[2].id);
       // the first line in reading order wins
-      expect((await goalOf({ kin: 'user' })).checks[0].foundIn).toBe(lines[0].id);
+      expect(lineNodes(await goalOf({ kin: 'user' }))[0].foundIn).toBe(lines[0].id);
       // a key the payload lacks does not match; a value is compared by canonical form
       expect((await goalOf({ payload: { missing: null } })).met).toBe(false);
       expect((await goalOf({ payload: { document: '34', extra: 1 } })).met).toBe(false);
@@ -486,17 +493,17 @@ describe('consequitur', () => {
 
     it('compares payload values by their canonical form', async () => {
       const lines = await thread([create, mrossi('proof', { deep: { b: 1, a: [2, 3] } })]);
-      const all = await add(lines, mrossi('goal', { name: 'g', then: 'done', checks: [{ payload: { deep: { a: [2, 3], b: 1 } } }] }));
+      const all = await add(lines, mrossi('goal', { name: 'g', then: 'done', when: allOf([{ payload: { deep: { a: [2, 3], b: 1 } } }]) }));
       expect(read(all).goals[0].met).toBe(true);
     });
 
     it('the goal line never satisfies its own check', async () => {
-      const lines = await thread([create, mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'goal' }] })]);
+      const lines = await thread([create, mrossi('goal', { name: 'g', then: 'done', when: allOf([{ gist: 'goal' }]) })]);
       const [goal] = read(lines).goals;
       expect(goal.met).toBe(false);
-      expect('foundIn' in goal.checks[0]).toBe(false);
+      expect('foundIn' in lineNodes(goal)[0]).toBe(false);
       // another goal line can satisfy it
-      const other = await add(lines, mrossi('goal', { name: 'h', then: 'done', checks: [{ gist: 'goal' }] }));
+      const other = await add(lines, mrossi('goal', { name: 'h', then: 'done', when: allOf([{ gist: 'goal' }]) }));
       expect(read(other).goals.map((g) => [g.name, g.met])).toEqual([['g', true], ['h', true]]);
     });
 
@@ -523,7 +530,7 @@ describe('consequitur', () => {
     });
 
     it('revoking a line a check had found leaves the goal unmet and the outcome in force, with no denunciation', async () => {
-      const proofGoal = mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'proof' }] });
+      const proofGoal = mrossi('goal', { name: 'g', then: 'done', when: allOf([{ gist: 'proof' }]) });
       const base = await thread([create, proofGoal, mrossi('proof', {})]);
       const goalId = base[1].id;
       const withOutcome = await add(base, by(goalWriter(goalId), 'done', {}));
@@ -541,8 +548,8 @@ describe('consequitur', () => {
     it('of two goals of one name only the later is read', async () => {
       const lines = await thread([
         create,
-        mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'nothing' }] }),
-        mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'create' }] }),
+        mrossi('goal', { name: 'g', then: 'done', when: allOf([{ gist: 'nothing' }]) }),
+        mrossi('goal', { name: 'g', then: 'done', when: allOf([{ gist: 'create' }]) }),
       ]);
       const reading = read(lines, closed);
       expect(reading.goals.map((g) => [g.line, g.met])).toEqual([[lines[2].id, true]]);
@@ -551,8 +558,8 @@ describe('consequitur', () => {
     it('goals come in name order', async () => {
       const lines = await thread([
         create,
-        mrossi('goal', { name: 'b', then: 'done', checks: [{ gist: 'nothing' }] }),
-        mrossi('goal', { name: 'a', then: 'done', checks: [{ gist: 'nothing' }] }),
+        mrossi('goal', { name: 'b', then: 'done', when: allOf([{ gist: 'nothing' }]) }),
+        mrossi('goal', { name: 'a', then: 'done', when: allOf([{ gist: 'nothing' }]) }),
       ]);
       expect(read(lines).goals.map((g) => g.name)).toEqual(['a', 'b']);
     });
@@ -561,17 +568,26 @@ describe('consequitur', () => {
       const bad: Array<LineDraft['payload']> = [
         {},
         { name: 'g', then: 'done' },
-        { name: 'g', then: 'done', checks: [] },
-        { name: 'g', then: 'done', checks: 'got_it' },
-        { name: 'g', then: 'done', checks: [null] },
-        { name: 'g', then: 'done', checks: [[]] },
-        { name: 'g', then: 'done', checks: [{}] },
-        { name: 'g', then: 'done', checks: [{ gist: 'x', color: 'red' }] },
-        { name: 'g', then: 'done', checks: [{ gist: 7 }] },
-        { name: 'g', then: 'done', checks: [{ payload: {} }] },
-        { name: 'g', then: 'done', checks: [{ payload: [1] }] },
-        { name: 7, then: 'done', checks: [{ gist: 'x' }] },
-        { name: 'g', then: null, checks: [{ gist: 'x' }] },
+        { name: 'g', then: 'done', when: allOf([]) },
+        { name: 'g', then: 'done', checks: [{ gist: 'got_it' }] },
+        { name: 'g', then: 'done', when: 'got_it' },
+        { name: 'g', then: 'done', when: { line: {} } },
+        { name: 'g', then: 'done', when: { all: [] } },
+        { name: 'g', then: 'done', when: { line: { gist: 'x' }, extra: 1 } },
+        { name: 'g', then: 'done', when: { guard: 'nobody' } },
+        // a goal reads no writer and no draft, not even through a guard
+        { name: 'g', then: 'done', when: { is: { $writer: 'id' }, values: ['mrossi'] } },
+        { name: 'g', then: 'done', when: { has: { $draft: 'x' } } },
+        { name: 'g', then: 'done', when: { guard: 'assignee' } },
+        { name: 'g', then: 'done', when: allOf([null]) },
+        { name: 'g', then: 'done', when: allOf([[]]) },
+        { name: 'g', then: 'done', when: allOf([{}]) },
+        { name: 'g', then: 'done', when: allOf([{ gist: 'x', color: 'red' }]) },
+        { name: 'g', then: 'done', when: allOf([{ gist: 7 }]) },
+        { name: 'g', then: 'done', when: allOf([{ payload: {} }]) },
+        { name: 'g', then: 'done', when: allOf([{ payload: [1] }]) },
+        { name: 7, then: 'done', when: allOf([{ gist: 'x' }]) },
+        { name: 'g', then: null, when: allOf([{ gist: 'x' }]) },
       ];
       for (const payload of bad) {
         const lines = await thread([create, mrossi('goal', payload)]);
@@ -587,15 +603,16 @@ describe('consequitur', () => {
     });
   });
 
-  describe('validChecks', () => {
-    it('accepts a non-empty list of checks that state something and nothing else', () => {
-      expect(validChecks([{ gist: 'a' }])).toBe(true);
-      expect(validChecks([{ kin: 'a' }, { writer: 'user::a' }, { payload: { k: null } }, { gist: 'a', kin: 'b', writer: 'c::d', payload: { k: 1 } }])).toBe(true);
+  describe('validCheck', () => {
+    it('accepts a check that states something and nothing else, a $value reference among its payload values', () => {
+      for (const check of [{ gist: 'a' }, { kin: 'a' }, { writer: 'user::a' }, { payload: { k: null } }, { gist: 'a', kin: 'b', writer: 'c::d', payload: { k: 1, v: { $value: 'version' } } }]) {
+        expect(validCheck(check)).toBe(true);
+      }
     });
 
-    it('refuses everything else', () => {
-      for (const value of [undefined, null, 'a', 7, {}, [], [1], [null], [[]], [{}], [{ gist: 1 }], [{ payload: {} }], [{ payload: null }], [{ payload: [] }], [{ gist: 'a', other: 1 }], [{ gist: 'a' }, {}]]) {
-        expect(validChecks(value)).toBe(false);
+    it('refuses everything else, a $value beside other keys included', () => {
+      for (const value of [undefined, null, 'a', 7, [], [{ gist: 'a' }], {}, { gist: 1 }, { payload: {} }, { payload: null }, { payload: [] }, { gist: 'a', other: 1 }, { payload: { v: { $value: 'version', other: 1 } } }, { payload: { v: { $value: 1 } } }]) {
+        expect(validCheck(value)).toBe(false);
       }
     });
   });
@@ -635,7 +652,7 @@ describe('consequitur', () => {
       for (const writer of [7, null, MISSING]) {
         const lines = await thread([
           create,
-          mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'proof', kin: 'user' }] }),
+          mrossi('goal', { name: 'g', then: 'done', when: allOf([{ gist: 'proof', kin: 'user' }]) }),
           mrossi('memo', {}),
           mrossi('memo', {}),
           mrossi('proof', {}),
@@ -665,8 +682,8 @@ describe('consequitur', () => {
 
     it('lists denunciations in the fixed order: thread, line, then each handle kind in the kit\'s order', async () => {
       const lines = await thread([
-        mrossi('goal', { name: 'b', then: 'done', checks: [{ gist: 'got_it' }] }),
-        mrossi('goal', { name: 'a', then: 'done', checks: [{ gist: 'got_it' }] }),
+        mrossi('goal', { name: 'b', then: 'done', when: allOf([{ gist: 'got_it' }]) }),
+        mrossi('goal', { name: 'a', then: 'done', when: allOf([{ gist: 'got_it' }]) }),
         lbianchi('got_it', {}),
       ]);
       const reading = read(lines, hold({ z: 1, a: 1 }, ['z', 'a']));
@@ -682,7 +699,7 @@ describe('consequitur', () => {
     });
 
     it('changes none of its arguments, and a reversed array reads the same', async () => {
-      const lines = await thread([create, mrossi('memo', { assignTo: ['lbianchi'] }), mrossi('goal', { name: 'g', then: 'done', checks: [{ gist: 'create' }] })]);
+      const lines = await thread([create, mrossi('memo', { assignTo: ['lbianchi'] }), mrossi('goal', { name: 'g', then: 'done', when: allOf([{ gist: 'create' }]) })]);
       const handles: Handles = hold({ stray: { a: 1 } }, ['z']);
       const linesCopy = structuredClone(lines);
       const handlesCopy = structuredClone(handles);
@@ -1085,10 +1102,10 @@ describe('posting to a thread', () => {
         mrossi('set_goal', {
           name: 'done',
           then: 'closed',
-          checks: [
+          when: allOf([
             { gist: 'got_it', writer: 'user::lbianchi', payload: { about: memoId } },
             { gist: 'doc_signed', kin: 'system', payload: { document: '34132412' } },
-          ],
+          ]),
           ...goalExtra,
         }),
       );
@@ -1141,7 +1158,7 @@ describe('posting to a thread', () => {
       expect(goal.reading.settled).toBe(true);
       expect(goal.reading.goals).toHaveLength(1);
       expect(goal.reading.goals[0]).toMatchObject({ name: 'done', then: 'closed', met: false });
-      expect(goal.reading.goals[0].checks.map((c) => 'foundIn' in c)).toEqual([false, false]);
+      expect(lineNodes(goal.reading.goals[0]).map((c) => 'foundIn' in c)).toEqual([false, false]);
       expect('outcome' in goal.reading.goals[0]).toBe(false);
       expect(goal.state.handles).toEqual(link.state.handles);
       expect(gistsOf(goal.state.lines.slice(9))).toEqual(['set_goal']);
@@ -1150,7 +1167,7 @@ describe('posting to a thread', () => {
       const memoId = memo.state.lines[4].id;
       expect(valuesOf(gotIt.state.handles).acknowledged).toBe(memoId);
       expect(gotIt.reading.goals[0].met).toBe(false);
-      expect(gotIt.reading.goals[0].checks.map((c) => c.foundIn)).toEqual([gotIt.state.lines[10].id, undefined]);
+      expect(lineNodes(gotIt.reading.goals[0]).map((c) => c.foundIn)).toEqual([gotIt.state.lines[10].id, undefined]);
       expect(gotIt.reading.settled).toBe(true);
 
       // 6. mrossi alone; the record is unassigned
@@ -1170,7 +1187,7 @@ describe('posting to a thread', () => {
       const [closed] = gistNamed(signed.state.lines, 'closed');
       expect(signed.reading.goals).toHaveLength(1);
       expect(signed.reading.goals[0]).toMatchObject({ line: goalId, met: true, outcome: closed.id });
-      expect(signed.reading.goals[0].checks.every((c) => 'foundIn' in c)).toBe(true);
+      expect(lineNodes(signed.reading.goals[0]).every((c) => 'foundIn' in c)).toBe(true);
       expect(closed.writer).toBe(`goal::${goalId}`);
       expect(closed.payload).toEqual({});
       expect(valuesOf(signed.state.handles).status).toBe('closed');
@@ -1353,14 +1370,14 @@ describe('posting to a thread', () => {
           expect(lockedBy({ ...closed, writer: 'goal::nothing' }, state.lines)).toBeUndefined();
           expect(lockedBy({ ...closed, writer: `user::${goal.id}` }, state.lines)).toBeUndefined();
           expect(lockedBy({ ...closed, writer: 'goal' as Writer }, state.lines)).toBeUndefined();
-          const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], final: 'true' })]);
+          const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'create' }]), final: 'true' })]);
           const written = await stamp(by(goalWriter(lines[1].id), 'closed', {}), lines, NOW);
           expect(lockedBy(written, [...lines, written])).toBeUndefined();
         });
       });
 
       describe('with', () => {
-        const goalPost = (payload: LineDraft['payload']) => mrossi('set_goal', { name: 'g', checks: [{ gist: 'create' }], ...payload });
+        const goalPost = (payload: LineDraft['payload']) => mrossi('set_goal', { name: 'g', when: allOf([{ gist: 'create' }]), ...payload });
 
         it('a goal that writes a memo assigns whom the memo names, with the payload it states', async () => {
           const [, out] = await run([...opening, goalPost({ then: 'memo', with: { text: 'Protocolla', assignTo: ['gverdi'] } })]);
@@ -1398,7 +1415,7 @@ describe('posting to a thread', () => {
           ['a `with` that does not fit the gist it is for', { then: 'memo', with: { assignTo: 5 } }],
           ['a `final` that is not a boolean', { then: 'closed', final: 'yes' }],
           ['an outcome that revokes', { then: 'memo_revoke' }],
-          ['an outcome that is a goal', { then: 'set_goal', with: { name: 'h', checks: [{ gist: 'create' }], then: 'closed' } }],
+          ['an outcome that is a goal', { then: 'set_goal', with: { name: 'h', when: allOf([{ gist: 'create' }]), then: 'closed' } }],
           ['an outcome a goal may not write', { then: 'comment' }],
           ['an outcome only the mechanic writes', { then: 'goal_warning', with: { check: 0 } }],
         ])('refuses %s', async (_label, payload) => {
@@ -1411,11 +1428,11 @@ describe('posting to a thread', () => {
 
         it('a goal that states a `with` or a `final` it cannot, reads as no goal', async () => {
           for (const payload of [{ with: 'x' }, { with: null }, { with: [] }]) {
-            const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], ...payload })]);
+            const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'create' }]), ...payload })]);
             expect(consequitur(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), PLAIN).goals).toEqual([]);
           }
           // `final` is read only when it is exactly true
-          const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }], final: 1 })]);
+          const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'create' }]), final: 1 })]);
           expect(consequitur(lines, hold({}, []), PLAIN).goals[0].final).toBe(false);
         });
       });
@@ -1447,12 +1464,12 @@ describe('posting to a thread', () => {
         /** The scenario up to the goal row, which is the fourth post. */
         const afterGoal = async () => (await replay())[3].state;
         const warningsOf = (lines: EventLine[]) => gistNamed(lines, 'goal_warning');
-        const documentCheck = (reading: Reading) => reading.goals[0].checks[1];
+        const documentCheck = (reading: Reading) => lineNodes(reading.goals[0])[1];
 
         it('the scenario of the brief writes no warning: both checks stay anchored', async () => {
           for (const posted of await replay()) {
             expect(warningsOf(posted.state.lines)).toEqual([]);
-            expect(posted.reading.goals.every((g) => g.checks.every((c) => !('orphan' in c)))).toBe(true);
+            expect(posted.reading.goals.every((g) => lineNodes(g).every((c) => !('lost' in c)))).toBe(true);
           }
         });
 
@@ -1462,12 +1479,12 @@ describe('posting to a thread', () => {
           const goal = goalOf(state);
           const out = await post(state, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
-          expect(documentCheck(out.reading)).toMatchObject({ orphan: true });
-          expect('orphan' in out.reading.goals[0].checks[0]).toBe(false);
+          expect(documentCheck(out.reading)).toMatchObject({ lost: true });
+          expect('lost' in lineNodes(out.reading.goals[0])[0]).toBe(false);
           expect(out.reading.goals[0].line).toBe(goal.id);
           const [warning] = warningsOf(out.state.lines);
           expect(warningsOf(out.state.lines)).toHaveLength(1);
-          expect(warning).toMatchObject({ writer: `goal::${goal.id}`, payload: { check: 1 } });
+          expect(warning).toMatchObject({ writer: `goal::${goal.id}`, payload: { path: '1' } });
           expect(out.reading.settled).toBe(true);
           expect(out.reading.denunciations).toEqual([]);
           expect(out.reading.inForce).toContain(goal.id);
@@ -1480,12 +1497,12 @@ describe('posting to a thread', () => {
 
           const anchoredAgain = await post(orphaned.state, lbianchi('doc_ref', { document: '34132412', direction: 'outbound' }), PLAIN, NOW);
           expect(anchoredAgain.refusal).toBeUndefined();
-          expect('orphan' in documentCheck(anchoredAgain.reading)).toBe(false);
+          expect('lost' in documentCheck(anchoredAgain.reading)).toBe(false);
           expect(warningsOf(anchoredAgain.state.lines)).toHaveLength(1);
 
           const second = gistNamed(anchoredAgain.state.lines, 'doc_ref').at(-1)!;
           const orphanedAgain = await post(anchoredAgain.state, mrossi('doc_ref_revoke', { target: second.id }), PLAIN, NOW);
-          expect(documentCheck(orphanedAgain.reading)).toMatchObject({ orphan: true });
+          expect(documentCheck(orphanedAgain.reading)).toMatchObject({ lost: true });
           expect(warningsOf(orphanedAgain.state.lines)).toHaveLength(1);
           expect(orphanedAgain.reading.settled).toBe(true);
         });
@@ -1503,14 +1520,14 @@ describe('posting to a thread', () => {
         it('revoking the memo a check names orphans it, when no line in force holds its id any more', async () => {
           const [created, memo] = await run([...opening, mrossi('memo', { text: 'Serve un parere', assignTo: ['lbianchi'] })]);
           const id = gistNamed(memo.state.lines, 'memo')[0].id;
-          const goalSet = await post(memo.state, mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'got_it', writer: 'user::lbianchi', payload: { about: id } }] }), PLAIN, NOW);
-          expect('orphan' in goalSet.reading.goals[0].checks[0]).toBe(false);
+          const goalSet = await post(memo.state, mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'got_it', writer: 'user::lbianchi', payload: { about: id } }]) }), PLAIN, NOW);
+          expect('lost' in lineNodes(goalSet.reading.goals[0])[0]).toBe(false);
           const revoked = await post(goalSet.state, mrossi('memo_revoke', { target: id }), PLAIN, NOW);
           expect(created.refusal).toBeUndefined();
           expect(memo.refusal).toBeUndefined();
-          expect('orphan' in revoked.reading.goals[0].checks[0]).toBe(true);
+          expect('lost' in lineNodes(revoked.reading.goals[0])[0]).toBe(true);
           expect(warningsOf(revoked.state.lines)).toHaveLength(1);
-          expect(warningsOf(revoked.state.lines)[0].payload).toEqual({ check: 0 });
+          expect(warningsOf(revoked.state.lines)[0].payload).toEqual({ path: '0' });
         });
 
         it('a line id is held only by that line in force, not by another line quoting it', async () => {
@@ -1519,8 +1536,8 @@ describe('posting to a thread', () => {
           const memoId = gistNamed(posted[1].state.lines, 'memo')[0].id;
           const out = await post(posted[3].state, mrossi('memo_revoke', { target: memoId }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
-          expect(out.reading.goals[0].checks[0]).toMatchObject({ orphan: true });
-          expect(warningsOf(out.state.lines).map((l) => l.payload)).toEqual([{ check: 0 }]);
+          expect(lineNodes(out.reading.goals[0])[0]).toMatchObject({ lost: true });
+          expect(warningsOf(out.state.lines).map((l) => l.payload)).toEqual([{ path: '0' }]);
         });
 
         it('a value that is no line id is held by any line in force holding it under the same key, whatever its gist', async () => {
@@ -1530,7 +1547,7 @@ describe('posting to a thread', () => {
           const reference = gistNamed(withMemo.state.lines, 'doc_ref')[0];
           const out = await post(withMemo.state, mrossi('doc_ref_revoke', { target: reference.id }), PLAIN, NOW);
           expect(out.refusal).toBeUndefined();
-          expect('orphan' in documentCheck(out.reading)).toBe(false);
+          expect('lost' in documentCheck(out.reading)).toBe(false);
           expect(warningsOf(out.state.lines)).toEqual([]);
         });
 
@@ -1538,32 +1555,32 @@ describe('posting to a thread', () => {
           const state = await afterGoal();
           const out = await post(
             state,
-            mrossi('set_goal', { name: 'firme', then: 'closed', checks: [{ gist: 'doc_signed', kin: 'system', payload: { document: '34132412', by: 'lbianchi' } }] }),
+            mrossi('set_goal', { name: 'firme', then: 'closed', when: allOf([{ gist: 'doc_signed', kin: 'system', payload: { document: '34132412', by: 'lbianchi' } }]) }),
             PLAIN,
             NOW,
           );
           const g = out.reading.goals.find((x) => x.name === 'firme')!;
-          expect('orphan' in g.checks[0]).toBe(false);
+          expect('lost' in lineNodes(g)[0]).toBe(false);
           expect(warningsOf(out.state.lines)).toEqual([]);
         });
 
         it('a check with no payload is never an orphan', async () => {
-          const [, out] = await run([...opening, mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'got_it' }, { kin: 'sapServer' }] })]);
-          expect(out.reading.goals[0].checks.some((c) => 'orphan' in c)).toBe(false);
+          const [, out] = await run([...opening, mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'got_it' }, { kin: 'sapServer' }]) })]);
+          expect(lineNodes(out.reading.goals[0]).some((c) => 'lost' in c)).toBe(false);
           expect(warningsOf(out.state.lines)).toEqual([]);
         });
 
         it('a value no line ever held is awaited, not lost; the id of a goal is no value to rest on', async () => {
-          const [, other] = await run([...opening, mrossi('set_goal', { name: 'other', then: 'closed', checks: [{ gist: 'got_it' }] })]);
+          const [, other] = await run([...opening, mrossi('set_goal', { name: 'other', then: 'closed', when: allOf([{ gist: 'got_it' }]) })]);
           const out = await post(
             other.state,
-            mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ payload: { target: goalOf(other.state).id } }, { payload: { document: 'zzz' } }] }),
+            mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ payload: { target: goalOf(other.state).id } }, { payload: { document: 'zzz' } }]) }),
             PLAIN,
             NOW,
           );
           const g = out.reading.goals.find((x) => x.name === 'g')!;
-          expect(g.checks.map((c) => c.orphan)).toEqual([true, undefined]);
-          expect(warningsOf(out.state.lines).map((l) => l.payload)).toEqual([{ check: 0 }]);
+          expect(lineNodes(g).map((c) => c.lost)).toEqual([true, undefined]);
+          expect(warningsOf(out.state.lines).map((l) => l.payload)).toEqual([{ path: '0' }]);
           expect(out.reading.settled).toBe(true);
         });
 
@@ -1571,29 +1588,28 @@ describe('posting to a thread', () => {
           // a schema that names no gist for the warning expects none
           const { warning: _warning, ...records } = SIBAR_JSON.records;
           const bare = sibar({ drop: ['goal_warning'], laws: [], head: { records } });
-          const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ payload: { document: 'zzz' } }] })]);
+          const lines = await thread([opening[0], mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ payload: { document: 'zzz' } }]) })]);
           const reading = consequitur(lines, hold({ name: 'A', status: 'open' }, ['mrossi']), bare);
-          expect(reading.goals[0].checks).toEqual([{ check: { payload: { document: 'zzz' } } }]);
+          expect(lineNodes(reading.goals[0])).toEqual([{ condition: { line: { payload: { document: 'zzz' } } }, holds: false, check: { payload: { document: 'zzz' } } }]);
           expect(reading.denunciations).toEqual([]);
           const out = await post(EMPTY, opening[0], bare, NOW);
-          const goalled = await post(out.state, mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ payload: { document: 'zzz' } }] }), bare, NOW);
+          const goalled = await post(out.state, mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ payload: { document: 'zzz' } }]) }), bare, NOW);
           expect(gistNamed(goalled.state.lines, 'goal_warning')).toEqual([]);
         });
 
-        it('denounces in order: a goal at a time by name, its warnings by check index, then the value and the set', async () => {
-          // checks 0 and 2 name the id of goal b, a line no check can rest on
-          const goalB = mrossi('set_goal', { name: 'b', then: 'closed', checks: [{ gist: 'create' }] });
+        it('denounces in order: a goal at a time by name, its one warning, at the first node that makes it lost, then the value and the set', async () => {
+          // nodes 0 and 2 name the id of goal b, a line no check can rest on
+          const goalB = mrossi('set_goal', { name: 'b', then: 'closed', when: allOf([{ gist: 'create' }]) });
           const b = (await thread([opening[0], goalB]))[1].id;
           const lines = await thread([
             opening[0],
             goalB,
-            mrossi('set_goal', { name: 'a', then: 'closed', checks: [{ payload: { x: b } }, { gist: 'got_it' }, { payload: { y: b } }] }),
+            mrossi('set_goal', { name: 'a', then: 'closed', when: allOf([{ payload: { x: b } }, { gist: 'got_it' }, { payload: { y: b } }]) }),
           ]);
           expect(lines[1].id).toBe(b);
           const reading = consequitur(lines, hold({}, []), PLAIN);
           expect(reading.denunciations.map((d) => (d.sort === 'line' ? `line ${d.gist} ${JSON.stringify(d.payload)}` : labelOf(d)))).toEqual([
-            'line goal_warning {"check":0}',
-            'line goal_warning {"check":2}',
+            'line goal_warning {"path":"0"}',
             'line closed {}',
             'value name',
             'value status',
@@ -1661,7 +1677,7 @@ describe('posting to a thread', () => {
           expect(membersOf(state.handles)).toEqual(['mrossi']);
           const dry = await dryRun(state, quit, SIBAR, NOW);
           expect(dry.verdicts).toEqual([
-            { law: 'keeps-set', strength: 'refuse', set: 'assignees', detail: 'The set "assignees" would be empty while status is "open".' },
+            { law: 'keeps-set', strength: 'refuse', set: 'assignees', detail: 'The set "assignees" would be empty while its condition holds.' },
           ]);
           const out = await post(state, quit, SIBAR, NOW);
           expect(out.refusal?.code).toBe('law');
@@ -1695,12 +1711,28 @@ describe('posting to a thread', () => {
       describe('keeps-goals', () => {
         const revoke = (state: ThreadState) => mrossi('doc_ref_revoke', { target: reference(state).id });
 
-        it('is broken by a line that orphans a check of a goal in force, one verdict per check', async () => {
+        it('is broken by a line that makes a goal in force lost, with the path of the node that makes it so', async () => {
           const state = await afterGoal();
           const dry = await dryRun(state, revoke(state), SIBAR, NOW);
           expect(dry.verdicts).toEqual([
-            { law: 'keeps-goals', strength: 'confirm', detail: 'The check 1 of goal "done" would be orphaned.', goal: goalLine(state).id, check: 1 },
+            { law: 'keeps-goals', strength: 'confirm', detail: 'The goal "done" would be lost, at the node "1".', goal: goalLine(state).id, path: '1' },
           ]);
+        });
+
+        it('is not broken by a node lost under an `any` whose other child can still hold', async () => {
+          const state = await afterGoal();
+          const memo = gistNamed(state.lines, 'memo')[0].id;
+          const either = mrossi('set_goal', {
+            name: 'either',
+            then: 'closed',
+            when: { any: [{ line: { gist: 'doc_signed', payload: { document: '34132412' } } }, { line: { gist: 'got_it', payload: { about: memo } } }] },
+          });
+          const set = await post(state, either, PLAIN, NOW);
+          const dry = await dryRun(set.state, revoke(set.state), SIBAR, NOW);
+          expect(dry.verdicts.map((v) => v.goal)).toEqual([goalLine(state).id]);
+          const goal = dry.reading.goals.find((g) => g.name === 'either')!;
+          expect(lineNodes(goal).map((n) => n.lost)).toEqual([true, undefined]);
+          expect(goal.trace.lost).toBeUndefined();
         });
 
         it('asks for confirmation, and with it the line passes and the warning is written', async () => {
@@ -1714,10 +1746,10 @@ describe('posting to a thread', () => {
           const out = await post(state, revoke(state), SIBAR, NOW, { confirmed: true });
           expect(out.refusal).toBeUndefined();
           expect(gistNamed(out.state.lines, 'goal_warning')).toHaveLength(1);
-          expect(gistNamed(out.added, 'goal_warning')[0].payload).toEqual({ check: 1 });
+          expect(gistNamed(out.added, 'goal_warning')[0].payload).toEqual({ path: '1' });
         });
 
-        it('gives no verdict for a check that was already orphaned', async () => {
+        it('gives no verdict for a goal that was already lost', async () => {
           const state = await afterGoal();
           const orphaned = await post(state, revoke(state), PLAIN, NOW);
           const dry = await dryRun(orphaned.state, mrossi('comment', { text: 'ok' }), SIBAR, NOW);
@@ -1735,7 +1767,7 @@ describe('posting to a thread', () => {
         expect(dry.refusal).toBeUndefined();
         expect(dry.verdicts).toEqual([]);
         // the reading still shows it: the check is orphaned
-        expect(dry.reading.goals[0].checks[1]).toMatchObject({ orphan: true });
+        expect(lineNodes(dry.reading.goals[0])[1]).toMatchObject({ lost: true });
         const out = await post(state, draft, schema, NOW);
         expect(out.refusal).toBeUndefined();
         expect(gistNamed(out.state.lines, 'goal_warning')).toHaveLength(1);
@@ -1745,7 +1777,7 @@ describe('posting to a thread', () => {
         const withLaws = stuckSchema([{ law: 'settles', strength: 'refuse' }]);
         const withoutLaws = stuckSchema();
         let state = (await post(emptyState(withoutLaws), mrossi('create', { name: 'Bloccato', assignTo: ['mrossi'] }), withoutLaws, NOW)).state;
-        state = (await post(state, mrossi('set_goal', { name: 'later', then: 'reply', checks: [{ gist: 'comment' }] }), withoutLaws, NOW)).state;
+        state = (await post(state, mrossi('set_goal', { name: 'later', then: 'reply', when: allOf([{ gist: 'comment' }]) }), withoutLaws, NOW)).state;
         const wish = mrossi('wish', {});
         const dry = await dryRun(state, wish, withLaws, NOW);
         expect(dry.reading.settled).toBe(false);
@@ -1761,7 +1793,7 @@ describe('posting to a thread', () => {
         const schema = sibar({
           laws: [
             { law: 'settles', strength: 'refuse' },
-            { law: 'keeps-set', set: 'assignees', while: { status: 'open' }, strength: 'confirm' },
+            { law: 'keeps-set', set: 'assignees', while: { is: { $value: 'status' }, values: ['open'] }, strength: 'confirm' },
           ],
         });
         const dry = await dryRun(state, mrossi('quit', {}), schema, NOW);
@@ -1820,7 +1852,7 @@ describe('posting to a thread', () => {
       });
 
       it('does not stop the lines settle writes: a goal writes its line whatever that when says', async () => {
-        const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }] })]);
+        const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'create' }]) })]);
         const closed = PLAIN.gists.find((g) => g.gist === 'closed')!;
         expect(whenHolds(lines, `goal::${lines[1].id}`, closed, PLAIN)).toBe(false);
         const state: ThreadState = { lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) };
@@ -2015,7 +2047,7 @@ describe('posting to a thread', () => {
             comment: { text: 'x' },
             got_it: { about: 'x' },
             doc_ref: { document: '1' },
-            set_goal: { name: 'other', then: 'closed', checks: [{ gist: 'create' }] },
+            set_goal: { name: 'other', then: 'closed', when: allOf([{ gist: 'create' }]) },
             stage: { stage: 'firma' },
             closed: {},
             quit: {},
@@ -2111,7 +2143,7 @@ describe('posting to a thread', () => {
       };
       await go(mrossi('create', { name: 'Catena', assignTo: ['mrossi'] }));
       for (const [i, then] of links.entries()) {
-        await go(mrossi('set_goal', { name: String.fromCharCode(97 + i), then, checks: [{ gist: i === 0 ? 'start' : links[i - 1] }] }));
+        await go(mrossi('set_goal', { name: String.fromCharCode(97 + i), then, when: allOf([{ gist: i === 0 ? 'start' : links[i - 1] }]) }));
       }
       return state;
     }
@@ -2151,8 +2183,8 @@ describe('posting to a thread', () => {
     it('two goals waiting on the same line fire one per round, the one set earlier first, whatever their names', async () => {
       let state = (await post(EMPTY, mrossi('create', { name: 'Due', assignTo: ['mrossi'] }), CHAINED, NOW)).state;
       // the goal set later has the name that comes first in the reading's list of goals
-      state = (await post(state, mrossi('set_goal', { name: 'zeta', then: 'step_a', checks: [{ gist: 'start' }] }), CHAINED, NOW)).state;
-      state = (await post(state, mrossi('set_goal', { name: 'alpha', then: 'step_b', checks: [{ gist: 'start' }] }), CHAINED, NOW)).state;
+      state = (await post(state, mrossi('set_goal', { name: 'zeta', then: 'step_a', when: allOf([{ gist: 'start' }]) }), CHAINED, NOW)).state;
+      state = (await post(state, mrossi('set_goal', { name: 'alpha', then: 'step_b', when: allOf([{ gist: 'start' }]) }), CHAINED, NOW)).state;
       const [zeta, alpha] = gistNamed(state.lines, 'set_goal');
 
       const out = await post(state, mrossi('start', {}), CHAINED, NOW);
@@ -2178,7 +2210,7 @@ describe('posting to a thread', () => {
       await chainIsWhole(wish.state.lines);
 
       // a goal that waits for a line that never comes is one more round
-      state = (await post(state, mrossi('set_goal', { name: 'waiting', then: 'reply', checks: [{ gist: 'comment' }] }), schema, NOW)).state;
+      state = (await post(state, mrossi('set_goal', { name: 'waiting', then: 'reply', when: allOf([{ gist: 'comment' }]) }), schema, NOW)).state;
       expect((await post(state, mrossi('wish', {}), schema, NOW)).rounds).toHaveLength(3);
       // and a goal that has fired is not counted
       state = (await post(state, mrossi('comment', {}), schema, NOW)).state;
@@ -2219,14 +2251,14 @@ describe('posting to a thread', () => {
       ['a doc_ref with a direction and no document', mrossi('doc_ref', { direction: 'inbound' }), 'invalid-payload'],
       ['a revoke key that holds a number', mrossi('memo_revoke', { target: 5 }), 'invalid-payload'],
       ['a revoke key that is absent', mrossi('memo_revoke', {}), 'invalid-payload'],
-      ['a goal with no name', mrossi('set_goal', { then: 'closed', checks: [{ gist: 'x' }] }), 'invalid-payload'],
-      ['a goal with a name that is not a string', mrossi('set_goal', { name: 1, then: 'closed', checks: [{ gist: 'x' }] }), 'invalid-payload'],
+      ['a goal with no name', mrossi('set_goal', { then: 'closed', when: allOf([{ gist: 'x' }]) }), 'invalid-payload'],
+      ['a goal with a name that is not a string', mrossi('set_goal', { name: 1, then: 'closed', when: allOf([{ gist: 'x' }]) }), 'invalid-payload'],
       ['a goal with no checks', mrossi('set_goal', { name: 'g', then: 'closed' }), 'invalid-payload'],
-      ['a goal with empty checks', mrossi('set_goal', { name: 'g', then: 'closed', checks: [] }), 'invalid-payload'],
-      ['a goal with a check that states nothing', mrossi('set_goal', { name: 'g', then: 'closed', checks: [{}] }), 'invalid-payload'],
-      ['a goal with no then', mrossi('set_goal', { name: 'g', checks: [{ gist: 'x' }] }), 'invalid-payload'],
-      ['a goal whose then has no schema', mrossi('set_goal', { name: 'g', then: 'mystery', checks: [{ gist: 'x' }] }), 'invalid-payload'],
-      ['a goal whose then the goal kin may not write', mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'x' }] }), 'invalid-payload'],
+      ['a goal with empty checks', mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([]) }), 'invalid-payload'],
+      ['a goal with a check that states nothing', mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{}]) }), 'invalid-payload'],
+      ['a goal with no then', mrossi('set_goal', { name: 'g', when: allOf([{ gist: 'x' }]) }), 'invalid-payload'],
+      ['a goal whose then has no schema', mrossi('set_goal', { name: 'g', then: 'mystery', when: allOf([{ gist: 'x' }]) }), 'invalid-payload'],
+      ['a goal whose then the goal kin may not write', mrossi('set_goal', { name: 'g', then: 'doc_signed', when: allOf([{ gist: 'x' }]) }), 'invalid-payload'],
     ])('refuses %s', async (_, draft, code) => {
       // an open thread where mrossi and lbianchi are assignees and a memo exists, so
       // what each case lacks is its payload and not the moment
@@ -2273,7 +2305,7 @@ describe('posting to a thread', () => {
     it('refuses the lines the engine writes itself: one by a goal, and one of a record gist, whoever writes it', async () => {
       const lines = await thread([
         mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
-        mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'doc_signed' }] }),
+        mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'doc_signed' }]) }),
         by(SYSTEM_WRITER, 'doc_signed', { document: '1' }),
       ]);
       const goal = goalWriter(lines[1].id);
@@ -2341,7 +2373,7 @@ describe('posting to a thread', () => {
         { gist: 'revokes', writers: ['goal'], rules: [{ rule: 'revoke', from: 'target', gists: ['memo'] }] },
         { gist: 'goals', writers: ['goal'], rules: [{ rule: 'goal' }] },
       ] });
-      const goal = (then: string) => mrossi('set_goal', { name: 'g', then, checks: [{ gist: 'x' }] });
+      const goal = (then: string) => mrossi('set_goal', { name: 'g', then, when: allOf([{ gist: 'x' }]) });
       for (const then of ['needs_key', 'needs_user', 'needs_doc', 'revokes', 'goals']) expect(admit(lines, goal(then), gists)?.code).toBe('invalid-payload');
       expect(admit(lines, goal('optional_key'), gists)).toBeUndefined();
       expect(admit(lines, goal('optional_doc'), gists)).toBeUndefined();
@@ -2389,7 +2421,7 @@ describe('posting to a thread', () => {
 
     it('changes none of its arguments', async () => {
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
-      const draft = mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'x' }] });
+      const draft = mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'x' }]) });
       const copies = [structuredClone(lines), structuredClone(draft), structuredClone(PLAIN.gists)] as const;
       admit(lines, draft, PLAIN);
       expect([lines, draft, PLAIN.gists]).toEqual(copies);
@@ -2420,7 +2452,7 @@ describe('posting to a thread', () => {
         ['doc_signed from a user', afterMemo, mrossi('doc_signed', { document: '1' }), 'writer-not-allowed'],
         ['a create with no name', afterMemo, mrossi('create', { assignTo: ['x'] }), 'invalid-payload'],
         ['a memo whose assignTo is a number', afterMemo, mrossi('memo', { assignTo: 3 }), 'invalid-payload'],
-        ['a goal whose then is doc_signed', afterMemo, mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'got_it' }] }), 'invalid-payload'],
+        ['a goal whose then is doc_signed', afterMemo, mrossi('set_goal', { name: 'g', then: 'doc_signed', when: allOf([{ gist: 'got_it' }]) }), 'invalid-payload'],
         ['a goal with no checks', afterMemo, mrossi('set_goal', { name: 'g', then: 'closed' }), 'invalid-payload'],
         ['a memo_revoke of an id that is not in the thread', afterMemo, mrossi('memo_revoke', { target: 'e'.repeat(64) }), 'unknown-line'],
         ['a memo_revoke of the doc_signed line', afterSigned, mrossi('memo_revoke', { target: signedId }), 'not-revocable'],
@@ -2508,7 +2540,7 @@ describe('posting to a thread', () => {
     it('answers a missing goal line with the goal as writer and an empty payload, and leaves the handles', async () => {
       const lines = await thread([
         mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
-        mrossi('set_goal', { name: 'g', then: 'closed', checks: [{ gist: 'create' }] }),
+        mrossi('set_goal', { name: 'g', then: 'closed', when: allOf([{ gist: 'create' }]) }),
       ]);
       const handles: Handles = hold({ name: 'A', status: 'open' }, ['mrossi']);
       const reading = consequitur(lines, handles, PLAIN);
@@ -2581,9 +2613,9 @@ describe('posting to a thread', () => {
       // a thread brought in from outside can carry a goal that admission would have refused
       const lines = await thread([
         mrossi('create', { name: 'A', assignTo: ['mrossi'] }),
-        mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'create' }] }),
+        mrossi('set_goal', { name: 'g', then: 'doc_signed', when: allOf([{ gist: 'create' }]) }),
       ]);
-      expect(admit(lines.slice(0, 1), mrossi('set_goal', { name: 'g', then: 'doc_signed', checks: [{ gist: 'create' }] }), PLAIN)?.code).toBe('invalid-payload');
+      expect(admit(lines.slice(0, 1), mrossi('set_goal', { name: 'g', then: 'doc_signed', when: allOf([{ gist: 'create' }]) }), PLAIN)?.code).toBe('invalid-payload');
       const state: ThreadState = { lines, handles: hold({ name: 'A', status: 'open' }, ['mrossi']) };
       const out = await settle(state, PLAIN, NOW);
       expect(out.reading.settled).toBe(true);
@@ -2609,7 +2641,7 @@ describe('readLaws', () => {
     const { laws, problems } = readOf(SIBAR_JSON.laws);
     expect(problems).toEqual([]);
     expect(laws).toEqual([
-      { law: 'keeps-set', set: 'assignees', while: { status: 'open' }, strength: 'refuse' },
+      { law: 'keeps-set', set: 'assignees', while: { is: { $value: 'status' }, values: ['open'] }, strength: 'refuse' },
       { law: 'keeps-goals', strength: 'confirm' },
       { law: 'settles', strength: 'refuse' },
     ]);
@@ -2625,6 +2657,8 @@ describe('readLaws', () => {
     ['a keeps-set without its set', [{ law: 'keeps-set', strength: 'refuse' }]],
     ['a keeps-set that names a set the schema does not declare', [{ law: 'keeps-set', set: 'owners', strength: 'refuse' }]],
     ['a keeps-set whose while is empty', [{ law: 'keeps-set', set: 'assignees', while: {}, strength: 'refuse' }]],
+    ['a keeps-set whose while is the old shape', [{ law: 'keeps-set', set: 'assignees', while: { status: 'open' }, strength: 'refuse' }]],
+    ['a keeps-set whose while reads the writer', [{ law: 'keeps-set', set: 'assignees', while: { guard: 'assignee' }, strength: 'refuse' }]],
   ])('leaves out, and names, %s', (_, value) => {
     const out = readOf(value);
     expect(out.laws).toEqual([]);
@@ -2685,6 +2719,7 @@ describe('the package', () => {
       'line.ts',
       'offers.ts',
       'reading.ts',
+      'rules/collect-writer.ts',
       'rules/join.ts',
       'rules/leave.ts',
       'rules/value.ts',

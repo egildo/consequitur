@@ -265,6 +265,10 @@ export const sibar = defineDomain({
     'keeps-set': { assignees: "L'attività resterebbe aperta senza assegnatari." },
     settles: { '': "L'attività resterebbe in disaccordo con le sue righe." },
   },
+  guards: {
+    assignee: 'chi scrive è assegnatario',
+    open_assignee: "l'attività è aperta e chi scrive è assegnatario",
+  },
   goals: {
     most: 2,
     wrapper: { name: 'Completamento' },

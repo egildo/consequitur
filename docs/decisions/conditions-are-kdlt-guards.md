@@ -1,6 +1,6 @@
 # Conditions are kdlet's guards
 
-Status: settled 2026-10-05, not built. Built in round 6 ([plan](../plan.md) §4).
+Status: settled 2026-10-05, built in the round «Conditions» ([plan](../plan.md) §4; [conditions](../specs/conditions.md) §8 says where the build chose).
 
 ## Context
 

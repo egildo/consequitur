@@ -3,7 +3,8 @@
 Status: settled, built (round 5, [plan](../plan.md) §4). The second domain, chosen to be unlike
 SIBAR's activities, so that what does not fit the engine shows. Built as data in
 `cases/editorial-review/`, tested in the engine's suite, and offered in the playground beside the
-SIBAR activity.
+SIBAR activity. The round «Conditions» rewrote its schema and its scenarios so that the five misfits of
+§4 fit ([misfits](../misfits.md)); §2 and §3 say the case as it is now.
 
 ## 1 · The story
 
@@ -26,11 +27,11 @@ Head: `opening: "submit"`, `authority: "system::clock"`, `sets: ["team", "review
 | Gist | Writers | Rules | When |
 |---|---|---|---|
 | `submit` | user | value `title` from `title` (r); value `status` = `draft`; value `version` from `version` (r); join `team` from `authors` (r); join `editors` from `editor` (r) | — |
-| `revision` | user | value `version` from `version` (r); value `status` = `in_review` | in `team`; status `changes_requested` |
+| `revision` | user | value `version` from `version` (r); value `status` = `in_review` | in `team`; status `draft` or `changes_requested` |
 | `request_review` | user | join `reviewers` from `reviewers` (r); join `team` from `reviewers` (r); value `status` = `in_review` | in `team` |
-| `approve` | user | collect `approvals` from `stamp` (r) | in `reviewers`; status `in_review` |
+| `approve` | user | `collect-writer` `approvals` | in `reviewers`; status `in_review` |
 | `approve_revoke` | user | revoke `approve` from `target` | in `reviewers`; status `in_review` |
-| `request_changes` | user | value `status` = `changes_requested` | in `reviewers`; status `in_review` |
+| `request_changes` | user, goal | value `status` = `changes_requested` | in `reviewers`; status `in_review` |
 | `comment` | user | — | in `team` |
 | `set_goal` | user | goal | in `editors` |
 | `set_goal_revoke` | user | revoke `set_goal` from `target` | in `editors` |
@@ -41,21 +42,25 @@ Head: `opening: "submit"`, `authority: "system::clock"`, `sets: ["team", "review
 | `value_set`, `joined`, `left` | system | — | — |
 | `goal_warning` | goal | — | — |
 
-An approval's payload is `{ version, stamp }`, where `stamp` is `"<version>:<reviewer id>"`, so the
-`approvals` list says who approved what. A goal for publication has the checks
-`{ gist: 'approve', writer: 'user::bgalli', payload: { version: 'v2' } }` and the same for
-`cneri`, then `publish`, `final: true`.
+Each «in …» of the table is a named guard of the head (`member`, `reviewer`, `editor`, and `reviewing`
+for a reviewer while the article is in review), and each status a `$value` reference read by `is`.
 
-Laws: `keeps-set { set: 'reviewers', while: { status: 'in_review' } }` refuse;
+An approval's payload is `{ version }`; the `approvals` list holds the ids of the reviewers who
+approved, read from the writers. A goal for publication is set once, for the version on the table:
+its `when` is an `all` of `{ line: { gist: 'approve', writer: 'user::bgalli', payload: { version: { $value:
+'version' } } } }` and the same for `cneri`, then `publish`, `final: true`.
+
+Laws: `keeps-set { set: 'reviewers' }` refuse, `while` the status is `in_review` and a `request_review`
+line is in force (a draft given a new version goes in review before anyone is asked to review it);
 `keeps-set { set: 'editors' }` refuse; `keeps-goals` confirm; `settles` refuse.
 
 ## 3 · Scenarios (`cases/editorial-review/scenarios.json`, read by tests and the playground)
 
 1. **Published**: submit (v1) by aconti, editor drusso → request review of bgalli and cneri →
-   the editor's goal «Pubblicazione» (both approve v1, then publish, final) → bgalli approves v1 →
-   cneri asks for changes → aconti posts v2 → the editor changes the goal to v2 (revoke and new)
-   → both approve v2 → published by the goal; a `publish` revoke is not even offered (no revoke
-   gist for it), and the goal's line is locked.
+   the editor's goal «Pubblicazione» (both approve the current version, then publish, final) →
+   bgalli approves v1 → cneri asks for changes → aconti posts v2, and the goal now awaits v2 → both
+   approve v2 → published by the goal; a `publish` revoke is not even offered (no revoke gist for
+   it), and the goal's line is locked.
 2. **Late**: the same up to the request for changes, then the editor writes a deadline, and
    `system::clock` posts `deadline_passed`: `late` is set, nothing else happens (§4).
 3. **Left alone**: bgalli leaves the team during the review while cneri stays: allowed; then cneri
@@ -114,7 +119,8 @@ Where the build had to choose:
   `defineDomain` of its case (read with `readSchema` and `BASE_KIT`) and its UI schema. The review has
   no policy, no document and no command; its goals stand one at a time and have no wrapper; a goal
   awaits «each reviewer approves the version this card names» (`awaited.by.members`), and the
-  composer of an approval starts on the thread's current version and makes the stamp.
+  composer of an approval starts on the thread's current version (it made the stamp until the round
+  «Conditions»).
   `playground/test/fence.test.ts` fails on a gist named anywhere in `src/` but the two modules.
 - **The misfits' tests** show today's behaviour; the third reviewer of the quorum test, `dferri`, is the
   test's own. The `collect-writer` kind is registered in the test, in a kit, and not in the package.

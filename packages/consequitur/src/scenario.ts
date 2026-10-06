@@ -10,7 +10,9 @@
 //                             for a line no step posted, such as one a goal wrote
 //
 // A placeholder is an object with that one key, wherever a value may stand, a check's payload and a
-// check's writer included; a reference that finds no line is an error that says which. A step may
+// check's writer included; a placeholder that finds no line is an error that says which. A reference
+// (`$value`, `$set`, `$writer`, `$draft`) is not a placeholder: the player leaves it in the line, and the
+// reading resolves it. A step may
 // also be `confirmed` (a `confirm` law asked of it) or `refused` (the scenario expects the engine to
 // refuse it, with this code, and goes on).
 //
@@ -20,7 +22,8 @@
 // This module is the one resolver: the engine's tests, the playground and any application that keeps a
 // scenario import it. It knows no gist and no domain.
 
-import { matches, validChecks } from './check.ts';
+import { matches, validCheck } from './check.ts';
+import { nodes } from './condition.ts';
 import { inOrder } from './line.ts';
 import type { Check, EventLine, Json, LineDraft, LineId, Payload, Reading, Refusal, Schema, Writer } from './types.ts';
 import { isObject, kinOf } from './util.ts';
@@ -48,12 +51,15 @@ export interface Scenario {
 /** The id of the line each label named, as the steps posted them. */
 export type Labels = Map<string, LineId>;
 
-/** Replaces every placeholder in a value by what it refers to. Throws, naming it, when a reference finds nothing. */
+/** The keys of a reference, which the player leaves alone. */
+const REFERENCES = ['$value', '$set', '$writer', '$draft'];
+
+/** Replaces every placeholder in a value by what it refers to, and leaves references alone. Throws, naming it, when a placeholder finds nothing. */
 export function resolve(value: Json, lines: EventLine[], labels: ReadonlyMap<string, LineId>): Json {
   if (Array.isArray(value)) return value.map((item) => resolve(item, lines, labels));
   if (value === null || typeof value !== 'object') return value;
   const keys = Object.keys(value);
-  if (keys.length === 1 && keys[0].startsWith('$')) {
+  if (keys.length === 1 && keys[0].startsWith('$') && !REFERENCES.includes(keys[0])) {
     const [key] = keys;
     const target = value[key];
     if (key === '$line' || key === '$goal') {
@@ -62,12 +68,12 @@ export function resolve(value: Json, lines: EventLine[], labels: ReadonlyMap<str
       return key === '$line' ? id : `goal::${id}`;
     }
     if (key === '$find') {
-      if (!validChecks([target])) throw new Error('A "$find" holds a check: a gist, a kin, a writer or a payload.');
+      if (!validCheck(target)) throw new Error('A "$find" holds a check: a gist, a kin, a writer or a payload.');
       const found = inOrder(lines).find((line) => matches(target as unknown as Check, line));
       if (!found) throw new Error(`No line of the thread matches ${JSON.stringify(target)}.`);
       return found.id;
     }
-    throw new Error(`The placeholder "${key}" is not one of $line, $goal and $find.`);
+    throw new Error(`The placeholder "${key}" is not one of $line, $goal and $find, nor a reference.`);
   }
   return Object.fromEntries(keys.map((key) => [key, resolve(value[key], lines, labels)]));
 }
@@ -161,7 +167,7 @@ export interface Pruned {
  */
 export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pruned {
   const standing = new Set(reading.inForce);
-  const found = new Set(reading.goals.flatMap((goal) => goal.checks.flatMap((c) => (c.foundIn === undefined ? [] : [c.foundIn]))));
+  const found = new Set(reading.goals.flatMap((goal) => nodes(goal.trace).flatMap(({ node }) => (node.foundIn === undefined ? [] : [node.foundIn]))));
   const records = Object.values(schema.records);
   const pruned: Pruned = { open: [], left: [] };
   for (const line of inOrder(lines)) {

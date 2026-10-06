@@ -22,8 +22,8 @@ export interface LineFacts {
   goal?: GoalReading;
   /** This line was written by a goal: that goal's line id. */
   writtenBy?: LineId;
-  /** A goal line: its warning lines, by check index. */
-  warnings?: Record<number, EventLine>;
+  /** A goal line: its warning lines, by the path of the node each names. */
+  warnings?: Record<string, EventLine>;
   /** A goal line: whether its outcome is locked against revoking. */
   locked?: boolean;
 }
@@ -142,15 +142,16 @@ export type ReadingChange =
 
 export function changes(before: Reading, after: Reading): ReadingChange[];
 export function keyOf(denunciation: Denunciation): string;
-export function keyOfCheck(goal: GoalReading, index: number): string;
+export function keyOfCheck(goal: GoalReading, path: string): string;
 ```
 
 What a host animates or tells a person when a reading becomes another. A line is `in-force` when
 the thread newly holds it in force, `revoked` when it is newly out of force. A goal is `set` when
 the reading holds it for the first time (and `met` too if it is met already), `met` or `unmet` when
-that flips, `gone` when the reading no longer holds it. A check, found by its goal and its index,
-`found` a line (it had none, or another), `lost` the one it had, or became an `orphan`; the checks of
-a goal newly set are read against checks that found nothing. A denunciation is `raised` when its key
+that flips, `gone` when the reading no longer holds it. A check, a `line` node of a goal's trace found
+by its goal and its path, `found` a line (it had none, or another), `lost` the one it had, or became an
+`orphan` (it is marked as one that can no longer hold); the checks of a goal newly set are read against
+checks that found nothing. A denunciation is `raised` when its key
 is new, `answered` when its key is gone; `settled` and `unsettled` say the thread's settling flipped.
 Two identical readings give no change. The list is ordered by kind, in the order above, then by key
 with `compare`, so a host that is given the same two readings animates the same.
@@ -162,8 +163,10 @@ denunciations that say the same thing in two readings and different otherwise: a
 kind, key and member, a `line` one by the goal's line, the gist and the payload (the outcome and a
 warning of one goal differ by both), a `thread` one by its rule. It does not read what a handle
 expects or holds, so a denunciation whose expectation changes keeps its key, and `changes` says
-nothing of it. `keyOfCheck` is the goal's line id and the check's index: two equal checks of one
-goal still have two keys. The parts a person writes (a key, a member, a payload) are written
+nothing of it. `keyOfCheck` is the goal's line id and the node's path: two equal checks of one
+goal still have two keys, and the `n`th check of a goal whose condition is an `all`, as a composer
+builds it, keeps the key `n` it had when a goal's checks were a list *(round «Conditions»; it took the
+check's index)*. The parts a person writes (a key, a member, a payload) are written
 canonical or last, so no key can be read two ways.
 
 ## 6 · Tests

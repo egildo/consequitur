@@ -27,22 +27,6 @@ export function validCheck(check: unknown): check is Check {
   });
 }
 
-/**
- * Whether a goal's checks can be read: a non-empty array whose every element is
- * an object stating at least one of `gist`, `kin`, `writer` (strings) and
- * `payload` (an object with a key), and nothing else. Admission uses the same
- * answer, so a goal that is refused and a goal that states nothing agree.
- */
-export function validChecks(value: unknown): value is Check[] {
-  if (!Array.isArray(value) || value.length === 0) return false;
-  return value.every((check) => {
-    if (!isObject(check)) return false;
-    const keys = Object.keys(check);
-    if (keys.length === 0 || keys.some((k) => !CHECK_KEYS.includes(k))) return false;
-    return keys.every((k) => (k === 'payload' ? isObject(check[k]) && Object.keys(check[k]).length > 0 : typeof check[k] === 'string'));
-  });
-}
-
 /** Whether a line equals every part a check states. */
 export function matches(check: Check, line: EventLine): boolean {
   if (check.gist !== undefined && check.gist !== line.gist) return false;

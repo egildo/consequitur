@@ -4,7 +4,7 @@
 // that record a reconciliation are its own, so they skip admission; admission
 // refuses them, and a goal's lines, from anyone else.
 
-import { validChecks } from './check.ts';
+import { conditionProblem } from './condition.ts';
 import { asStored, canonical, inForce, inOrder, lockedBy, revokeOf, stamp } from './line.ts';
 import { consequitur, whenHolds } from './reading.ts';
 import type {
@@ -105,9 +105,10 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   if (problem !== undefined) return refuse('invalid-payload', problem);
 
   if (gist.rules.some((r) => r.rule === 'goal')) {
-    const { name, checks, then } = payload;
+    const { name, when, then } = payload;
     if (typeof name !== 'string') return invalid('The key "name" must hold a string');
-    if (!validChecks(checks)) return invalid('The key "checks" must hold a non-empty list of valid checks');
+    const unfit = conditionProblem(when, schema, false);
+    if (unfit !== undefined) return invalid(`The key "when" must hold a condition a goal may hold (${unfit.slice(0, -1)})`);
     if (has(payload, 'with') && !isObject(payload.with)) return invalid('The key "with" must hold an object');
     if (has(payload, 'final') && typeof payload.final !== 'boolean') return invalid('The key "final" must hold a boolean');
     const outcome = typeof then === 'string' ? gists.find((g) => g.gist === then) : undefined;
@@ -247,12 +248,12 @@ export async function settle(
 }
 
 /** The laws a dry run broke, in the order of the schema's laws; `before` reads the state given, `after` the settled one. */
-function judge(schema: Schema, before: { reading: Reading; handles: Handles }, after: { reading: Reading; handles: Handles }): Verdict[] {
+function judge(schema: Schema, before: { reading: Reading; handles: Handles; lines: EventLine[] }, after: { reading: Reading; handles: Handles; lines: EventLine[] }): Verdict[] {
   const verdicts: Verdict[] = [];
   for (const binding of schema.laws) {
     const kind = schema.kit.laws.find((l) => l.law === binding.law);
     if (!kind) continue;
-    for (const found of kind.judge(binding, before, after)) verdicts.push({ law: binding.law, strength: binding.strength, ...found });
+    for (const found of kind.judge(binding, before, after, schema)) verdicts.push({ law: binding.law, strength: binding.strength, ...found });
   }
   return verdicts;
 }
@@ -280,7 +281,7 @@ export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schem
   }
   const settled = await settle({ lines, handles: state.handles }, schema, now, policy);
   const kin = kinOf(draft.writer);
-  const verdicts = kin !== undefined && schema.judged.includes(kin) ? judge(schema, { reading: before, handles: state.handles }, { reading: settled.reading, handles: settled.state.handles }) : [];
+  const verdicts = kin !== undefined && schema.judged.includes(kin) ? judge(schema, { reading: before, handles: state.handles, lines: state.lines }, { reading: settled.reading, handles: settled.state.handles, lines: settled.state.lines }) : [];
   return { state: settled.state, reading: settled.reading, added: settled.state.lines.slice(state.lines.length), rounds: settled.rounds, verdicts };
 }
 

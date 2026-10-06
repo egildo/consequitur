@@ -1,17 +1,14 @@
-// Round 5: the editorial review, a second domain unlike SIBAR's activities, and what does not fit
-// the engine. The case (`cases/editorial-review/`) is read as the playground reads it; the first
-// describe plays its three scenarios, and the second pins, one test each, the five misfits of
-// `docs/misfits.md`: what the engine says today, not what it should.
+// The editorial review, a second domain unlike SIBAR's activities, chosen so that what did not fit
+// the engine would show. The case (`cases/editorial-review/`) is read as the playground reads it; the
+// first describes play its three scenarios, and the last shows, one test each, that the five misfits of
+// `docs/misfits.md` now fit.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_KIT,
-  canonical,
   emptyState,
-  idOf,
-  keysAre,
   lockedBy,
   offers,
   playScenario,
@@ -20,21 +17,16 @@ import {
   readSchema,
   consequitur,
   type EventLine,
-  type Handles,
   type Json,
-  type Kit,
   type Labels,
   type LineDraft,
   type Refusal,
-  type RuleBinding,
-  type RuleKind,
   type Schema,
   type Step,
   type ThreadState,
-  type ValueAcc,
   type Writer,
 } from '../src/index.ts';
-import { membersOf, strict, valuesOf } from './helpers.ts';
+import { lineNodes, membersOf, strict, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
 const casePath = (file: string) => join(import.meta.dirname, '..', '..', '..', 'cases', 'editorial-review', file);
@@ -46,8 +38,7 @@ const stepsOf = (id: string): Step[] => SCENARIOS.get(id)!.steps;
 
 const by = (id: string): Writer => `user::${id}`;
 const draft = (who: string, gist: string, payload: LineDraft['payload']): LineDraft => ({ gist, writer: by(who), payload });
-const approve = (who: string, version: string): LineDraft => draft(who, 'approve', { version, stamp: `${version}:${who}` });
-const approval = (who: string, version: string): Json => ({ gist: 'approve', writer: by(who), payload: { version } });
+const approve = (who: string, version: string): LineDraft => draft(who, 'approve', { version });
 
 /** A thread of a schema with the posts a scenario, or a test, makes to it; what each post added is kept in `log`. */
 function thread(schema: Schema = SCHEMA) {
@@ -116,7 +107,7 @@ describe('the editorial review: «published»', () => {
   it('runs to the end, and the reading says what it should at the steps that matter', async () => {
     const t = thread();
     const seen: string[] = [];
-    await t.play(stepsOf('published'), async ({ step, labels }) => {
+    await t.play(stepsOf('published'), async ({ step }) => {
       seen.push(step.label ?? step.gist);
       const reading = t.reading().goals;
       switch (step.label) {
@@ -125,8 +116,8 @@ describe('the editorial review: «published»', () => {
           expect(t.members('team')).toEqual(['aconti']);
           expect(t.members('editors')).toEqual(['drusso']);
           expect(t.members('reviewers')).toEqual([]);
-          // the author may ask for a review, say a word or leave; nobody else may do more
-          expect(t.offered('aconti')).toEqual(['request_review', 'comment', 'leave_team']);
+          // the author may send a new version, ask for a review, say a word or leave; nobody else may do more
+          expect(t.offered('aconti')).toEqual(['revision', 'request_review', 'comment', 'leave_team']);
           expect(t.offered('bgalli')).toEqual([]);
           expect(t.offered('drusso')).toEqual(['set_goal', 'deadline']);
           break;
@@ -136,14 +127,16 @@ describe('the editorial review: «published»', () => {
           expect(t.values.status).toBe('in_review');
           expect(t.offered('bgalli')).toEqual(['request_review', 'approve', 'request_changes', 'comment', 'leave_team']);
           break;
-        case 'goal-v1':
+        case 'goal':
           expect(reading).toHaveLength(1);
           expect(reading[0]).toMatchObject({ name: 'Pubblicazione', then: 'publish', met: false, final: true });
+          // the goal reads the version the thread holds
+          expect(lineNodes(reading[0]).map((n) => n.check?.payload)).toEqual([{ version: 'v1' }, { version: 'v1' }]);
           expect(t.offered('drusso')).toContain('set_goal_revoke');
           break;
         case 'bgalli-v1':
-          expect(t.values.approvals).toEqual(['v1:bgalli']);
-          expect(reading[0].checks.map((c) => 'foundIn' in c)).toEqual([true, false]);
+          expect(t.values.approvals).toEqual(['bgalli']);
+          expect(lineNodes(reading[0]).map((n) => 'foundIn' in n)).toEqual([true, false]);
           break;
         case 'changes':
           expect(t.values.status).toBe('changes_requested');
@@ -153,31 +146,27 @@ describe('the editorial review: «published»', () => {
           break;
         case 'v2':
           expect(t.values).toMatchObject({ status: 'in_review', version: 'v2' });
-          // the goal still waits for v1: the thread holds v1 approvals, so nothing is orphaned
+          // the same goal now waits for v2: the approval of v1 no longer meets it, and nothing is lost
           expect(reading[0].met).toBe(false);
-          expect(reading[0].checks.some((c) => c.orphan)).toBe(false);
+          expect(lineNodes(reading[0]).map((n) => [n.check?.payload, 'foundIn' in n])).toEqual([
+            [{ version: 'v2' }, false],
+            [{ version: 'v2' }, false],
+          ]);
+          expect(lineNodes(reading[0]).some((n) => n.lost)).toBe(false);
           expect(t.offered('aconti')).not.toContain('revision');
           break;
-        case 'goal-v2':
-          // the goal was revoked and written new: one goal in force, which waits for v2
-          expect(reading).toHaveLength(1);
-          expect(reading[0].line).toBe(labels.get('goal-v2'));
-          expect(reading[0].checks.map((c) => c.check.payload)).toEqual([{ version: 'v2' }, { version: 'v2' }]);
-          break;
         case 'bgalli-v2':
-          expect(reading[0].checks.map((c) => 'foundIn' in c)).toEqual([true, false]);
+          expect(lineNodes(reading[0]).map((n) => 'foundIn' in n)).toEqual([true, false]);
           expect(t.values.status).toBe('in_review');
           break;
         case 'cneri-v2':
           expect(t.values.status).toBe('published');
           expect(reading[0]).toMatchObject({ met: true, final: true });
           break;
-        default:
-          if (step.gist === 'set_goal_revoke') expect(reading).toHaveLength(0);
       }
     });
     expect(seen).toHaveLength(stepsOf('published').length);
-    expect(t.values.approvals).toEqual(['v1:bgalli', 'v2:bgalli', 'v2:cneri']);
+    expect(t.values.approvals).toEqual(['bgalli', 'cneri']);
   });
 
   it('has the goal publish, once, as itself, and nothing can take that line out of force', async () => {
@@ -185,10 +174,10 @@ describe('the editorial review: «published»', () => {
     await t.play(stepsOf('published'));
     const publish = t.state.lines.filter((l) => l.gist === 'publish');
     expect(publish).toHaveLength(1);
-    expect(publish[0].writer).toBe(`goal::${t.labels.get('goal-v2')}`);
+    expect(publish[0].writer).toBe(`goal::${t.labels.get('goal')}`);
     // the goal wrote it as its outcome: after the approval that met it, and a record of the new status
     expect(t.log.at(-1)).toEqual(['approve', 'publish', 'value_set', 'value_set']);
-    expect(lockedBy(publish[0], t.state.lines)).toBe(t.labels.get('goal-v2'));
+    expect(lockedBy(publish[0], t.state.lines)).toBe(t.labels.get('goal'));
     // no gist revokes a publication: none is offered, and the two that revoke refuse to name it
     const everyone = ['aconti', 'bgalli', 'cneri', 'drusso'].flatMap((who) => offers(t.state.lines, by(who), SCHEMA));
     expect(everyone.filter((o) => o.targets?.includes(publish[0].id))).toEqual([]);
@@ -252,175 +241,110 @@ describe('the editorial review: «left alone»', () => {
   });
 });
 
-describe('what does not fit', () => {
+describe('what now fits', () => {
   // 1 · «the current version»
-  it('1 · a check holds a version written into it: the goal does not follow the current one', async () => {
+  it('1 · one goal follows the version the thread holds, and a key the thread does not hold is awaited, never lost', async () => {
     const t = thread();
     await t.play(until('published', 'v2'));
-    // the goal of version v1 stands, and the review is on v2
+    // one goal, set at v1, now reads v2: the approval of v1 does not meet it
     expect(t.values.version).toBe('v2');
+    expect(t.reading().goals.map((g) => g.name)).toEqual(['Pubblicazione']);
     await t.say(approve('bgalli', 'v2'));
+    expect(t.values.status).toBe('in_review');
     await t.say(approve('cneri', 'v2'));
-    expect(t.values.approvals).toEqual(['v1:bgalli', 'v2:bgalli', 'v2:cneri']);
-    // both reviewers approved the current version, and the goal, which named v1, stands waiting
-    expect(t.values.status).toBe('in_review');
+    expect(t.values.status).toBe('published');
     const [goal] = t.reading().goals;
-    expect(goal.met).toBe(false);
-    expect(goal.checks.map((c) => 'foundIn' in c)).toEqual([true, false]);
+    expect(goal.met).toBe(true);
+    expect(lineNodes(goal).map((n) => n.foundIn)).toEqual([t.state.lines.find((l) => l.gist === 'approve' && l.payload.version === 'v2')!.id, t.state.lines.findLast((l) => l.gist === 'approve')!.id]);
 
-    // a check cannot say «the version the thread holds»: a reference is a value, compared as written
-    const reference = { $value: 'version' };
-    const asked = await t.say(
-      draft('drusso', 'set_goal', { name: 'Corrente', then: 'publish', checks: [{ gist: 'approve', writer: by('bgalli'), payload: { version: reference } }] }),
-    );
-    expect(asked).toBeUndefined();
-    const current = t.reading().goals.find((g) => g.name === 'Corrente')!;
-    expect(current.met).toBe(false);
-    expect(t.values.status).toBe('in_review');
-    // the way today is to change the goal, which is a revoke and a new line
-    expect(canonical(current.checks[0].check as unknown as Json)).toContain('$value');
+    // a reference to a key no line states leaves its node unmet, and no warning is written
+    const other = thread();
+    await other.play(until('published', 'request'));
+    expect(await other.say(draft('drusso', 'set_goal', { name: 'Altro', then: 'publish', when: { line: { gist: 'approve', payload: { version: { $value: 'nothing' } } } } }))).toBeUndefined();
+    await other.say(approve('bgalli', 'v1'));
+    const [unresolved] = other.reading().goals;
+    expect(unresolved.trace).toEqual({ condition: { line: { gist: 'approve', payload: { version: { $value: 'nothing' } } } }, holds: false });
+    expect(other.state.lines.filter((l) => l.gist === 'goal_warning')).toEqual([]);
   });
 
   // 2 · «before the deadline»
-  it('2 · no check on time and no negation: the goal that waits for the deadline cannot ask who has not approved', async () => {
+  it('2 · a goal with `not`: when the deadline passes and the current version is not approved by both, it asks for changes', async () => {
+    const late = (reviewers: string[]): Json => ({
+      name: 'Scadenza',
+      then: 'request_changes',
+      when: { all: [{ line: { gist: 'deadline_passed' } }, { not: { all: reviewers.map((who) => ({ line: { gist: 'approve', writer: by(who), payload: { version: { $value: 'version' } } } })) } }] },
+    });
     const t = thread();
     await t.play(until('late', 'bgalli-v1'));
-    // «publish at the deadline unless cneri still has to approve» has no words: a check cannot be negated,
-    // and cannot read a value, so «late» is only a value that a gist's `when` may read
-    const negated = { gist: 'approve', not: true, writer: by('cneri') };
-    const reading = { gist: 'deadline_passed', values: { late: true } };
-    for (const check of [negated, reading]) {
-      expect(await t.say(draft('drusso', 'set_goal', { name: 'Scadenza', then: 'publish', checks: [check as unknown as Json] }))).toMatchObject({ code: 'invalid-payload' });
-    }
-    // the closest goal waits for the line the clock writes, and publishes whatever is missing
-    expect(await t.say(draft('drusso', 'set_goal', { name: 'Scadenza', then: 'publish', checks: [{ gist: 'deadline_passed' }] }))).toBeUndefined();
+    expect(await t.say(draft('drusso', 'set_goal', late(['bgalli', 'cneri']) as LineDraft['payload']))).toBeUndefined();
     expect(await t.say(draft('drusso', 'deadline', { date: '2026-10-31' }))).toBeUndefined();
     expect(t.values.status).toBe('in_review');
     expect(await t.say({ gist: 'deadline_passed', writer: 'system::clock', payload: {} })).toBeUndefined();
-    expect(t.values).toMatchObject({ late: true, status: 'published', approvals: ['v1:bgalli'] });
-    expect(t.state.lines.filter((l) => l.gist === 'approve').map((l) => l.writer)).toEqual([by('bgalli')]);
+    // cneri has not approved: the goal asks for changes, as itself, and nothing is published
+    expect(t.values).toMatchObject({ late: true, status: 'changes_requested', approvals: ['bgalli'] });
+    expect(t.state.lines.find((l) => l.gist === 'request_changes')?.writer).toMatch(/^goal::/);
+    expect(t.reading().goals.find((g) => g.name === 'Scadenza')?.trace.children?.[1]).toMatchObject({ holds: true, children: [{ holds: false }] });
+
+    // both approved before the deadline: the article is published, and the deadline's goal is not met
+    const on = thread();
+    await on.play(until('late', 'bgalli-v1'));
+    await on.say(draft('drusso', 'set_goal', late(['bgalli', 'cneri']) as LineDraft['payload']));
+    await on.say(approve('cneri', 'v1'));
+    expect(on.values.status).toBe('published');
+    await on.say({ gist: 'deadline_passed', writer: 'system::clock', payload: {} });
+    expect(on.values.status).toBe('published');
+    expect(on.reading().goals.find((g) => g.name === 'Scadenza')?.met).toBe(false);
   });
 
   // 3 · «status is A or B»
-  it('3 · a `when` names one value per key: an author cannot post a new version of a draft nobody has opened', async () => {
+  it('3 · `is` with two values: an author may post a new version of a draft nobody has opened, or after a request for changes', async () => {
     const t = thread();
     await t.play(until('published', 'submit'));
     expect(t.values.status).toBe('draft');
-    expect(t.offered('aconti')).not.toContain('revision');
-    expect(await t.say(draft('aconti', 'revision', { version: 'v1b' }))).toMatchObject({ code: 'not-now' });
-    // nor can she while it is in review; only the one status the gist names lets it through
-    await t.play(until('published', 'request').slice(1));
-    expect(t.values.status).toBe('in_review');
-    expect(await t.say(draft('aconti', 'revision', { version: 'v1b' }))).toMatchObject({ code: 'not-now' });
-    await t.say(draft('cneri', 'request_changes', {}));
     expect(t.offered('aconti')).toContain('revision');
     expect(await t.say(draft('aconti', 'revision', { version: 'v1b' }))).toBeUndefined();
+    expect(t.values).toMatchObject({ version: 'v1b', status: 'in_review' });
+    // in review it may not
+    await t.say(draft('aconti', 'request_review', { reviewers: ['bgalli', 'cneri'] }));
+    expect(t.offered('aconti')).not.toContain('revision');
+    expect(await t.say(draft('aconti', 'revision', { version: 'v1c' }))).toMatchObject({ code: 'not-now' });
+    await t.say(draft('cneri', 'request_changes', {}));
+    expect(t.offered('aconti')).toContain('revision');
+    expect(await t.say(draft('aconti', 'revision', { version: 'v1c' }))).toBeUndefined();
   });
 
   // 4 · «any two of three reviewers»
-  it('4 · a goal is an AND of its checks: «two of three» is as many goals as there are pairs', async () => {
-    const asked = (reviewers: string[]) => draft('aconti', 'request_review', { reviewers });
-    const start = async () => {
-      const t = thread();
-      await t.play(until('published', 'submit'));
-      await t.say(asked(['bgalli', 'cneri', 'dferri']));
-      return t;
-    };
-
-    // one goal on the three: two approvals are not enough, all three are
-    const all = await start();
-    await all.say(draft('drusso', 'set_goal', { name: 'Tre su tre', then: 'publish', checks: ['bgalli', 'cneri', 'dferri'].map((who) => approval(who, 'v1')) }));
-    await all.say(approve('bgalli', 'v1'));
-    await all.say(approve('cneri', 'v1'));
-    expect(all.values.status).toBe('in_review');
-    expect(all.reading().goals[0].checks.map((c) => 'foundIn' in c)).toEqual([true, true, false]);
-    await all.say(approve('dferri', 'v1'));
-    expect(all.values.status).toBe('published');
-
-    // «any two» is the three pairs, each its own goal, and for any k of n it is n choose k
-    const pairs = await start();
-    for (const [a, b] of [['bgalli', 'cneri'], ['bgalli', 'dferri'], ['cneri', 'dferri']]) {
-      expect(await pairs.say(draft('drusso', 'set_goal', { name: `${a} e ${b}`, then: 'publish', checks: [approval(a, 'v1'), approval(b, 'v1')] }))).toBeUndefined();
-    }
-    expect(pairs.reading().goals).toHaveLength(3);
-    await pairs.say(approve('bgalli', 'v1'));
-    expect(pairs.values.status).toBe('in_review');
-    await pairs.say(approve('dferri', 'v1'));
-    expect(pairs.values.status).toBe('published');
-    expect(pairs.reading().goals.filter((g) => g.met).map((g) => g.name)).toEqual(['bgalli e dferri']);
+  it('4 · `atLeast`: one goal for «any two of three», which a third approval does not need', async () => {
+    const t = thread();
+    await t.play(until('published', 'submit'));
+    await t.say(draft('aconti', 'request_review', { reviewers: ['bgalli', 'cneri', 'dferri'] }));
+    const quorum = { atLeast: 2, of: ['bgalli', 'cneri', 'dferri'].map((who) => ({ line: { gist: 'approve', writer: by(who), payload: { version: { $value: 'version' } } } })) };
+    expect(await t.say(draft('drusso', 'set_goal', { name: 'Due su tre', then: 'publish', final: true, when: quorum }))).toBeUndefined();
+    await t.say(approve('bgalli', 'v1'));
+    expect(t.values.status).toBe('in_review');
+    expect(t.reading().goals[0].trace.children?.map((c) => c.holds)).toEqual([true, false, false]);
+    await t.say(approve('dferri', 'v1'));
+    expect(t.values.status).toBe('published');
+    expect(t.reading().goals).toHaveLength(1);
+    expect(t.reading().goals[0].trace.children?.map((c) => c.holds)).toEqual([true, false, true]);
   });
 
   // 5 · «who approved»
-  describe('5 · rules read the payload, never the writer: `stamp` repeats the writer', () => {
-    /** A rule kind that reads the writer: the list under `key` holds `<payload[prefix]>:<writer's id>` for each line in force. */
-    const collectWriter: RuleKind = {
-      rule: 'collect-writer',
-      handles: ['value'],
-      read: (binding) =>
-        keysAre(binding, ['key'], ['prefix']) && typeof binding.key === 'string' && (!('prefix' in binding) || typeof binding.prefix === 'string')
-          ? (binding as RuleBinding)
-          : 'a collect-writer binding has a key, and may have a prefix.',
-      admit: (binding, payload) => (typeof binding.prefix === 'string' && typeof payload[binding.prefix] !== 'string' ? `The key "${binding.prefix}" must hold a string` : undefined),
-      expect(binding, line, acc) {
-        const stated = acc('value') as ValueAcc | undefined;
-        const id = idOf(line.writer);
-        const prefix = binding.prefix as string | undefined;
-        const part = prefix === undefined ? undefined : line.payload[prefix];
-        if (!stated || id === undefined || (prefix !== undefined && typeof part !== 'string')) return;
-        const item = part === undefined ? id : `${String(part)}:${id}`;
-        const key = binding.key as string;
-        const held = stated.get(key);
-        const list = held?.collected ? (held.value as Json[]) : [];
-        if (list.some((v) => canonical(v) === canonical(item))) return;
-        stated.set(key, { value: [...list, item], line: line.id, collected: true });
-      },
-    };
-    const KIT: Kit = { ...BASE_KIT, rules: [...BASE_KIT.rules, collectWriter] };
-
-    /** The case with `approve` reading the writer: no `stamp`. */
-    const variant = {
-      ...SCHEMA_JSON,
-      gists: SCHEMA_JSON.gists.map((g) => (g.gist === 'approve' ? { ...g, rules: [{ rule: 'collect-writer', key: 'approvals', prefix: 'version' }] } : g)),
-    };
-
-    it('needs the stamp today, and refuses an approval without it', async () => {
-      const t = thread();
-      await t.play(until('published', 'request'));
-      expect(await t.say(draft('bgalli', 'approve', { version: 'v1' }))).toMatchObject({ code: 'invalid-payload', detail: expect.stringContaining('"stamp"') });
-      // and nothing checks that the stamp says what it should: it is the writer's own word
-      expect(await t.say(draft('bgalli', 'approve', { version: 'v1', stamp: 'v1:cneri' }))).toBeUndefined();
-      expect(t.values.approvals).toEqual(['v1:cneri']);
-    });
-
-    it('is a rule kind registered in a kit, which the base kit refuses', () => {
-      expect(readSchema(variant, KIT).problems).toEqual([]);
-      expect(readSchema(variant, BASE_KIT).problems).toEqual([expect.stringContaining('collect-writer')]);
-      expect(readSchema({ ...variant, gists: variant.gists.map((g) => (g.gist === 'approve' ? { ...g, rules: [{ rule: 'collect-writer', prefix: 'version' }] } : g)) }, KIT).problems).toHaveLength(1);
-    });
-
-    it('removes the stamp: the scenario without it deduces the same approvals, from the writers', async () => {
-      const withStamp = thread();
-      await withStamp.play(stepsOf('published'));
-
-      const stamped = (step: Step): Step => {
-        if (step.gist !== 'approve') return step;
-        const { stamp: _stamp, ...payload } = step.payload;
-        return { ...step, payload };
-      };
-      const steps = stepsOf('published').map(stamped);
-      expect(steps.filter((s) => s.gist === 'approve').every((s) => !('stamp' in s.payload))).toBe(true);
-
-      const without = thread(strict(variant, KIT));
-      await without.play(steps);
-      expect(without.values.approvals).toEqual(['v1:bgalli', 'v2:bgalli', 'v2:cneri']);
-      expect(without.values).toEqual(withStamp.values);
-      expect(without.state.handles).toEqual(withStamp.state.handles as Handles);
-      // and nobody can sign for another: the line's writer is the one the rule reads
-      const t = thread(strict(variant, KIT));
-      await t.play(until('published', 'request').map(stamped));
-      expect(await t.say(draft('bgalli', 'approve', { version: 'v1', stamp: 'v1:cneri' }))).toBeUndefined();
-      expect(t.values.approvals).toEqual(['v1:bgalli']);
-      expect(await t.say(draft('bgalli', 'approve', {}))).toMatchObject({ code: 'invalid-payload' });
-    });
+  it('5 · `collect-writer`, in the base kit: approvals come from the writers, with no stamp, and nobody signs for another', async () => {
+    expect(BASE_KIT.rules.map((r) => r.rule)).toContain('collect-writer');
+    expect(SCHEMA.gists.find((g) => g.gist === 'approve')?.rules).toEqual([{ rule: 'collect-writer', key: 'approvals' }]);
+    const t = thread();
+    await t.play(until('published', 'request'));
+    // a key the rule does not read is free, and says nothing of who approved
+    expect(await t.say(draft('bgalli', 'approve', { version: 'v1', stamp: 'v1:cneri' }))).toBeUndefined();
+    expect(t.values.approvals).toEqual(['bgalli']);
+    // a second approval by the same writer adds nothing
+    await t.say(approve('bgalli', 'v1'));
+    await t.say(approve('cneri', 'v1'));
+    expect(t.values.approvals).toEqual(['bgalli', 'cneri']);
+    // and the binding is read as strictly as any other
+    const strictly = (rules: unknown[]) => readSchema({ ...SCHEMA_JSON, gists: SCHEMA_JSON.gists.map((g) => (g.gist === 'approve' ? { ...g, rules } : g)) }, BASE_KIT).problems;
+    expect(strictly([{ rule: 'collect-writer' }])).toHaveLength(1);
+    expect(strictly([{ rule: 'collect-writer', key: 'approvals', prefix: 'version' }])).toHaveLength(1);
   });
 });

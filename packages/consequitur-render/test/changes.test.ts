@@ -56,8 +56,9 @@ describe('keyOf', () => {
     expect(owed.length).toBeGreaterThan(1);
     expect(new Set(owed.map(keyOf)).size).toBe(owed.length);
     const of = (gist: string, payload: Record<string, number>) => keyOf({ sort: 'line', gist, writer: 'system::sibardoc', line: 'ab', payload });
-    expect(of('closed', {})).not.toBe(of('goal_warning', { check: 0 }));
-    expect(of('goal_warning', { check: 0 })).not.toBe(of('goal_warning', { check: 1 }));
+    const at = (path: string) => ({ path }) as unknown as Record<string, number>;
+    expect(of('closed', {})).not.toBe(of('goal_warning', at('0')));
+    expect(of('goal_warning', at('0'))).not.toBe(of('goal_warning', at('1')));
   });
 
   it('tells a member in a set from the same name as a value key, and a thread denunciation by its rule', () => {
@@ -70,11 +71,13 @@ describe('keyOf', () => {
 });
 
 describe('keyOfCheck', () => {
-  it('differs for two equal checks in one goal, and for the same index in two goals', async () => {
-    const goal = (line: string) => ({ line, name: 'g', then: 'closed', checks: [{ check: { gist: 'memo' } }, { check: { gist: 'memo' } }], met: false, final: false });
-    expect(keyOfCheck(goal('a'), 0)).not.toBe(keyOfCheck(goal('a'), 1));
-    expect(keyOfCheck(goal('a'), 0)).not.toBe(keyOfCheck(goal('b'), 0));
-    expect(keyOfCheck(goal('a'), 1)).toBe(keyOfCheck(goal('a'), 1));
+  it('differs for two equal checks in one goal, and for the same path in two goals; the nth check of an `all` keeps the key n', async () => {
+    const memo = { condition: { line: { gist: 'memo' } }, holds: false };
+    const goal = (line: string) => ({ line, name: 'g', then: 'closed', trace: { condition: { all: [memo.condition, memo.condition] }, holds: false, children: [memo, memo] }, met: false, final: false });
+    expect(keyOfCheck(goal('a'), '0')).not.toBe(keyOfCheck(goal('a'), '1'));
+    expect(keyOfCheck(goal('a'), '0')).not.toBe(keyOfCheck(goal('b'), '0'));
+    expect(keyOfCheck(goal('a'), '1')).toBe(keyOfCheck(goal('a'), '1'));
+    expect(keyOfCheck(goal('a'), '1')).toBe('a:1');
   });
 });
 
@@ -134,20 +137,20 @@ describe('changes', () => {
     expect(before.reading.goals.find((g) => g.line === firme)!.met).toBe(false);
     expect(goal.met).toBe(true);
     expect(list).toContainEqual({ of: 'goal', key: firme, change: 'met' });
-    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(goal, 1), change: 'found' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(goal, '1'), change: 'found' });
     expect(list).toContainEqual({ of: 'line', key: goal.outcome, change: 'in-force' });
     // the wrapper awaited that outcome, and finds it in the same post
     const wrapper = after.reading.goals.find((g) => g.line === labels.get('wrapper')!)!;
-    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(wrapper, 0), change: 'found' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(wrapper, '0'), change: 'found' });
   });
 
   it('says a goal set that is met already, with each of its checks found, and two equal checks have two keys', async () => {
     const { trace } = await play('opinion');
-    const draft = { gist: 'set_goal', writer: 'user::mrossi' as const, payload: { name: 'g', then: 'stage', with: { stage: 'x' }, checks: [{ gist: 'memo' }, { gist: 'memo' }] } };
+    const draft = { gist: 'set_goal', writer: 'user::mrossi' as const, payload: { name: 'g', then: 'stage', with: { stage: 'x' }, when: { all: [{ line: { gist: 'memo' } }, { line: { gist: 'memo' } }] } } };
     const { out, list } = await posted(trace[2], draft);
     const goal = out.reading.goals.find((g) => g.name === 'g')!;
     expect(only(list, 'goal')).toEqual([{ of: 'goal', key: goal.line, change: 'set' }, { of: 'goal', key: goal.line, change: 'met' }]);
-    expect(only(list, 'check')).toEqual([0, 1].map((i) => ({ of: 'check', key: keyOfCheck(goal, i), change: 'found' })));
+    expect(only(list, 'check')).toEqual(['0', '1'].map((i) => ({ of: 'check', key: keyOfCheck(goal, i), change: 'found' })));
   });
 
   it('says a line revoked and a check lost when a revoke takes the line a check found out of force', async () => {
@@ -156,27 +159,27 @@ describe('changes', () => {
     const wrapper = trace[13].reading.goals.find((g) => g.line === labels.get('wrapper')!)!;
     const { list } = await posted(trace[13], { gist: 'memo_revoke', writer: 'user::mrossi', payload: { target: written.id } }, true);
     expect(list).toContainEqual({ of: 'line', key: written.id, change: 'revoked' });
-    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(wrapper, 0), change: 'lost' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(wrapper, '0'), change: 'lost' });
     expect(only(list, 'line').filter((c) => c.change === 'revoked')).toHaveLength(1);
   });
 
   it('says a goal met no more when a check is lost', async () => {
     const { trace } = await play('opinion');
-    const draft = { gist: 'set_goal', writer: 'user::mrossi' as const, payload: { name: 'g', then: 'stage', with: { stage: 'x' }, checks: [{ gist: 'memo' }] } };
+    const draft = { gist: 'set_goal', writer: 'user::mrossi' as const, payload: { name: 'g', then: 'stage', with: { stage: 'x' }, when: { all: [{ line: { gist: 'memo' } }] } } };
     const { out } = await posted(trace[2], draft);
     const [goal] = out.reading.goals.filter((g) => g.name === 'g');
     const memo = out.state.lines.find((l) => l.gist === 'memo' && l.writer === 'user::mrossi')!;
     const { list } = await posted(out, { gist: 'memo_revoke', writer: 'user::mrossi', payload: { target: memo.id } }, true);
     expect(list).toContainEqual({ of: 'line', key: memo.id, change: 'revoked' });
     expect(list).toContainEqual({ of: 'goal', key: goal.line, change: 'unmet' });
-    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(goal, 0), change: 'lost' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(goal, '0'), change: 'lost' });
   });
 
   it('says a check an orphan when a line it awaited is revoked before it found it', async () => {
     const { trace } = await play('opinion');
     const verbale = trace[9].reading.goals.find((g) => g.name === 'Verbale')!;
     const list = changes(trace[8].reading, trace[9].reading);
-    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(verbale, 0), change: 'orphan' });
+    expect(list).toContainEqual({ of: 'check', key: keyOfCheck(verbale, ''), change: 'orphan' });
     expect(list.filter((c) => c.of === 'check' && c.change === 'lost')).toEqual([]);
     expect(list.filter((c) => c.of === 'line' && c.change === 'revoked')).toHaveLength(1);
   });

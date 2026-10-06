@@ -80,7 +80,7 @@ describe('lineFacts', () => {
 
   describe('a goal', () => {
     const goalDraft = (extra: LineDraft['payload'] = {}, checks: Json = [{ gist: 'got_it', writer: 'user::lbianchi' }]) =>
-      mrossi('set_goal', { name: 'visto', then: 'closed', checks, ...extra });
+      mrossi('set_goal', { name: 'visto', then: 'closed', when: { all: (checks as Json[]).map((line) => ({ line })) }, ...extra });
     const memoOf = (lines: EventLine[]) => gistNamed(lines, 'memo')[0];
 
     it('is read on its own line, with no warnings and its outcome unlocked, and writes its outcome', async () => {
@@ -107,7 +107,7 @@ describe('lineFacts', () => {
       expect(of(facts, gistNamed(r.state.lines, 'closed')[0])).toMatchObject({ writtenBy: goalLine.id });
     });
 
-    it('holds its warning lines by check index once a check is lost', async () => {
+    it('holds its warning lines by the path of the node each names, once the goal is lost', async () => {
       const memo = await written([opening, mrossi('memo', { text: 'p', assignTo: ['lbianchi'] })]);
       const id = memoOf(memo.state.lines).id;
       const withGoal = await post(memo.state, goalDraft({}, [{ gist: 'got_it', writer: 'user::lbianchi', payload: { about: id } }]), SIBAR, NOW);
@@ -116,7 +116,8 @@ describe('lineFacts', () => {
       const warning = gistNamed(out.state.lines, 'goal_warning')[0];
       const goalLine = gistNamed(out.state.lines, 'set_goal')[0];
       const facts = factsOf(out);
-      expect(of(facts, goalLine).warnings).toEqual({ 0: warning });
+      expect(of(facts, goalLine).warnings).toEqual({ '0': warning });
+      expect(warning.payload).toEqual({ path: '0' });
       expect(of(facts, warning)).toMatchObject({ writtenBy: goalLine.id });
       expect(of(facts, warning).warnings).toBeUndefined();
     });

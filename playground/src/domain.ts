@@ -1,7 +1,7 @@
 // A domain, as the page knows it: the schema of a case, and everything a person-facing application
 // adds to it that the schema cannot hold (the schema's reader refuses unknown keys, and only a
-// client needs this): the words, the cards, how a line is composed by hand, how a goal awaits it,
-// the people, the policy and the examples. A domain is one module under `domains/`; nothing else
+// client needs this): the words, the guards' words, the cards, how a line is composed by hand, how a
+// goal awaits it, the people, the policy and the examples. A domain is one module under `domains/`; nothing else
 // in the page names a gist. The page reads the domain in use through `domain()`, and switching
 // domains is `useDomain`.
 
@@ -68,8 +68,6 @@ export interface GistUi {
     refer?: { key: string; gists: string[]; optional?: true };
     /** The document picker: the payload key of the code, and of the direction when it asks one. */
     pick?: { document: string; direction?: string };
-    /** A key made of another and the writer's id: `<value of `of`>:<writer's id>`. */
-    stamp?: { key: string; of: string };
     /** Asked before posting while the key of the value handle holds the value. */
     confirm?: { question: string; yes: string; no: string; while: { key: string; value: Json } };
   };
@@ -215,6 +213,8 @@ export interface DomainSpec {
   sets: Record<string, SetUi>;
   /** What a law says when it is broken, by the law and, for a law about a set, by the set. */
   laws: Record<string, Record<string, string>>;
+  /** What each named guard of the schema says, as a condition of a sentence: one entry per guard, and no other. */
+  guards: Record<string, string>;
   goals?: GoalsUi;
   documents?: DocumentsUi;
   commands?: Command[];
@@ -253,6 +253,8 @@ export function defineDomain(spec: DomainSpec): Domain {
   const gists = new Set(schema.gists.map((g) => g.gist));
   const unknown = [...spec.ui.map((ui) => ui.gist), ...spec.examples.flatMap((e) => e.steps.map((s) => s.gist))].filter((gist) => !gists.has(gist));
   if (unknown.length > 0) throw new Error(`The domain "${spec.id}" names gists its case has not: ${[...new Set(unknown)].join(', ')}.`);
+  const guards = Object.keys(schema.guards).sort();
+  if (Object.keys(spec.guards).sort().join() !== guards.join()) throw new Error(`The domain "${spec.id}" must have words for its case's guards, and only for them: ${guards.join(', ')}.`);
 
   const goalGist = schema.gists.find((g) => g.rules.some((r) => r.rule === 'goal'))?.gist;
   const goalRevoke = goalGist === undefined ? undefined : schema.gists.find((g) => g.rules.some((r) => r.rule === 'revoke' && Array.isArray(r.gists) && r.gists.includes(goalGist)))?.gist;

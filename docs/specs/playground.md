@@ -77,7 +77,8 @@ The page runs one **domain** at a time and a picker in its header, «Dominio», 
 (SIBAR)» and «Revisione editoriale». A domain is a module in `src/domains/`, made by `defineDomain` in
 `src/domain.ts` from its case (the schema read with `readSchema` and `BASE_KIT`, its policy if any, read
 with `readPolicy`, its scenarios) and the application's side of it, the **UI schema**: the words (the page's titles, what it
-calls the subject, the refusals, the laws, the keys of the value handle and the sets), each gist's label,
+calls the subject, the refusals, the laws, the keys of the value handle, the sets and, since the round
+«Conditions», each named guard of the schema), each gist's label,
 card and way of being composed and awaited, the people and the «Scrivo come» list, the goals' outcomes,
 and its examples, which are the case's scenarios played through the shared resolver
 ([editorial-review.md](editorial-review.md) §7), with the words of the button. What the page itself does
@@ -87,7 +88,11 @@ for a writer, playing the system around the thread (SIBAR's signing and its new 
 The rest of `src/` reads the domain in use, `domain()`, and names **no gist**:
 `test/fence.test.ts` fails on a string literal that is a gist of either case anywhere but the domains
 (the DOM's `submit` is the one word it lets through), and `test/domains.test.ts` plays each domain's
-examples through the engine and checks that the UI schema has words for every gist and every line.
+examples through the engine and checks that the UI schema has words for every gist, every line and every
+node of a condition. A goal's condition is drawn as a tree (the dock, the goal's card, and «Riga» when the
+selected line is a goal), each node with its mark: ✓ it holds, ⚠ it can no longer hold, ○ not yet; a goal
+that awaits every one of its checks, as the composer builds it, is the one list of them
+([conditions](conditions.md) §8).
 Switching resets the thread, the draft, the selection and the inspector's chip, and keeps the toggles.
 The examples of a domain are buttons made from it, so an example that ends on a refusal its scenario
 expects (the review's «un revisore se ne va») leaves that refusal on screen.

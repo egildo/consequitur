@@ -623,13 +623,26 @@ body.thread-page {
 
 .check {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-base);
   font-size: 13.5px;
   color: var(--neutral-700);
 }
 
-.check.is-found {
+/* a node of a goal's condition that counts its children has them under it */
+.check > .checks {
+  flex-basis: 100%;
+  padding-left: calc(1em + var(--space-base));
+}
+
+.check.is-found,
+.check.is-held {
   color: var(--neutral-900);
+}
+
+.is-held > .tick {
+  color: var(--green-600);
+  font-weight: 700;
 }
 
 .check.is-orphan {

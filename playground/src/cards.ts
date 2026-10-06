@@ -3,7 +3,7 @@
 // whole and not changed afterwards; the ledger builds another when what it reads
 // changes.
 
-import type { Check, EventLine, GoalReading, Json, LineId, Payload } from 'consequitur';
+import type { Check, EventLine, GoalReading, Json, LineId, Payload, Trace } from 'consequitur';
 import { domain } from './domain.ts';
 import type { LineAction, LineSpec } from './deduce.ts';
 import { chip, h } from './dom.ts';
@@ -13,14 +13,15 @@ import {
   documentSubject,
   gistLabel,
   KIN_WORDS,
-  checkSentence,
   lineLabel,
+  nodeSentence,
   outcomeSentence,
   payloadPairs,
   recordSentence,
   sayOf,
   timeOf,
   uiOf,
+  unread,
   userName,
   usersOf,
   warningGist,
@@ -184,7 +185,8 @@ function bodyOf(handlers: Handlers, line: EventLine, writtenBy: LineId | undefin
 /** A goal as a card or the panel draws it: read from the reading, or, for a goal that is not in the reading, from its own line. */
 export interface GoalFacts {
   name: string;
-  checks: GoalReading['checks'];
+  /** Its condition, node by node; a goal not in the reading has every node unmet. */
+  trace: Trace;
   then: string;
   outcome?: Payload;
   final: boolean;
@@ -195,7 +197,7 @@ export interface GoalFacts {
 
 export const goalFacts = (goal: GoalReading): GoalFacts => ({
   name: goal.name,
-  checks: goal.checks,
+  trace: goal.trace,
   then: goal.then,
   outcome: goal.with,
   final: goal.final,
@@ -203,11 +205,9 @@ export const goalFacts = (goal: GoalReading): GoalFacts => ({
   reopened: goal.outcomeRevoked === true,
 });
 
-const checksOf = (line: EventLine): Check[] => (Array.isArray(line.payload.checks) ? (line.payload.checks as Check[]) : []);
-
 export const goalFactsOf = (line: EventLine): GoalFacts => ({
   name: typeof line.payload.name === 'string' ? line.payload.name : '',
-  checks: checksOf(line).map((check) => ({ check })),
+  trace: unread(line.payload.when),
   then: typeof line.payload.then === 'string' ? line.payload.then : '',
   outcome: typeof line.payload.with === 'object' && line.payload.with !== null && !Array.isArray(line.payload.with) ? line.payload.with : undefined,
   final: line.payload.final === true,
@@ -216,20 +216,28 @@ export const goalFactsOf = (line: EventLine): GoalFacts => ({
 });
 
 /**
- * The checks of a goal, each with its mark (✓ found, ⚠ it cannot come true, ○ waiting), and
- * what the goal does. `tick` draws the mark of a found check; `warnings` holds the warning
- * written for each check that cannot come true, by the check's index, and gives its time.
+ * A goal's condition as a tree, each node with its mark (✓ it holds, ⚠ it cannot come true, ○ not yet), and
+ * what the goal does. A goal that awaits every one of its conditions, as the composer builds it, is drawn as
+ * the one list of them; a node that counts its children (`all`, `any`, `atLeast`, `not`) has them under it, and a
+ * named guard is said in the domain's words. `tick` draws the mark of a `line` node that found its line;
+ * `warnings` holds the warning written for the node that made the goal unable to come true, by its path, and
+ * gives its time.
  */
-export function goalRows(facts: GoalFacts, lines: EventLine[], tick?: (id: LineId) => HTMLElement, warnings?: Record<number, EventLine>): HTMLElement[] {
-  const items = facts.checks.map(({ check, foundIn, orphan }, index) => {
-    const warning = warnings?.[index];
+export function goalRows(facts: GoalFacts, lines: EventLine[], tick?: (id: LineId) => HTMLElement, warnings?: Record<string, EventLine>): HTMLElement[] {
+  const item = (node: Trace, path: string): HTMLElement => {
+    const { condition, foundIn, lost, holds } = node;
+    const warning = warnings?.[path];
+    const children = 'guard' in condition ? [] : (node.children ?? []);
     return h(
       'li',
-      { class: foundIn ? 'check is-found' : orphan ? 'check is-orphan' : 'check' },
-      foundIn ? (tick?.(foundIn) ?? h('span', { class: 'tick' }, '✓')) : h('span', { class: 'tick' }, orphan ? '⚠' : '○'),
-      h('span', null, checkSentence(check, lines), orphan && h('span', { class: 'check-note' }, `non può più avverarsi${warning ? ` · ${timeOf(warning.timestamp)}` : ''}`)),
+      { class: foundIn ? 'check is-found' : lost ? 'check is-orphan' : holds ? 'check is-held' : 'check' },
+      foundIn ? (tick?.(foundIn) ?? h('span', { class: 'tick' }, '✓')) : h('span', { class: 'tick' }, lost ? '⚠' : holds ? '✓' : '○'),
+      h('span', null, nodeSentence(condition, lines, node.check), lost && h('span', { class: 'check-note' }, `non può più avverarsi${warning ? ` · ${timeOf(warning.timestamp)}` : ''}`)),
+      children.length > 0 && h('ul', { class: 'checks' }, ...children.map((child, i) => item(child, path === '' ? String(i) : `${path}.${i}`))),
     );
-  });
+  };
+  const root = facts.trace;
+  const items = 'all' in root.condition ? (root.children ?? []).map((child, i) => item(child, String(i))) : [item(root, '')];
   return [
     h('ul', { class: 'checks' }, ...items),
     h(

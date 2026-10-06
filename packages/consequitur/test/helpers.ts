@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { BASE_KIT, readSchema, type Condition, type GistSchema, type Handles, type Json, type Kit, type Schema, type SchemaHead, type ThreadState, type Writer } from '../src/index.ts';
+import { BASE_KIT, nodes, readSchema, type Condition, type GistSchema, type GoalReading, type Handles, type Json, type Kit, type Schema, type SchemaHead, type ThreadState, type Trace, type Writer } from '../src/index.ts';
 
 const root = join(import.meta.dirname, '..', '..', '..');
 
@@ -86,3 +86,9 @@ export const membersOf = (all: Handles, set = 'assignees'): string[] => {
 };
 
 export const stateOf = (lines: ThreadState['lines'], value: Record<string, Json>, assignees: string[]): ThreadState => ({ lines, handles: hold(value, assignees) });
+
+/** A goal's condition that every check finds a line in force: an `all` of `line` nodes, as a goal composed by hand is. */
+export const allOf = (checks: Json[]): Json => ({ all: checks.map((line) => ({ line })) });
+
+/** The `line` nodes of a goal's trace, in the order of the condition. */
+export const lineNodes = (goal: GoalReading): Trace[] => nodes(goal.trace).flatMap(({ node }) => ('line' in node.condition ? [node] : []));

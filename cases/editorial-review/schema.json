@@ -29,7 +29,7 @@
         { "rule": "value", "key": "version", "from": "version", "required": true },
         { "rule": "value", "key": "status", "value": "in_review" }
       ],
-      "when": { "all": [{ "guard": "member" }, { "is": { "$value": "status" }, "values": ["changes_requested"] }] }
+      "when": { "all": [{ "guard": "member" }, { "is": { "$value": "status" }, "values": ["draft", "changes_requested"] }] }
     },
     {
       "gist": "request_review",
@@ -44,7 +44,7 @@
     {
       "gist": "approve",
       "writers": ["user"],
-      "rules": [{ "rule": "value", "key": "approvals", "collect": "stamp", "required": true }],
+      "rules": [{ "rule": "collect-writer", "key": "approvals" }],
       "when": { "guard": "reviewing" }
     },
     {
@@ -55,7 +55,7 @@
     },
     {
       "gist": "request_changes",
-      "writers": ["user"],
+      "writers": ["user", "goal"],
       "rules": [{ "rule": "value", "key": "status", "value": "changes_requested" }],
       "when": { "guard": "reviewing" }
     },
@@ -95,7 +95,12 @@
     { "gist": "goal_warning", "writers": ["goal"], "rules": [] }
   ],
   "laws": [
-    { "law": "keeps-set", "set": "reviewers", "while": { "status": "in_review" }, "strength": "refuse" },
+    {
+      "law": "keeps-set",
+      "set": "reviewers",
+      "while": { "all": [{ "is": { "$value": "status" }, "values": ["in_review"] }, { "line": { "gist": "request_review" } }] },
+      "strength": "refuse"
+    },
     { "law": "keeps-set", "set": "editors", "strength": "refuse" },
     { "law": "keeps-goals", "strength": "confirm" },
     { "law": "settles", "strength": "refuse" }

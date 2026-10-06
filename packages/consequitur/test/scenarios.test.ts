@@ -55,8 +55,10 @@ describe('the scenario resolver', () => {
     expect(resolve({ target: { $find: { gist: 'memo' } } }, [...lines].reverse(), labels)).toEqual({ target: '1' });
   });
 
-  it('leaves what is not a placeholder alone, an object with more keys than one included', () => {
+  it('leaves what is not a placeholder alone, an object with more keys than one and a reference included', () => {
     expect(resolve({ a: 1, b: null, c: { $line: 'first', other: 1 } }, lines, labels)).toEqual({ a: 1, b: null, c: { $line: 'first', other: 1 } });
+    const references = { v: { $value: 'version' }, s: { $set: 'team' }, w: { $writer: 'id' }, d: { $draft: 'x' } };
+    expect(resolve(references, lines, labels)).toEqual(references);
   });
 
   it('says which reference found nothing, and which placeholder it does not know', () => {
@@ -169,7 +171,7 @@ describe('saving a scenario from a thread', () => {
     expect(steps.map((s) => s.gist)).toEqual(pruned.open.map((l) => l.gist));
     expect(steps.map((s) => s.label)).toEqual([undefined, '2', undefined, undefined, '5', undefined, undefined, undefined]);
     expect(steps[2].payload).toMatchObject({ about: { $line: '2' } });
-    expect(steps[6].payload).toMatchObject({ checks: [{ gist: 'memo', writer: { $goal: '5' } }, { gist: 'got_it', writer: 'user::gverdi' }] });
+    expect(steps[6].payload).toMatchObject({ when: { all: [{ line: { gist: 'memo', writer: { $goal: '5' } } }, { line: { gist: 'got_it', writer: 'user::gverdi' } }] } });
     // and the steps are the lines' words, nothing the thread added
     expect(steps.every((s) => s.confirmed === undefined && s.refused === undefined)).toBe(true);
   });
@@ -369,7 +371,7 @@ describe('the warehouse arrival', () => {
     expect(played.failed).toBeUndefined();
 
     // what the scenario awaits: the world's lines, a goal's finds, and the work the goal the person added waits for
-    const added = scenarios.get('saved')!.steps.at(-1)!.payload.checks as Check[];
+    const added = [(scenarios.get('saved')!.steps.at(-1)!.payload.when as unknown as { line: Check }).line];
     const awaited = inOrder(source.lines).filter((l) => {
       const why = source.pruned.left.find((left) => left.line.id === l.id)?.why;
       return why === 'found' || why === 'outside' || (why === undefined && added.some((check) => matches(check, l)));

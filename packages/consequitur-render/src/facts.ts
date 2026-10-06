@@ -13,8 +13,8 @@ export interface LineFacts {
   goal?: GoalReading;
   /** This line was written by a goal: that goal's line id. */
   writtenBy?: LineId;
-  /** A goal line: its warning lines, by check index. */
-  warnings?: Record<number, EventLine>;
+  /** A goal line: its warning lines, by the path of the node each names. */
+  warnings?: Record<string, EventLine>;
   /** A goal line: whether its outcome is locked against revoking. */
   locked?: boolean;
 }
@@ -39,13 +39,13 @@ export function lineFacts(lines: EventLine[], reading: Reading, schema: Schema):
     if (at !== undefined && at < position.get(line.id)! && binding.gists.includes(ordered[at].gist)) revokers.set(target, line);
   }
 
-  // the warnings a goal wrote, by goal and check
-  const warned = new Map<LineId, Record<number, EventLine>>();
+  // the warnings a goal wrote, by goal and path
+  const warned = new Map<LineId, Record<string, EventLine>>();
   for (const line of ordered) {
     const goal = writerGoal(line);
-    const { check } = payloadOf(line);
-    if (goal === undefined || line.gist !== schema.records.warning || typeof check !== 'number') continue;
-    warned.set(goal, { ...warned.get(goal), [check]: line });
+    const { path } = payloadOf(line);
+    if (goal === undefined || line.gist !== schema.records.warning || typeof path !== 'string') continue;
+    warned.set(goal, { ...warned.get(goal), [path]: line });
   }
 
   return ordered.map((line): LineFacts => {

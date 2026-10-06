@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 6. What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 7, «Conditions». What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -31,7 +31,8 @@ cases/
 A **scenario** is a list of **steps**, `{ writer, gist, payload }`, posted to an empty thread; a step may
 be labelled, `confirmed`, or expected `refused`. A payload may point at an earlier line by a
 **placeholder**, `$line` (a labelled step's line id), `$goal` (`goal::` and that id) or `$find` (the first
-line a check matches), since an id is a hash nobody can write down. `playScenario(steps, io)` resolves each
+line a check matches), since an id is a hash nobody can write down; a **reference** (`$value`, `$set`, `$writer`,
+`$draft`) is not one, and the player leaves it in the line. `playScenario(steps, io)` resolves each
 step against the thread as it stands and posts it through whatever `io.send` is: the engine's tests post
 with `post`, the playground with its own `send`, so both play the same files; with `options.as` every step is
 posted as one writer, the person who opens. The module is the engine's own (`scenario.ts`) and knows no gist.
@@ -39,14 +40,15 @@ posted as one writer, the person who opens. The module is the engine's own (`sce
 The reverse walk is in the same module. `prune(lines, reading, schema)` says, line by line, which of a thread
 a scenario need not say: the engine writes it again (a goal's line, a record), it is a mistake or its
 undoing (out of force, or a revoke), the world will state it again (a kin the schema does not judge), or a
-goal's check will find it again; every other line is left open for a person to decide on. `stepsOf(kept,
+`line` node of a goal will find it again; every other line is left open for a person to decide on. `stepsOf(kept,
 all)` turns the lines kept into steps, each id in a payload made a `$line`, a `$goal` or a `$find`.
 
 `test/scenarios.test.ts` tests the resolver and plays SIBAR's two scenarios, prunes SIBAR's «opinion», and
 plays the warehouse's: «Tuesday», `prune` and `stepsOf` of it, and the dry run of «Saved» against it.
-`test/editorial.test.ts` plays the review's three, with assertions at the steps that matter, and pins one
-test to each of the five misfits of [misfits.md](misfits.md), `collect-writer` registered in a kit inside
-the test.
+`test/editorial.test.ts` plays the review's three, with assertions at the steps that matter, and shows, one
+test each, that the five misfits of [misfits.md](misfits.md) now fit. `test/condition.test.ts` tests the
+condition module on its own: the reader's rules, the translation both ways, the evaluation with the draft
+unknown, and what can no longer hold.
 
 ## The modules of `consequitur`
 
@@ -54,7 +56,7 @@ the test.
 types.ts       every type, kits' interfaces included
 util.ts        small guards, `compare` (never localeCompare), `keysAre`, `kinOf`, `idOf`
 line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
-check.ts       validCheck, validChecks, isValueReference, matches, whereMatches
+check.ts       validCheck, isValueReference, matches, whereMatches
 condition.ts   conditionProblem, guardsProblems, toModuleForm, fromModuleForm, resolveCheck, conditionHolds, evaluateCondition, nodes, markLost, lostAt: consequitur's form of a condition, read through kdlet-guards
 schema.ts      readSchema, readGists, readLaws, readPolicy
 reading.ts     expectations, holds, whenHolds, consequitur
@@ -63,7 +65,7 @@ offers.ts      offers
 scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, stepsOf: the one resolver of scenarios, and saving one from a thread
 kit.ts         BASE_KIT
 handles/       value, set
-rules/         value, join, leave
+rules/         value, collect-writer, join, leave
 laws/          keeps-set, keeps-goals, settles
 ```
 
@@ -90,8 +92,8 @@ three touch the DOM and take it as an argument or from `document`, and their tes
 
 ```
 domain.ts      the Domain types, `defineDomain` (a case read with BASE_KIT, plus its UI schema), `domain()` and `useDomain`
-domains/       sibar.ts, editorial.ts: each domain's UI schema (labels, cards, compose, awaited, words, people, commands), its policy, its examples
-ui-schema.ts   the functions that read the domain in use: the Italian sentences of a line, a check, a goal, a record, a law
+domains/       sibar.ts, editorial.ts: each domain's UI schema (labels, cards, compose, awaited, words, the guards' words, people, commands), its policy, its examples
+ui-schema.ts   the functions that read the domain in use: the Italian sentences of a line, a check, a condition and each of its nodes, a goal, a record, a law
 deduce.ts      the writer's offers, each line's actions, what a goal being composed may await (lineFacts feeds it)
 ledger.ts      the cards, in `keyed`; cards.ts draws one; dock.ts the goals; draft.ts the composer; panel.ts the inspector
 pointing.ts    the band over the ledger's column: hover, and a drag from a slot
@@ -135,7 +137,7 @@ a kind of its own.
 interface Kit { handles: HandleKind[]; rules: RuleKind[]; laws: LawKind[] }
 ```
 
-`BASE_KIT` holds `value` and `set`, `value`, `join` and `leave`, `keeps-set`, `keeps-goals` and
+`BASE_KIT` holds `value` and `set`, `value`, `collect-writer`, `join` and `leave`, `keeps-set`, `keeps-goals` and
 `settles`. A consumer builds its own by adding to the lists: the order of `handles` is the order of
 denunciations, and so of the answers. `readSchema(json, kit)` keeps the kit in the `Schema` it
 returns, because the reading, the admission and the judging ask it, and refuses a rule, a law or a
@@ -145,9 +147,9 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
 
 `post(state, draft, schema, now, options)` is `dryRun` and then a decision.
 
-1. **Admit** the draft: an object whose writer is a string, gist, writer's kin, `when`, payload as it
-   will be stored, after a JSON round trip (a plain object, then each rule kind's `admit`, then the
-   mechanics of revoke and goal).
+1. **Admit** the draft: an object whose writer is a string, gist, writer's kin, `when` (read with the
+   writer and the payload as it will be stored), then that payload, after a JSON round trip (a plain
+   object, then each rule kind's `admit`, then the mechanics of revoke and goal).
 2. **Append** it, stamped, with its payload as JSON holds it, and refuse it if the opening rule would break.
 3. **Settle**: read; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);

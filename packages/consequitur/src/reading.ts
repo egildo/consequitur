@@ -8,8 +8,7 @@
 // it on any thread, so a payload that lacks what a binding reads, or holds it in
 // another shape, states nothing.
 
-import { matches, validChecks } from './check.ts';
-import { conditionHolds } from './condition.ts';
+import { conditionHolds, conditionProblem, evaluateCondition, lostAt, markLost } from './condition.ts';
 import { canonical, inForce, inOrder } from './line.ts';
 import type {
   Check,
@@ -35,17 +34,21 @@ interface StoredGoal {
   line: EventLine;
   name: string;
   then: string;
-  checks: Check[];
+  when: Condition;
   with?: Payload;
   final: boolean;
 }
 
-/** `with` that is present and not an object, like bad checks or a payload that is not an object, leaves a goal stating nothing. */
-function readGoal(line: EventLine): StoredGoal | undefined {
+/**
+ * `with` that is present and not an object, like a `when` that is not a condition a goal may hold or a payload
+ * that is not an object, leaves a goal stating nothing. Admission asks the same of a goal, so a goal that is
+ * refused and a goal that states nothing agree.
+ */
+function readGoal(line: EventLine, schema: Schema): StoredGoal | undefined {
   if (!isRecord(line.payload)) return undefined;
-  const { name, then, checks } = line.payload;
-  if (typeof name !== 'string' || typeof then !== 'string' || !validChecks(checks)) return undefined;
-  const goal: StoredGoal = { line, name, then, checks, final: line.payload.final === true };
+  const { name, then, when } = line.payload;
+  if (typeof name !== 'string' || typeof then !== 'string' || conditionProblem(when, schema, false) !== undefined) return undefined;
+  const goal: StoredGoal = { line, name, then, when: when as unknown as Condition, final: line.payload.final === true };
   if (has(line.payload, 'with')) {
     const outcome = line.payload.with;
     if (!isObject(outcome)) return undefined;
@@ -55,8 +58,8 @@ function readGoal(line: EventLine): StoredGoal | undefined {
 }
 
 /**
- * Whether the thread still holds what a check names. A check is an orphan only when
- * the thread lost something it names: a value no line ever held (a signer who has
+ * Whether the thread still holds what a check names. A `line` node is lost only when
+ * the thread lost something its check names: a value no line ever held (a signer who has
  * not signed yet) is awaited, not lost. A value that is the id of a line is held
  * only by that line in force, since other lines quoting the id would keep a
  * revoked line's checks waiting; any other value, once some line held it under the
@@ -80,7 +83,7 @@ export interface Expectations {
   /** What the thread expects each handle to be, by the kind's name. */
   handles: Handles;
   goals: GoalReading[];
-  /** The lines the goals still owe, goal by goal: the outcome, then the warnings by check. */
+  /** The lines the goals still owe, goal by goal: the outcome, then the warning. */
   missing: Denunciation[];
 }
 
@@ -105,7 +108,7 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
     for (const binding of gist.rules) {
       if (binding.rule === 'revoke') continue; // step 1 has read it
       if (binding.rule === 'goal') {
-        const goal = readGoal(line);
+        const goal = readGoal(line, schema);
         if (goal) goals.set(goal.name, goal);
         continue;
       }
@@ -113,11 +116,13 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
     }
   }
 
+  // the goals read what the thread expects, so the handles come first
+  const handles = Object.fromEntries(kit.handles.map((h) => [h.kind, h.expected(accumulators.get(h.kind))] as const));
   const goalReadings: GoalReading[] = [];
   const missing: Denunciation[] = [];
   const ordered = inOrder(lines);
   const revokedIds = new Set(standing.revoked.map((l) => l.id));
-  // without a gist for the warning, the thread expects none and no check is judged
+  // without a gist for the warning, the thread expects none and no node is judged lost
   const warning = schema.records.warning;
   const warns = warning !== undefined && gists.some((g) => g.gist === warning);
   // a goal states no value a check could rest on
@@ -127,16 +132,13 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
   const ids = new Set(lines.map((l) => l.id));
   for (const name of [...goals.keys()].sort(compare)) {
     const goal = goals.get(name)!;
-    const found = goal.checks.map((check): GoalReading['checks'][number] => {
-      // the goal never satisfies its own check
-      const hit = standing.inForce.find((l) => l.id !== goal.line.id && matches(check, l));
-      return hit ? { check, foundIn: hit.id } : { check };
-    });
-    const met = found.every((f) => 'foundIn' in f);
+    // the goal never meets its own `line` node
+    const trace = evaluateCondition(goal.when, { handles, lines: standing.inForce, guards: schema.guards, self: goal.line.id });
+    const met = trace.holds;
     const writer = goalWriter(goal.line.id);
     // once: the goal's line anywhere in the thread, revoked or not, is its outcome
     const outcome = ordered.find((l) => l.gist === goal.then && l.writer === writer);
-    const reading: GoalReading = { line: goal.line.id, name, then: goal.then, checks: found, met, final: goal.final };
+    const reading: GoalReading = { line: goal.line.id, name, then: goal.then, trace, met, final: goal.final };
     if (goal.with) reading.with = goal.with;
     if (outcome) {
       reading.outcome = outcome.id;
@@ -145,16 +147,16 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
     goalReadings.push(reading);
     if (met && !outcome) missing.push({ sort: 'line', gist: goal.then, writer, line: goal.line.id, payload: goal.with ?? {} });
     if (warning === undefined || !warns) continue;
+    // a `line` node is lost when the check it resolved to names what the thread lost; one whose reference
+    // names a key the thread does not hold is awaited, not lost
     const others = candidates.filter((l) => l.id !== goal.line.id);
-    found.forEach((f, i) => {
-      if ('foundIn' in f || anchored(f.check, others, everHeld, ids)) return;
-      f.orphan = true;
-      const written = lines.some((l) => l.gist === warning && l.writer === writer && has(l.payload, 'check') && l.payload.check === i);
-      if (!written) missing.push({ sort: 'line', gist: warning, writer, line: goal.line.id, payload: { check: i } });
-    });
+    markLost(trace, (node) => node.check !== undefined && !anchored(node.check, others, everHeld, ids));
+    const path = lostAt(trace);
+    if (path === undefined) continue;
+    const written = lines.some((l) => l.gist === warning && l.writer === writer && has(l.payload, 'path') && l.payload.path === path);
+    if (!written) missing.push({ sort: 'line', gist: warning, writer, line: goal.line.id, payload: { path } });
   }
 
-  const handles = Object.fromEntries(kit.handles.map((h) => [h.kind, h.expected(accumulators.get(h.kind))] as const));
   return { standing, accumulators, handles, goals: goalReadings, missing };
 }
 

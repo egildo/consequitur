@@ -8,7 +8,9 @@
 import {
   canonical,
   goalWriter,
+  nodes,
   offers as offersOf,
+  validCheck,
   type Check,
   type EventLine,
   type GoalReading,
@@ -47,14 +49,14 @@ export interface LineSpec {
   awaited?: LineAwaited[];
 }
 
-/** A goal in force as the dock shows it: its reading, its line, and the warnings its checks have been given. */
+/** A goal in force as the dock shows it: its reading, its line, and the warnings it has been given. */
 export interface DockGoal {
   goal: GoalReading;
   line: EventLine;
   /** The goal that asks for the others' completion. */
   wrapper: boolean;
-  /** The warning line of each check that cannot come true, by the check's index. */
-  warnings: Record<number, EventLine>;
+  /** The warning line of each node that made the goal unable to come true, by the node's path. */
+  warnings: Record<string, EventLine>;
 }
 
 export interface Derived {
@@ -103,6 +105,17 @@ const goalsOf = (facts: LineFacts[]): DockGoal[] =>
     fact.goal ? [{ goal: fact.goal, line: fact.line, wrapper: fact.line.payload.role === 'completion', warnings: fact.warnings ?? {} }] : [],
   );
 
+/**
+ * The checks of a goal's condition the composer can edit: those of a `line` node, or of an `all` of `line`
+ * nodes, as the composer builds it; nothing for any other condition, which the page shows and does not edit.
+ */
+export function linesOf(when: Json | undefined): Check[] | undefined {
+  if (typeof when !== 'object' || when === null || Array.isArray(when)) return undefined;
+  const items = Array.isArray(when.all) && Object.keys(when).length === 1 ? when.all : [when];
+  const checks = items.map((item) => (typeof item === 'object' && item !== null && !Array.isArray(item) && Object.keys(item).length === 1 && validCheck(item.line) ? item.line : undefined));
+  return checks.every((check) => check !== undefined) ? (checks as Check[]) : undefined;
+}
+
 /** The condition «this goal is reached»: a line of what it writes, written by it. */
 export const completionOf = (goal: EventLine): Check => ({ gist: String(goal.payload.then), writer: goalWriter(goal.id) });
 
@@ -114,7 +127,7 @@ export function wrapperFollowing(derived: Derived, goalId: LineId): DockGoal | u
   const { goalGist } = domain();
   if (goalGist === undefined || !derived.offered.has(goalGist)) return undefined;
   const writer = goalWriter(goalId);
-  return derived.goals.find((g) => g.wrapper && g.line.id !== goalId && g.goal.checks.some(({ check }) => check.writer === writer));
+  return derived.goals.find((g) => g.wrapper && g.line.id !== goalId && nodes(g.goal.trace).some(({ node }) => 'line' in node.condition && node.condition.line.writer === writer));
 }
 
 let last: Derived | undefined;

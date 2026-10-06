@@ -1,6 +1,8 @@
-// `keeps-goals`: broken for each check of a goal in force that the line would
-// orphan, one verdict per check. A check already orphaned before is not new.
+// `keeps-goals`: broken for each goal in force that the line would make lost, one verdict per
+// goal, with the path of the node that would make it lost. A goal lost before, through the same
+// node, is not new.
 
+import { lostAt } from '../condition.ts';
 import type { LawBinding, LawKind } from '../types.ts';
 import { keysAre } from '../util.ts';
 
@@ -14,11 +16,10 @@ export const keepsGoals: LawKind = {
     for (const goal of after.reading.goals) {
       const was = before.reading.goals.find((g) => g.line === goal.line);
       if (!was) continue;
-      goal.checks.forEach((c, i) => {
-        if (c.orphan && !was.checks[i]?.orphan) {
-          out.push({ detail: `The check ${i} of goal "${goal.name}" would be orphaned.`, goal: goal.line, check: i });
-        }
-      });
+      const path = lostAt(goal.trace);
+      if (path !== undefined && path !== lostAt(was.trace)) {
+        out.push({ detail: `The goal "${goal.name}" would be lost, at the node "${path}".`, goal: goal.line, path });
+      }
     }
     return out;
   },

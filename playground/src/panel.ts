@@ -5,6 +5,7 @@
 // person reads an id.
 
 import { answer, verify, type Denunciation, type EventLine, type Json, type LineId } from 'consequitur';
+import { goalFacts, goalRows } from './cards.ts';
 import { codeView } from './code.ts';
 import type { Derived } from './deduce.ts';
 import { domain, membersIn, valueIn } from './domain.ts';
@@ -140,7 +141,10 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
         if (current === line.id) show(ok);
       });
     }
-    return [section(null, h('p', { class: 'activity-name' }, lineLabel(line)), verdict, h('p', { class: 'panel-label' }, 'La riga come è conservata'), codeView(line, 'La riga come JSON'))];
+    // a goal's line shows its condition as the reading reads it, node by node
+    const goal = state.reading.goals.find((g) => g.line === line.id);
+    const condition = goal ? [h('p', { class: 'panel-label' }, 'La sua condizione, nodo per nodo'), h('div', { class: 'goal' }, ...goalRows(goalFacts(goal), state.thread.lines))] : [];
+    return [section(null, h('p', { class: 'activity-name' }, lineLabel(line)), verdict, ...condition, h('p', { class: 'panel-label' }, 'La riga come è conservata'), codeView(line, 'La riga come JSON'))];
   }
 
   function schemas(state: PageState, derived: Derived): HTMLElement[] {

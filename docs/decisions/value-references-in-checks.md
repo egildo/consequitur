@@ -1,7 +1,8 @@
 # Value references in checks
 
-Status: settled 2026-10-04, not built; its spelling is now the `(value)` reference of
-[conditions are kdlet's guards](conditions-are-kdlt-guards.md). Built in round 6.
+Status: settled 2026-10-04; its spelling is now the `(value)` reference of
+[conditions are kdlet's guards](conditions-are-kdlt-guards.md). Built in the round «Conditions»: the
+check as matched is on the goal's trace, not in `GoalReading.checks`.
 
 ## Context
 

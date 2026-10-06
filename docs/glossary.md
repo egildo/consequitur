@@ -25,7 +25,7 @@ those marked *(new)* were proposed by the plan and accepted.
 | **handle kind** | The code behind a sort of handle: its empty form, how expectations of it are compared with it, how a denunciation of it is answered, how two of its handles differ, and the roles of the records it writes. Two ship with the library: |
 | **value handle** | A handle that holds one JSON value under a key. In SIBAR, a metadata key. |
 | **set handle** | A handle that holds a set of names. In SIBAR, the assignees. |
-| **kit** | The handle, rule and law kinds a schema may use. `BASE_KIT` ships with the library; a schema is read against one, and refuses a kind it lacks. |
+| **kit** | The handle, rule and law kinds a schema may use. `BASE_KIT` ships with the library (its rules: `value`, `collect-writer`, `join`, `leave`); a schema is read against one, and refuses a kind it lacks. |
 | **join**, **leave** | The rules that put names into a set handle, and take the writer out of one. In SIBAR, assign and release. |
 | **expectation** | What the thread says a handle should be, or that a line should exist. |
 | **reading** | What follows from a thread, against its handles: lines in force, expectations, goals, denunciations. `consequitur(lines, handles, schema)` gives it; the word names the act too. |
@@ -33,20 +33,21 @@ those marked *(new)* were proposed by the plan and accepted.
 | **change** *(new)* | One difference between two handles, as its handle kind says it, for a host to apply to its own copy. `diff` lists them. Between two readings, a change is what `changes` lists: a line's standing, a goal, a check, a denunciation, the thread's settling, each with a key (from `keyOf` or `keyOfCheck` where the reading gives none). |
 | **reconciliation** | The answer to a denunciation: the handles change and a line records it. Settling repeats it until nothing is left to answer, one goal's outcome per round in thread order, within a bound the goals give. |
 | **record** *(new)* | A line the authority writes to say a reconciliation changed a handle. Each has a **role** (`value`, `join`, `leave`, or one of a kit's own), and the head's `records` names the gist of each role, and of the goal's `warning`. |
-| **goal** | A line that names checks and an outcome. When every check finds a line, the goal writes its outcome, once. |
-| **check** | An equality on a line's gist, kin, writer and payload keys. |
+| **goal** | A line that names a condition, its `when`, and an outcome. When the condition holds, the goal writes its outcome, once; goals met in one reading write theirs one per round, in thread order. |
+| **check** | An equality on a line's gist, kin, writer and payload keys: what a `line` node of a condition asks of the lines in force. A payload value in it may be a `$value` reference. |
 | **condition** *(new)* | What a `when`, a goal and a law's `while` say: kdlet's guards, `is`, `has`, `not`, `all`, `any` and a named **guard**, with the two **words** consequitur registers, written as JSON with **references** ([specs/conditions.md](specs/conditions.md)). It holds or it does not; only the draft a menu is drawn for is unknown. |
 | **guard** *(new)* | A condition the schema's head names, used by `{ "guard": name }` in a `when`, a goal or a law. |
 | **word** *(new)* | A node of a condition that consequitur registers on `kdlet-guards`: `line` (a line in force matches a check) and `at-least` (a quorum of its children). |
+| **trace** *(new)* | What reading a condition found, node by node: whether each holds, on a `line` node the line that met it and the check as matched, and, where warnings are, whether it can no longer hold. A goal's reading carries it. A node's path, its indexes from the root joined by dots, is its key. |
 | **outcome** | The line a goal writes, with the payload the goal carries. |
 | **final** | A goal whose outcome can never be revoked. |
-| **warning** | The line a goal writes, once per check, when the thread lost what the check names. |
+| **warning** | The line a goal writes, `{ path }`, when its condition can no longer hold, once for each path: `path` names the node that made it so (a `line` node whose check names what the thread lost, or an `any` or `atLeast` with too few children left). |
 | **when** | When a gist may be written: a condition, read with the writer and the draft. What the menu is built from: there the draft is unknown, and a gist is offered unless its `when` is false. |
 | **offer** | A gist a writer may write now, with the lines it may name if it revokes. |
-| **law** | A registered judgement on what a line would cause, with a strength: refuse, or confirm. The schema binds it, and its head says whose lines are `judged`. |
+| **law** | A registered judgement on what a line would cause, with a strength: refuse, or confirm. The schema binds it, and its head says whose lines are `judged`. `keeps-set`'s `while` is a condition. |
 | **verdict** | One law found broken by a dry run. |
 | **dry run** | A post whose result is kept and not applied: the lines it would add, the rounds, the verdicts. |
-| **policy** *(new)* | Which denunciations an authority leaves unanswered, each entry with an optional condition on the value handle. Conf, outside the thread. A reading that only the policy keeps from settling counts as settled. |
+| **policy** *(new)* | Which denunciations an authority leaves unanswered, each entry with optional values the value handle must hold for it (`while`). Conf, outside the thread. A reading that only the policy keeps from settling counts as settled. |
 | **render** | `consequitur-render`: helpers that turn a reading into DOM, owning no markup: each line's facts, nodes kept by line id, the dry-run preview loop, the **band** (the line drawn from a slot to a line, or between two elements). |
 | **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. It runs one domain at a time and has a picker for them. |
 | **case** *(new)* | A domain's files in `cases/<domain>/`: its schema, its scenarios and, where it has one, its policy. The tests and the playground read the same files. |

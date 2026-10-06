@@ -13,7 +13,7 @@ Unchanged from today: a list of steps, `{ label?, writer, gist, payload, confirm
 | `{ "$line": label }` | the id of the line the labelled step posted | the player |
 | `{ "$goal": label }` | `goal::` and that id | the player |
 | `{ "$find": check }` | the id of the first line in reading order the check matches | the player |
-| `{ "$value": key }` | a reference, see [conditions](conditions.md) §7 | nobody: it passes into the line as it is *(round «Holes»)* |
+| `{ "$value": key }`, and `$set`, `$writer`, `$draft` | a reference, see [conditions](conditions.md) §2 and §7 | nobody: it passes into the line as it is. Built in the round «Conditions», where a goal's condition holds one; a `$value` elsewhere in a payload is the round «Holes» |
 
 A reference is not a placeholder. The player leaves it alone, and the reading resolves it when the thread is read.
 
@@ -47,7 +47,7 @@ In reading order, each line gets one answer, the first that applies:
 - `engine`: its writer is of kin `goal`, or its gist is one of the schema's `records`. The engine writes it again.
 - `revoked`: it is not in force, or its gist has a revoke binding. Mistakes and their undoing.
 - `outside`: its writer's kin is not among the schema's `judged`. A fact the world will state again.
-- `found`: some goal's check found it (`foundIn`). The template awaits it again.
+- `found`: some goal's `line` node found it (`foundIn`, in the goal's trace). The template awaits it again.
 - otherwise it is `open`.
 
 ```ts

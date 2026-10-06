@@ -3,14 +3,14 @@
 // reference needs a key for the things a reading holds with no id of their own. Pure and without
 // DOM: the same two readings give the same list.
 
-import { canonical, compare, type Denunciation, type GoalReading, type LineId, type Reading } from 'consequitur';
+import { canonical, compare, nodes, type Denunciation, type GoalReading, type LineId, type Reading, type Trace } from 'consequitur';
 
 export type ReadingChange =
   /** A line newly in force, or newly out of force. */
   | { of: 'line'; key: LineId; change: 'in-force' | 'revoked' }
   /** A goal newly read, newly met, met no more, or no longer in the reading. */
   | { of: 'goal'; key: LineId; change: 'set' | 'met' | 'unmet' | 'gone' }
-  /** A check that found its line, lost it, or became an orphan; `key` is from `keyOfCheck`. */
+  /** A goal's `line` node that found its line, lost it, or became an orphan (can no longer hold); `key` is from `keyOfCheck`. */
   | { of: 'check'; key: string; change: 'found' | 'lost' | 'orphan' }
   /** A denunciation that appeared, or disappeared; `key` is from `keyOf`. */
   | { of: 'denunciation'; key: string; change: 'raised' | 'answered' }
@@ -28,10 +28,17 @@ export function keyOf(denunciation: Denunciation): string {
   return `thread:${denunciation.rule}`;
 }
 
-/** A key for one check of one goal: the goal's line and the check's index, so two equal checks of a goal differ. */
-export function keyOfCheck(goal: GoalReading, index: number): string {
-  return `${goal.line}:${index}`;
+/**
+ * A key for one node of a goal's condition: the goal's line and the node's path, so two equal checks of a goal
+ * differ. A goal that is an `all` of checks keeps the keys it had when it was a list: its `n`th check is `n`.
+ */
+export function keyOfCheck(goal: GoalReading, path: string): string {
+  return `${goal.line}:${path}`;
 }
+
+/** The `line` nodes of a goal's trace, by path. */
+const checksOf = (trace: Trace | undefined): Map<string, Trace> =>
+  new Map(trace === undefined ? [] : nodes(trace).flatMap(({ path, node }) => ('line' in node.condition ? [[path, node] as const] : [])));
 
 const ORDER = ['line', 'goal', 'check', 'denunciation', 'settled'];
 
@@ -51,13 +58,14 @@ export function changes(before: Reading, after: Reading): ReadingChange[] {
     if (goal.met && !old?.met) out.push({ of: 'goal', key: goal.line, change: 'met' });
     if (!goal.met && old?.met) out.push({ of: 'goal', key: goal.line, change: 'unmet' });
     // the checks of a goal newly set are read against checks that found nothing
-    goal.checks.forEach((check, index) => {
-      const key = keyOfCheck(goal, index);
-      const was = old?.checks[index];
+    const before = checksOf(old?.trace);
+    for (const [path, check] of checksOf(goal.trace)) {
+      const key = keyOfCheck(goal, path);
+      const was = before.get(path);
       if (check.foundIn !== undefined && check.foundIn !== was?.foundIn) out.push({ of: 'check', key, change: 'found' });
       if (check.foundIn === undefined && was?.foundIn !== undefined) out.push({ of: 'check', key, change: 'lost' });
-      if (check.orphan && !was?.orphan) out.push({ of: 'check', key, change: 'orphan' });
-    });
+      if (check.lost && !was?.lost) out.push({ of: 'check', key, change: 'orphan' });
+    }
   }
   const goalsAfter = new Set(after.goals.map((g) => g.line));
   for (const goal of before.goals) if (!goalsAfter.has(goal.line)) out.push({ of: 'goal', key: goal.line, change: 'gone' });

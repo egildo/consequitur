@@ -9,9 +9,9 @@ import { dryRun, emptyState, goalWriter, inOrder, playScenario, post, consequitu
 import { previewer } from 'consequitur-render';
 import './style.css';
 import { lightingGone, type Handlers } from './cards.ts';
-import { derive, keyOfCheck, wrapperFollowing, type Derived, type DockGoal, type LineAction } from './deduce.ts';
+import { derive, keyOfCheck, linesOf, wrapperFollowing, type Derived, type DockGoal, type LineAction } from './deduce.ts';
 import { createDock, type DockHandlers } from './dock.ts';
-import { createComposer, lineOf, newDraft, newGoalDraft, type Composer, type ComposerHandlers, type ComposerView } from './draft.ts';
+import { createComposer, lineOf, newDraft, newGoalDraft, whenOf, type Composer, type ComposerHandlers, type ComposerView } from './draft.ts';
 import { domain, useDomain, valueIn, type Command, type Domain, type Example } from './domain.ts';
 import { DOMAINS } from './domains/index.ts';
 import { h } from './dom.ts';
@@ -212,12 +212,12 @@ const revokeGoal = (goal: EventLine, delay: number): Promise<Refusal | undefined
  */
 async function rewriteWrapper(wrapper: EventLine, old: EventLine, replacement: EventLine | undefined, delay: number): Promise<Refusal | undefined> {
   const was = goalWriter(old.id);
-  const checks = (wrapper.payload.checks as unknown as Check[]).flatMap((check): Check[] =>
+  const checks = (linesOf(wrapper.payload.when) ?? []).flatMap((check): Check[] =>
     check.writer !== was ? [check] : replacement ? [{ ...check, gist: String(replacement.payload.then), writer: goalWriter(replacement.id) }] : [],
   );
   const revoked = await revokeGoal(wrapper, delay);
   if (revoked || checks.length === 0) return revoked;
-  return send({ gist: domain().goalGist!, writer: state.writer, payload: { ...wrapper.payload, checks: checks as unknown as Json } }, delay);
+  return send({ gist: domain().goalGist!, writer: state.writer, payload: { ...wrapper.payload, when: whenOf(checks) } }, delay);
 }
 
 /**

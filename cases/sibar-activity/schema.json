@@ -92,7 +92,7 @@
     { "gist": "goal_warning", "writers": ["goal"], "rules": [] }
   ],
   "laws": [
-    { "law": "keeps-set", "set": "assignees", "while": { "status": "open" }, "strength": "refuse" },
+    { "law": "keeps-set", "set": "assignees", "while": { "is": { "$value": "status" }, "values": ["open"] }, "strength": "refuse" },
     { "law": "keeps-goals", "strength": "confirm" },
     { "law": "settles", "strength": "refuse" }
   ]

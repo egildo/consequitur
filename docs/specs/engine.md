@@ -2,6 +2,7 @@
 
 Status: settled, built in round 3 («Generalise», [plan](../plan.md) §4). This describes
 `packages/consequitur`; where the build had to add to what was proposed, the text says so in place.
+The round «Conditions» changed `when`, goals, two laws and the base kit; each change is marked where it is.
 Words as in the [glossary](../glossary.md).
 
 What does not change from the ported engine is not repeated here: the line and its envelope
@@ -14,8 +15,11 @@ behaviour is the 250 tests'; this round changes the words and opens the kinds, n
 
 **Mechanics** belong to the thread and are not registrable: the envelope and its hash; reading
 order; **revoke** (a binding `{ rule: 'revoke', from, gists }`); **goal** (`{ rule: 'goal' }`,
-its checks, once, final, `with`, warnings); the opening rule (exactly one line of the opening gist
-in force); `when`; reconciliation's loop and its bound; laws' place in a post.
+its condition, once, final, `with`, warnings); the opening rule (exactly one line of the opening gist
+in force); `when`; reconciliation's loop and its bound; laws' place in a post. A goal's line carries
+`name`, `when` (a condition, [conditions](conditions.md) §2, which reads neither the writer nor the
+draft), `then`, and may carry `with` and `final`; the reading gives each goal its **trace**, and `met`
+is the root's `holds` *(round «Conditions»; a goal carried `checks`)*.
 
 **Kinds** are registered in a **kit** and named by schemas:
 
@@ -31,7 +35,7 @@ export interface Kit {
   rules: RuleKind[];
   laws: LawKind[];
 }
-export const BASE_KIT: Kit;   // handles: value, set · rules: value, join, leave · laws: keeps-set, keeps-goals, settles
+export const BASE_KIT: Kit;   // handles: value, set · rules: value, collect-writer, join, leave · laws: keeps-set, keeps-goals, settles
 ```
 
 ## 2 · Handles
@@ -101,7 +105,7 @@ export type Denunciation =
   | { sort: 'thread'; rule: 'one-opening'; found: number };
 ```
 
-Order: `thread`; then `line` (by goal name, outcome before warnings, warnings by check index);
+Order: `thread`; then `line` (by goal name, the outcome before the goal's one warning);
 then `handle`, by kind in the kit's order, then each kind's own order (value by key; set by set,
 then member).
 
@@ -112,6 +116,7 @@ then member).
 | `{ rule: 'value', key, from, required?, where? }` | `metadata … from` | the payload key's value |
 | `{ rule: 'value', key, value, where? }` | `metadata … value` | a fixed value |
 | `{ rule: 'value', key, collect, required?, where? }` | `metadata … collect` | adds to the key's list |
+| `{ rule: 'collect-writer', key }` | — *(round «Conditions»)* | adds the writer's id to the key's list, as `collect` does |
 | `{ rule: 'join', set, from, required? }` | `assign` | a name or a list of names |
 | `{ rule: 'leave', set }` | `release` | the writer's id leaves the set |
 | `{ rule: 'revoke', from, gists }` | the same | mechanic |
@@ -156,7 +161,7 @@ reader refuse, when the schema is read, a rule that states into a handle kind th
     { "gist": "quit", "writers": ["user"], "rules": [{ "rule": "leave", "set": "assignees" }], "when": { "guard": "assignee" } }
   ],
   "laws": [
-    { "law": "keeps-set", "set": "assignees", "while": { "status": "open" }, "strength": "refuse" },
+    { "law": "keeps-set", "set": "assignees", "while": { "is": { "$value": "status" }, "values": ["open"] }, "strength": "refuse" },
     { "law": "keeps-goals", "strength": "confirm" },
     { "law": "settles", "strength": "refuse" }
   ]
@@ -168,8 +173,8 @@ reader refuse, when the schema is read, a rule that states into a handle kind th
   out). `records`: one gist per role; each must be a gist of the schema whose writers include the
   authority's kin (and `goal` for `warning`), and which has no rules: a record states nothing, or
   the thread could never settle. Every role of every handle kind of the kit must be
-  named; `warning` may be left out, and then the thread expects no warnings and no check is
-  judged. A schema that uses fewer handle kinds is read against a smaller kit.
+  named; `warning` may be left out, and then the thread expects no warnings and no node is
+  judged lost. A schema that uses fewer handle kinds is read against a smaller kit.
 - `laws`: optional; a schema with none judges nothing.
 - `when`: a condition ([conditions](conditions.md) §2), read with the writer and the draft. `guards`:
   optional, the named guards, each a condition, used by `{ "guard": name }` in a `when`, a goal or a
@@ -195,13 +200,23 @@ passes.
 export interface LawKind {
   law: string;
   read(binding: Record<string, unknown>, schema: SchemaHead): LawBinding | string;
-  judge(binding: LawBinding, before: { reading: Reading; handles: Handles }, after: { reading: Reading; handles: Handles }): Array<Omit<Verdict, 'strength' | 'law'> & { detail: string }>;
+  judge(
+    binding: LawBinding,
+    before: { reading: Reading; handles: Handles; lines: EventLine[] },
+    after: { reading: Reading; handles: Handles; lines: EventLine[] },
+    schema: Schema,
+  ): Array<Omit<Verdict, 'strength' | 'law'> & { detail: string }>;
 }
 ```
 
-`keeps-set { set, while? }`: broken when, after, every value in `while` holds and the set is
-empty; its detail says so in the schema's own words for the set and the values, never in a
-domain's. Its verdict names the set (`set`), so an application can word it. `keeps-goals` and `settles` as now. Laws come from the schema; `dryRun` and `post` judge
+`keeps-set { set, while? }`: broken when, after, the set is empty and the condition `while` holds,
+read on the handles after and the lines then in force, with the schema's guards; `while` reads neither
+the writer nor the draft. Its detail says so in the schema's own words for the set, never in a
+domain's. Its verdict names the set (`set`), so an application can word it. `keeps-goals`: broken for
+each goal in force that the line would make lost, one verdict per goal, carrying the goal (`goal`) and
+the path of the node that would make it lost (`path`); a goal lost before through the same node is not
+new. `settles` as now. *(Round «Conditions»: `judge` takes the lines and the schema, which a condition
+needs; `while` was `{ [key]: Json }`, and `keeps-goals` spoke of a check's index.)* Laws come from the schema; `dryRun` and `post` judge
 them for drafts whose writer's kin is in `judged`. The same law may appear again with other keys
 (one `keeps-set` per set); the same law with the same keys twice is a problem, as a gist twice is.
 

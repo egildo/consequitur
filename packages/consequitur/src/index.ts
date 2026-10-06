@@ -1,7 +1,7 @@
 export type * from './types.ts';
 export { canonical, inForce, inOrder, lockedBy, stamp, verify } from './line.ts';
-export { isValueReference, matches, validCheck, validChecks, whereMatches } from './check.ts';
-export { conditionHolds, conditionProblem, evaluateCondition, fromModuleForm, lostAt, nodes, resolveCheck, toModuleForm } from './condition.ts';
+export { isValueReference, matches, validCheck, whereMatches } from './check.ts';
+export { conditionHolds, conditionProblem, evaluateCondition, fromModuleForm, guardsProblems, lostAt, nodes, resolveCheck, toModuleForm } from './condition.ts';
 export type { Names, Scope } from './condition.ts';
 export { compare, idOf, isJson, keysAre, kinOf, optionalFlag } from './util.ts';
 export { expectations, goalWriter, holds, consequitur, whenHolds } from './reading.ts';
@@ -17,6 +17,7 @@ export type { Stated, ValueAcc } from './handles/value.ts';
 export { setHandle } from './handles/set.ts';
 export type { SetAcc } from './handles/set.ts';
 export { valueRule } from './rules/value.ts';
+export { collectWriterRule } from './rules/collect-writer.ts';
 export { joinRule } from './rules/join.ts';
 export { leaveRule } from './rules/leave.ts';
 export { keepsSet } from './laws/keeps-set.ts';

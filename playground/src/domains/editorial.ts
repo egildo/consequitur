@@ -43,7 +43,7 @@ const ui: GistUi[] = [
     label: 'Approva',
     card: 'mark',
     says: '{writer} ha approvato la versione {version}',
-    compose: { fields: [{ key: 'version', label: 'Versione', current: 'version' }], stamp: { key: 'stamp', of: 'version' }, body: NOTE, bodyOptional: true },
+    compose: { fields: [{ key: 'version', label: 'Versione', current: 'version' }], body: NOTE, bodyOptional: true },
     // a goal waits for each reviewer's approval of the version a card names
     awaited: ['submit', 'revision'].map((on) => ({
       on,
@@ -168,6 +168,12 @@ export const editorial = defineDomain({
       editors: "L'articolo resterebbe senza direttore.",
     },
     settles: { '': "L'articolo resterebbe in disaccordo con le sue righe." },
+  },
+  guards: {
+    member: 'chi scrive è nella redazione',
+    reviewer: 'chi scrive è revisore',
+    editor: 'chi scrive è direttore',
+    reviewing: "chi scrive è revisore e l'articolo è in revisione",
   },
   goals: {
     most: 1,

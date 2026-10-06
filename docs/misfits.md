@@ -1,91 +1,77 @@
-# What does not fit
+# What did not fit
 
 Status: recorded in round 5 ([plan](plan.md) §4), from the editorial review ([spec](specs/editorial-review.md)):
 a second domain, chosen to be unlike SIBAR's activities, so that what the engine cannot say would show.
-Five things a schema author wanted did not fit. Each below has what the author wanted, what the engine
-says today (and the test that pins it, in `packages/consequitur/test/editorial.test.ts`, under «what does
-not fit»), and the smallest engine change that would make it fit. The changes are proposals: nothing here
-is built, and each waits for Egildo's answer.
+Five things a schema author wanted did not fit. All five fit since the round «Conditions», which answered
+them together with one condition language ([conditions](specs/conditions.md)) rather than five keys. Each
+below has what the author wanted, what the engine said before, and what it says now, with the test that
+proves it, in `packages/consequitur/test/editorial.test.ts`, under «what now fits».
 
-Four of the five reach a **mechanic** (a goal's checks, `when`, a goal's payload), which a kit cannot
-replace; the fifth reaches only a **kind**, and registration already answers it, as the principles say it
-should. That is the pattern worth keeping: a need that a kind can meet is no change to the engine.
+Four of the five reached a **mechanic** (a goal's checks, `when`, a goal's payload), which a kit cannot
+replace, and were answered by the conditions; the fifth reached only a **kind**, and registration already
+answered it, as the principles say it should: the round shipped that kind in `BASE_KIT`. That is the pattern
+worth keeping: a need that a kind can meet is no change to the engine.
 
 ## 1 · «The current version»
 
-**Settled 2026-10-04**: [value references in checks](decisions/value-references-in-checks.md), to be built in the single round that answers the misfits.
-
 **Wanted.** One goal, «both reviewers approved the version now on the table», written once by the editor.
 
-**Today.** A check matches a line by equality on the payload keys it names, so a goal waits for approvals
-of the version written into it. When the author posts v2 the goal still waits for v1: both reviewers
-approve v2 and the article stays in review. A check cannot name a value handle: `{ "version": { "$value":
-"version" } }` is admitted, being JSON, and is compared as written, so it is never met. Every new version
-means revoking the goal and writing it again, which is what scenario «published» does (the step «goal-v2»).
-Pinned by: *1 · a check holds a version written into it*.
+**Before.** A check matched a line by equality on the payload keys it named, so a goal waited for
+approvals of the version written into it. Every new version meant revoking the goal and writing it again,
+which is what scenario «published» did (the step «goal-v2»).
 
-**Smallest change.** A check's payload value, and a `when.values` value, may be a reference,
-`{ "$value": "<key>" }`, resolved in `expectations` against the value handle just accumulated, before the
-goals are read. The thread still decides, and the reading of a thread stays a function of it. The
-reading's `checks` would carry the check as resolved. A literal payload value that is an object with the
-single key `$value` can no longer be written in a check: acceptable.
+**Now.** A check's payload value may be a reference, `{ "$value": "version" }`, resolved against the value
+the thread expects when the goal is read ([value references in checks](decisions/value-references-in-checks.md)).
+The goal set at v1 awaits v2 once v2 is posted; the trace shows each check as matched. A reference to a key
+no line states leaves the check unmet and is never lost, so it writes no warning. Scenario «published» has
+one goal and no step «goal-v2». Proved by: *1 · one goal follows the version the thread holds, and a key
+the thread does not hold is awaited, never lost*.
 
 ## 2 · «Before the deadline»
 
 **Wanted.** «When the deadline passes and a reviewer has not approved, ask for changes (or escalate).»
 
-**Today.** There is no clock in the engine, which is right: the deadline is a value, and «it passed» is a
-line a bridge writes, `deadline_passed`, whose only consequence is the value `late`. A goal's checks are
-the presence of lines, with no negation and no reading of a value. A check with `not` or with `values` is
-refused as an invalid payload. The nearest goal waits for the line the clock writes and acts whatever is
-missing: with only one of two approvals in, it publishes the article. Pinned by: *2 · no check on time and
-no negation*.
+**Before.** A goal's checks were the presence of lines, with no negation and no reading of a value; the
+nearest goal waited for the line the clock writes and acted whatever was missing.
 
-**Smallest change.** Two optional keys on a check: `absent: true`, met while no line in force matches it
-(and never an orphan), and `values: { <key>: <value> }`, met while the value handle holds them, as in a
-`when`. A goal `[{ values: { late: true } }, { absent: true, gist: 'approve', writer: 'user::cneri' }]`
-then says it. Time still enters as a line, and the engine reads no clock. The question to settle is a
-goal that is met and then unmet: it writes its outcome once, as now, and the outcome stands.
+**Now.** A goal's condition has `not`: `{ all: [{ line: deadline_passed }, { not: { all: [both approvals of
+the current version] } }] }`, then `request_changes`, which a goal may now write. Time still enters as a
+line, and the engine reads no clock. A goal met and then unmet keeps the outcome it wrote, as before.
+Proved by: *2 · a goal with `not`: when the deadline passes and the current version is not approved by
+both, it asks for changes*.
 
 ## 3 · «Status is A or B»
 
 **Wanted.** `revision` allowed on a draft nobody has reviewed yet **or** after a request for changes.
 
-**Today.** `when.values` holds one value per key, and the parts of a `when` are all required, so there is
-no OR. `revision` is allowed only on `changes_requested`: an author cannot send a new version of a draft,
-or of an article in review, and the menu does not offer it. The way out today is two gists for one fact,
-with two labels, two cards and two schemas. Pinned by: *3 · a `when` names one value per key*.
+**Before.** `when.values` held one value per key, and the parts of a `when` were all required, so there was
+no OR, and `revision` was allowed only on `changes_requested`.
 
-**Smallest change.** A value in `when.values` may be a set of alternatives, `{ "$in": ["draft",
-"changes_requested"] }`, read by `holds`. The laws' `while` and the policy's `while` read values the same
-way, so one small function would serve the three.
+**Now.** `revision`'s `when` is `{ all: [{ guard: member }, { is: { $value: status }, values: [draft,
+changes_requested] }] }`. A revision of a draft puts it in review before anyone is asked to review it, so
+the law on the reviewers holds only once a `request_review` line is in force (its `while` is a condition
+too); without that the law would refuse every revision of a draft. Proved by: *3 · `is` with two values:
+an author may post a new version of a draft nobody has opened, or after a request for changes*.
 
 ## 4 · «Any two of three reviewers»
 
 **Wanted.** A goal that fires when at least two of three reviewers have approved.
 
-**Today.** A goal is the AND of its checks. With three reviewers and one goal on the three, two approvals do
-not meet it. The way out is one goal for each pair, n choose k of them, each its own goal in the reading and
-its own block in the dock; for «any three of seven» it is thirty-five. Pinned by: *4 · a goal is an AND of
-its checks*.
+**Before.** A goal was the AND of its checks; «any two» was one goal for each pair, n choose k of them.
 
-**Smallest change.** An optional `need: <n>` in a goal's payload, beside `final` and `with`: met when at
-least `need` of its checks are found (the default is all of them). A warning, and the law `keeps-goals`,
-then speak when the quorum can no longer be reached, and not when one check alone is orphaned.
+**Now.** The word `atLeast`: `{ atLeast: 2, of: [three approvals of the current version] }`. A warning, and
+the law `keeps-goals`, speak when fewer than two can still hold, not when one check alone is lost. Proved
+by: *4 · `atLeast`: one goal for «any two of three», which a third approval does not need*.
 
 ## 5 · «Who approved»
 
-**Wanted.** The list of approvals of a version, by reviewer.
+**Wanted.** The list of approvals, by reviewer.
 
-**Today.** Rules read the payload and never the writer, so the approval carries a `stamp`, `<version>:<the
-reviewer's id>`, which repeats what the line already says: its writer. It is the writer's own word, so
-nothing checks it: bgalli can post a stamp that says cneri. Pinned by: *5 · rules read the payload, never
-the writer*.
+**Before.** Rules read the payload and never the writer, so the approval carried a `stamp`,
+`<version>:<the reviewer's id>`, the writer's own word, which nothing checked.
 
-**Smallest change.** None to the engine: a rule kind that reads the writer, `collect-writer { key,
-prefix? }`, registered in a kit. The test registers one, reads a variant of the schema that uses it
-against that kit (the base kit refuses it by name), and the scenario with no `stamp` deduces the same
-approvals, from the writers, and nobody can sign for another. The only change worth making is to ship the
-kind in `BASE_KIT` (about twenty lines), since a rule that reads the envelope will be needed again. The
-alternative, `collect: "$writer"` in the `value` rule, would put an envelope word in a rule's vocabulary
-for one use.
+**Now.** `collect-writer { key }` is in `BASE_KIT`: it adds the line's writer id to the list under `key`,
+as `collect` does. The editorial schema uses it and has no `stamp`; nobody can approve in another's name.
+The list says who approved, not which version: the goal on the current version says which. Proved by:
+*5 · `collect-writer`, in the base kit: approvals come from the writers, with no stamp, and nobody signs
+for another*.

@@ -702,10 +702,12 @@ describe('offers, with the expectations computed once', () => {
         name: 'done',
         then: 'closed',
         final: true,
-        checks: [
-          { gist: 'got_it', writer: 'user::lbianchi', payload: { about: memoId } },
-          { gist: 'doc_signed', kin: 'system', payload: { document: '34132412' } },
-        ],
+        when: {
+          all: [
+            { line: { gist: 'got_it', writer: 'user::lbianchi', payload: { about: memoId } } },
+            { line: { gist: 'doc_signed', kin: 'system', payload: { document: '34132412' } } },
+          ],
+        },
       }),
     );
     await step(lbianchi('got_it', { about: memoId }));

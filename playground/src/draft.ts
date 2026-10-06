@@ -6,7 +6,7 @@
 
 import { inOrder, type Check, type EventLine, type Json, type LineDraft, type LineId, type Payload, type Writer } from 'consequitur';
 import { dragLink } from './pointing.ts';
-import { keyOfCheck, type Derived } from './deduce.ts';
+import { keyOfCheck, linesOf, type Derived } from './deduce.ts';
 import { chip, h } from './dom.ts';
 import { domain, valueIn, type Field, type GistUi, type GoalOutcome, type OutcomeField } from './domain.ts';
 import { renderMarkdown, tokensOf } from './markdown.ts';
@@ -68,7 +68,7 @@ export function newGoalDraft(derived: Derived, options: { role?: 'completion'; f
       then: doing.then,
       values: valuesOf(doing, given),
       final: payload.final === true,
-      checks: Array.isArray(payload.checks) ? (payload.checks as unknown as Check[]) : [],
+      checks: linesOf(payload.when) ?? [],
       role,
       replaces: from.id,
     };
@@ -132,16 +132,15 @@ export function payloadOf(draft: Draft, ui: GistUi, writer: Writer): Payload {
     payload[compose.pick.document] = draft.pick.code;
     if (compose.pick.direction && draft.pick.direction) payload[compose.pick.direction] = draft.pick.direction;
   }
-  if (compose.stamp) {
-    const part = payload[compose.stamp.of];
-    if (typeof part === 'string') payload[compose.stamp.key] = `${part}:${id}`;
-  }
   return payload;
 }
 
-/** What a goal posts: its conditions as the checks, its name, what it does when met, and whether that is final. */
+/** A goal's condition as the composer builds it: an `all` of `line` nodes, one for each check it awaits. */
+export const whenOf = (checks: Check[]): Json => ({ all: checks.map((line) => ({ line: line as unknown as Json })) });
+
+/** What a goal posts: its conditions as `when`, its name, what it does when met, and whether that is final. */
 export function goalPayload(goal: GoalForm): Payload {
-  const payload: Payload = { name: goal.name.trim() || GOAL_NAME, then: goal.then, checks: goal.checks as unknown as Json };
+  const payload: Payload = { name: goal.name.trim() || GOAL_NAME, then: goal.then, when: whenOf(goal.checks) };
   const given: Payload = {};
   for (const field of domain().goals!.outcomes.find((o) => o.then === goal.then)?.with ?? []) {
     const value = (goal.values[field.key] ?? '').trim();

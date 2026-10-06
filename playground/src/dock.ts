@@ -5,9 +5,9 @@
 // there by the page, and never touched by a redraw of the blocks. The blocks are
 // drawn again only when what they read changed, so a hover on a tick keeps its band.
 
-import type { EventLine } from 'consequitur';
+import { nodes, type EventLine } from 'consequitur';
 import { foundTick, goalFacts, goalRows, type Handlers } from './cards.ts';
-import { completionOf, keyOfCheck, type Derived, type DockGoal } from './deduce.ts';
+import { completionOf, keyOfCheck, linesOf, type Derived, type DockGoal } from './deduce.ts';
 import { domain } from './domain.ts';
 import { h } from './dom.ts';
 import type { PageState } from './state.ts';
@@ -22,11 +22,13 @@ export interface DockHandlers extends Handlers {
 
 type GoalState = 'waiting' | 'met' | 'warned';
 
-const stateOf = ({ goal }: DockGoal): GoalState => (goal.met ? 'met' : goal.checks.some((c) => c.orphan) ? 'warned' : 'waiting');
+const stateOf = ({ goal }: DockGoal): GoalState => (goal.met ? 'met' : goal.trace.lost ? 'warned' : 'waiting');
 
-/** «1 di 2 traguardi raggiunti», from the wrapper's conditions that name a goal; null when it names none. */
+/** «1 di 2 traguardi raggiunti», from the wrapper's `line` nodes that name a goal; null when it names none. */
 function progressOf({ goal }: DockGoal, lines: EventLine[]): string | null {
-  const named = goal.checks.filter(({ check }) => check.writer !== undefined && lines.some((l) => check.writer === `goal::${l.id}`));
+  const named = nodes(goal.trace)
+    .map(({ node }) => node)
+    .filter(({ condition }) => 'line' in condition && condition.line.writer !== undefined && lines.some((l) => condition.line.writer === `goal::${l.id}`));
   if (named.length === 0) return null;
   const done = named.filter((c) => c.foundIn !== undefined).length;
   return `${done} di ${named.length} ${named.length === 1 ? 'traguardo raggiunto' : 'traguardi raggiunti'}`;
@@ -48,7 +50,8 @@ export function createDock(root: HTMLElement, handlers: DockHandlers) {
 
     const actions: HTMLElement[] = [];
     if (!composing && removable) {
-      if (goalGist !== undefined && derived.offered.has(goalGist)) {
+      // «Cambia» opens the composer on the goal, which edits only an `all` of `line` nodes
+      if (goalGist !== undefined && derived.offered.has(goalGist) && linesOf(line.payload.when) !== undefined) {
         const change = h('button', { class: 'action is-quiet', type: 'button' }, 'Cambia');
         change.addEventListener('click', () => handlers.onChange(line));
         actions.push(change);

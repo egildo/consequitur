@@ -29,7 +29,7 @@ export type LineDraft = Pick<EventLine, 'gist' | 'writer' | 'payload'>;
  * A rule as a gist schema binds it: the kind's name and the payload keys it reads.
  * Two kinds are mechanics and are read by the engine itself: `revoke` (`from`, the
  * payload key that holds a line id; `gists`, what it may take out of force) and
- * `goal` (no keys: the line carries `name`, `checks`, `then`, and optionally `with`
+ * `goal` (no keys: the line carries `name`, `when`, `then`, and optionally `with`
  * and `final`).
  */
 export interface RuleBinding {
@@ -143,8 +143,9 @@ export interface GoalReading {
   line: LineId;
   name: string;
   then: string;
-  /** `orphan`: no line in force holds what the check names, so it cannot come true. Read only where warnings are. */
-  checks: Array<{ check: Check; foundIn?: LineId; orphan?: true }>;
+  /** Its condition, node by node: each node with `holds`, a `line` node with the line that met it and the check as matched, and, where warnings are, `lost` on a node that can no longer hold. */
+  trace: Trace;
+  /** The root of the trace holds. */
   met: boolean;
   /** The payload of the line the goal writes, when it states one. */
   with?: Payload;
@@ -205,9 +206,9 @@ export interface Verdict {
   strength: 'refuse' | 'confirm';
   /** For developers, in English. */
   detail: string;
-  /** `keeps-goals`: the goal and the index of the check that would be orphaned. */
+  /** `keeps-goals`: the goal that would be lost, and the path of the node that would make it lost. */
   goal?: LineId;
-  check?: number;
+  path?: string;
   /** `keeps-set`: the set that would be empty. */
   set?: string;
 }
@@ -309,10 +310,12 @@ export interface LawKind {
   law: string;
   /** The binding as typed, or a problem in English. Unknown keys are a problem. */
   read(binding: Record<string, unknown>, schema: SchemaHead): LawBinding | string;
+  /** `before` is the thread as it was, `after` as the line would leave it, settled; `schema` gives what a condition names. */
   judge(
     binding: LawBinding,
-    before: { reading: Reading; handles: Handles },
-    after: { reading: Reading; handles: Handles },
+    before: { reading: Reading; handles: Handles; lines: EventLine[] },
+    after: { reading: Reading; handles: Handles; lines: EventLine[] },
+    schema: Schema,
   ): Array<Omit<Verdict, 'strength' | 'law'>>;
 }
 

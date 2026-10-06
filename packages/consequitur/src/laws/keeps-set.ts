@@ -1,9 +1,9 @@
 // `keeps-set { set, while? }`: broken when, once the line has settled, the set is
-// empty while every value in `while` holds in the value handle.
+// empty while the condition `while` holds, read on the handles the thread has then.
 
-import { canonical } from '../line.ts';
-import type { LawBinding, LawKind } from '../types.ts';
-import { has, isJson, isObject, isRecord, keysAre } from '../util.ts';
+import { conditionHolds, conditionProblem } from '../condition.ts';
+import type { Condition, LawBinding, LawKind } from '../types.ts';
+import { isRecord, keysAre } from '../util.ts';
 
 export const keepsSet: LawKind = {
   law: 'keeps-set',
@@ -11,20 +11,19 @@ export const keepsSet: LawKind = {
   read(binding, schema) {
     if (!keysAre(binding, ['set', 'strength'], ['while']) || typeof binding.set !== 'string') return 'does not have exactly the keys and types of a keeps-set law.';
     if (!schema.sets.includes(binding.set)) return `the keeps-set law names the set "${binding.set}", which the schema does not declare.`;
-    if ('while' in binding && !(isObject(binding.while) && Object.keys(binding.while).length > 0 && isJson(binding.while))) {
-      return 'while must be an object with at least one key, of JSON values.';
-    }
-    return binding as LawBinding;
+    const problem = 'while' in binding ? conditionProblem(binding.while, schema, false) : undefined;
+    return problem === undefined ? (binding as LawBinding) : `while: ${problem}`;
   },
 
-  judge(binding, _before, after) {
+  judge(binding, _before, after, schema) {
     const set = binding.set as string;
     const sets = isRecord(after.handles.set) ? after.handles.set : {};
     if (Array.isArray(sets[set]) && sets[set].length > 0) return [];
-    const values = isRecord(after.handles.value) ? after.handles.value : {};
-    const held = isRecord(binding.while) ? binding.while : {};
-    if (!Object.entries(held).every(([key, value]) => has(values, key) && canonical(values[key]) === canonical(value))) return [];
-    const when = Object.entries(held).map(([key, value]) => `${key} is ${canonical(value)}`);
-    return [{ set, detail: `The set "${set}" would be empty${when.length ? ` while ${when.join(' and ')}` : ''}.` }];
+    if (binding.while !== undefined) {
+      const standing = new Set(after.reading.inForce);
+      const scope = { handles: after.handles, lines: after.lines.filter((l) => standing.has(l.id)), guards: schema.guards };
+      if (conditionHolds(binding.while as unknown as Condition, scope) !== true) return [];
+    }
+    return [{ set, detail: `The set "${set}" would be empty${binding.while === undefined ? '' : ' while its condition holds'}.` }];
   },
 };

@@ -1,8 +1,8 @@
 // What a client does with the words of the domain in use (`domain.ts`): the labels, the sentences of
-// a line, a check, a goal, a record, a law, and what a draft would cause. The domain holds the
+// a line, a check, a condition, a goal, a record, a law, and what a draft would cause. The domain holds the
 // data; these are the functions that read it, and they name no gist.
 
-import { kinOf, type Check, type DryRun, type EventLine, type Json, type Payload, type Verdict, type Writer } from 'consequitur';
+import { conditionProblem, isValueReference, kinOf, nodes, type Check, type Condition, type DryRun, type EventLine, type Json, type Operand, type Payload, type Trace, type Verdict, type Writer } from 'consequitur';
 import { domain } from './domain.ts';
 
 export const uiOf = (gist: string) => domain().uiOf(gist);
@@ -42,9 +42,10 @@ export function writerName(writer: Writer): string {
   return writer;
 }
 
-/** A payload value in a sentence: a user is by name, a list is its items, anything else as it is. */
+/** A payload value in a sentence: a user is by name, a list is its items, a reference to the value handle is «attuale», anything else as it is. */
 function said(value: Json | undefined): string {
   if (typeof value === 'string') return domain().people.some((p) => p.id === value) ? userName(value) : value;
+  if (isValueReference(value)) return 'attuale';
   if (Array.isArray(value)) return value.map(said).join(', ');
   return value === undefined || value === null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
 }
@@ -139,14 +140,65 @@ export function outcomeSentence(then: string, outcome: Payload | undefined): str
   return doing.sentence.replace(/\{(\w+)\}/g, (_, key: string) => said(outcome?.[key])).trim();
 }
 
-/** A goal's warning, as a sentence: the goal by name and the check that cannot come true. */
+/** An operand of `is` or `has` in a sentence: a reference by what it reads, a value as a person reads it under the key it is compared with. */
+function operandSentence(operand: Operand, key?: string): string {
+  if (operand === null || typeof operand !== 'object') return key === undefined ? said(operand) : metadataValue(key, operand, []);
+  if ('$value' in operand) return metadataLabel(operand.$value);
+  if ('$set' in operand) return `«${domain().sets[operand.$set]?.label ?? operand.$set}»`;
+  if ('$writer' in operand) return operand.$writer === 'id' ? 'chi scrive' : 'il tipo di chi scrive';
+  return `«${operand.$draft}» della riga`;
+}
+
+/**
+ * The sentence of one node of a condition, without its children: a `line` is its check's sentence, a guard
+ * the domain's words for it, `is` and `has` what they compare; `all`, `any`, `atLeast` and `not` say how their
+ * children count, and the children follow.
+ */
+export function nodeSentence(condition: Condition, lines: EventLine[], check?: Check): string {
+  if ('line' in condition) return checkSentence(check ?? condition.line, lines);
+  if ('guard' in condition) return domain().guards[condition.guard] ?? `«${condition.guard}»`;
+  if ('is' in condition) {
+    const key = typeof condition.is === 'object' && condition.is !== null && '$value' in condition.is ? condition.is.$value : undefined;
+    const values = condition.values.map((v) => (typeof v === 'object' && v !== null && '$set' in v ? `tra ${operandSentence(v)}` : `«${operandSentence(v, key)}»`));
+    return `${operandSentence(condition.is)} è ${values.join(' o ')}`;
+  }
+  if ('has' in condition) return `${operandSentence(condition.has)} non è vuoto`;
+  if ('not' in condition) return 'non è vero che:';
+  if ('all' in condition) return 'tutte queste:';
+  if ('any' in condition) return 'almeno una di queste:';
+  return `almeno ${condition.atLeast} di queste:`;
+}
+
+/** A whole condition, as one sentence: the children of a node that counts them follow it, separated by «;». */
+export function conditionSentence(condition: Condition, lines: EventLine[]): string {
+  const children = 'not' in condition ? [condition.not] : 'all' in condition ? condition.all : 'any' in condition ? condition.any : 'atLeast' in condition ? condition.of : [];
+  const head = nodeSentence(condition, lines);
+  return children.length === 0 ? head : `${head} ${children.map((child) => conditionSentence(child, lines)).join('; ')}`;
+}
+
+/** A goal's stored condition as a trace nothing has read: every node unmet, a guard with its body. One the core would not read is an empty `all`. */
+export function unread(when: Json | undefined): Trace {
+  const { schema } = domain();
+  const walk = (condition: Condition): Trace => {
+    const children = 'not' in condition ? [condition.not] : 'all' in condition ? condition.all : 'any' in condition ? condition.any : 'atLeast' in condition ? condition.of : 'guard' in condition ? [schema.guards[condition.guard]] : [];
+    return children.length === 0 ? { condition, holds: false } : { condition, holds: false, children: children.map(walk) };
+  };
+  return conditionProblem(when, schema, false) === undefined ? walk(when as unknown as Condition) : { condition: { all: [] }, holds: false };
+}
+
+/** The sentence of the node at a path of a goal line's condition, or nothing when there is none there. */
+function sentenceAt(goal: EventLine | undefined, path: unknown, lines: EventLine[]): string | undefined {
+  if (goal === undefined || typeof path !== 'string') return undefined;
+  const node = nodes(unread(goal.payload.when)).find((n) => n.path === path)?.node;
+  return node && conditionSentence(node.condition, lines);
+}
+
+/** A goal's warning, as a sentence: the goal by name and the condition that cannot come true. */
 export function warningSentence(warning: EventLine, lines: EventLine[]): string {
   const goalId = warning.writer.slice(warning.writer.indexOf('::') + 2);
   const goal = lines.find((l) => l.id === goalId);
   const name = typeof goal?.payload.name === 'string' ? goal.payload.name : '';
-  const checks = Array.isArray(goal?.payload.checks) ? (goal.payload.checks as unknown as Check[]) : [];
-  const check = typeof warning.payload.check === 'number' ? checks[warning.payload.check] : undefined;
-  return `Il traguardo «${name}» non può più avverarsi: ${check ? checkSentence(check, lines) : 'una sua condizione'}`;
+  return `Il traguardo «${name}» non può più avverarsi: ${sentenceAt(goal, warning.payload.path, lines) ?? 'una sua condizione'}`;
 }
 
 export const metadataLabel = (key: string): string => domain().values[key]?.label ?? key;
@@ -182,9 +234,7 @@ export function verdictSentence(verdict: Verdict, lines: EventLine[]): string {
   if (verdict.law === 'keeps-goals') {
     const goal = lines.find((l) => l.id === verdict.goal);
     const name = typeof goal?.payload.name === 'string' ? goal.payload.name : '';
-    const checks = Array.isArray(goal?.payload.checks) ? (goal.payload.checks as unknown as Check[]) : [];
-    const check = verdict.check === undefined ? undefined : checks[verdict.check];
-    return `Il traguardo «${name}» non potrebbe più avverarsi: ${check ? checkSentence(check, lines) : 'una sua condizione'}.`;
+    return `Il traguardo «${name}» non potrebbe più avverarsi: ${sentenceAt(goal, verdict.path, lines) ?? 'una sua condizione'}.`;
   }
   // a law about a set is worded by the set
   const set = verdict.law === 'keeps-set' ? (verdict.set ?? '') : '';

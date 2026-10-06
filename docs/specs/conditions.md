@@ -1,6 +1,6 @@
 # Conditions — spec
 
-Status: proposed for the round «Conditions» ([plan](../plan.md) §4), from the decision
+Status: §1 to §5 built in the round «Conditions» ([plan](../plan.md) §4), where the build chose as §8 says; §6 not built. From the decision
 [conditions are kdlet's guards](../decisions/conditions-are-kdlt-guards.md). Built on the module
 `kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is for the round «Holes», from [holes are unstated values](../decisions/holes-are-unstated-values.md); the firing order of goals is in the [engine spec](engine.md) §7.
 
@@ -123,3 +123,20 @@ A value stated through a reference serves no other reference, so there are neith
 **Stopping on a hole.** A schema that wants no line of a judged kin while a hole is open registers a law kind for it, broken while `holes` is not empty, or while a hole it names is. It is not in the base kit until a schema asks.
 
 **Cases.** The warehouse's «Saved» scenario ([scenarios](scenarios.md) §5) has holes for the supplier's reference, the unloader and the sorter, and a run that fills them; its dry run against «Tuesday» fills them with Tuesday's values. The memo that names one assignee and leaves a second to be named, with a goal that waits on the second, is a scenario of the same case.
+
+## 8 · As built
+
+*Round «Conditions».* Where the build had to choose:
+
+- **The module** is `packages/consequitur/src/condition.ts`, the one file that imports `kdlet-guards`: `conditionProblem` and `guardsProblems` (the reader's rules), `toModuleForm` and `fromModuleForm` (the two forms; without the set's members the one is the other's inverse), `conditionHolds` (true, false or unknown, for `when`), `evaluateCondition` (the trace, for goals), and `nodes`, `markLost`, `lostAt` (paths, and what can no longer hold).
+- **The reader** asks a little more than §2 says, as it does of every conf: `is` has at least one value, `all`, `any` and `of` hold at least one condition, `atLeast` is a whole number from one to their count, `$set` names a declared set and `$writer` reads `id` or `kin`. An operand is a plain value or a reference, never an object or a list, since the module's `is` compares with `===`: a `when` that compared an object value, as `when.values` could, cannot be said. A goal, and a law's `while`, may not read `$writer` or `$draft`, through a guard either.
+- **The trace.** The module stops an `all` at its first child that fails and an `any` at its first that holds; the translation back reads the children it did not ask, so every node has its trace and a screen can tick each. A named guard's node has its body as its one child, so a path may go through it.
+- **Lost.** Read only where warnings are, as the anchoring was. A `line` node whose reference names a key no line states is never lost. The warning's `path` goes down from the root through an `all` to its first lost child and through a guard to its body, and stops at a `line`, an `any` or an `atLeast`; a goal writes one warning for each path, ever. `keeps-goals` gives one verdict per goal, when the path that makes it lost is new.
+- **Laws** are judged with the lines and the schema besides the reading and the handles (`LawKind.judge`), since a condition reads lines in force and named guards.
+- **Admission** reads `when` with the payload as it will be stored, before the payload's own checks, so a `when` that reads `$draft` refuses a payload that lacks the key as `not-now`.
+- **The scenario player** leaves a reference in the line, as [scenarios](scenarios.md) §1 said it would.
+- **`collect-writer`** has only `key`, and admits any payload.
+- **The policy** keeps its `while: { values }`: §1 does not name it.
+- **The cases.** SIBAR's guards are `assignee` and `open_assignee`; the review's `member`, `reviewer`, `editor` and `reviewing`; the warehouse's `member`. In the review, `request_changes` may be written by a goal (the deadline's), and the law on the reviewers holds while the status is `in_review` and a `request_review` line is in force: otherwise «draft or changes requested» would let `revision` be offered on a draft and every one refused by that law. «Published» loses the revoke of the old goal with the step «goal-v2», the two lines that changed it, and its goal's label is `goal`. The quorum is in the misfits' test, not in a scenario: none of the three is about a third reviewer. A goal of one check is a `line` node, not an `all` of one.
+- **The playground**'s composer holds checks and sends them as an `all` of `line` nodes; «Cambia» opens only a goal whose condition is a `line` or an `all` of `line` nodes, which is every goal the page writes. The dock, the cards and the inspector («Riga») draw the trace as a tree, a goal that is an `all` as the one list of its children. Each domain has words for its schema's guards, and `defineDomain` refuses one that lacks or adds any.
+- **Render.** `keyOfCheck(goal, path)` and `lineFacts`' warnings by path; the `n`th check of an `all` keeps the key it had.
