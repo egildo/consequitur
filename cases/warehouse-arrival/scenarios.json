@@ -1,0 +1,33 @@
+[
+  {
+    "id": "tuesday",
+    "title": "An arrival of merchandise as it happened: the manager's plan, a goal set by mistake and revoked, the scanner's line, a comment, the work, and a memo written by hand when sorting was done",
+    "steps": [
+      {"writer": "user::mrossi", "gist": "open", "payload": {"name": "Arrivo Ferrari · DDT 4471", "team": ["mrossi", "lbianchi"]}},
+      {"writer": "user::mrossi", "gist": "memo", "payload": {"assignTo": "lbianchi", "text": "Unload at bay B2"}},
+      {"label": "registered", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "registered", "checks": [{"gist": "arrival_scanned", "payload": {"ddt": 4471}}], "then": "notice", "with": {"to": "purchasing", "text": "arrived"}}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_sort", "checks": [{"gist": "done", "payload": {"step": "unload"}}], "then": "memo", "with": {"assignTo": "gverdi", "text": "Sort by aisle"}}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "complete", "checks": [{"gist": "done", "payload": {"step": "shelve"}}, {"gist": "notice", "writer": {"$goal": "registered"}}], "then": "closed", "final": true}},
+      {"label": "mistake", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "packed", "checks": [{"gist": "done", "payload": {"step": "pack"}}], "then": "notice", "with": {"to": "dock", "text": "packed"}}},
+      {"writer": "user::mrossi", "gist": "set_goal_revoke", "payload": {"target": {"$line": "mistake"}}},
+      {"writer": "system::dock", "gist": "arrival_scanned", "payload": {"ddt": 4471, "pallets": 12}},
+      {"writer": "user::lbianchi", "gist": "comment", "payload": {"text": "two pallets damaged"}},
+      {"writer": "user::lbianchi", "gist": "done", "payload": {"step": "unload"}},
+      {"writer": "user::gverdi", "gist": "done", "payload": {"step": "sort"}},
+      {"writer": "user::mrossi", "gist": "memo", "payload": {"assignTo": "cneri", "text": "Put on shelves, aisle 4"}},
+      {"writer": "user::cneri", "gist": "done", "payload": {"step": "shelve"}}
+    ]
+  },
+  {
+    "id": "saved",
+    "title": "What a person saves from Tuesday: the plan's lines, and the memo written by hand turned into a goal that waits for sorting",
+    "steps": [
+      {"writer": "user::mrossi", "gist": "open", "payload": {"name": "Arrivo Ferrari · DDT 4471", "team": ["mrossi", "lbianchi"]}},
+      {"writer": "user::mrossi", "gist": "memo", "payload": {"assignTo": "lbianchi", "text": "Unload at bay B2"}},
+      {"label": "3", "writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "registered", "checks": [{"gist": "arrival_scanned", "payload": {"ddt": 4471}}], "then": "notice", "with": {"to": "purchasing", "text": "arrived"}}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_sort", "checks": [{"gist": "done", "payload": {"step": "unload"}}], "then": "memo", "with": {"assignTo": "gverdi", "text": "Sort by aisle"}}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "complete", "checks": [{"gist": "done", "payload": {"step": "shelve"}}, {"gist": "notice", "writer": {"$goal": "3"}}], "then": "closed", "final": true}},
+      {"writer": "user::mrossi", "gist": "set_goal", "payload": {"name": "to_shelves", "checks": [{"gist": "done", "payload": {"step": "sort"}}], "then": "memo", "with": {"assignTo": "cneri", "text": "Put on shelves, aisle 4"}}}
+    ]
+  }
+]

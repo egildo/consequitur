@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 5. What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 6. What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -10,7 +10,7 @@ why it is built so is in the [principles](principles.md); the names are in the [
 | `packages/consequitur` | the engine: a thread, a schema, the kinds, the reading, the authority's part | built |
 | `packages/consequitur-render` | a reading made into DOM | built |
 | `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, built only on the two packages and the cases; private, never published | built |
-| `cases/<domain>/` | a domain's schema, its scenarios and, for SIBAR, its policy; not a package. The engine's `playScenario` plays them | `sibar-activity`, `editorial-review` |
+| `cases/<domain>/` | a domain's schema, its scenarios and, for SIBAR, its policy; not a package. The engine's `playScenario` plays them | `sibar-activity`, `editorial-review`, `warehouse-arrival` |
 
 The engine has no runtime dependency and imports nothing outside `src/`; `test/thread.test.ts`
 reads every import and fails on one that leaves. Tests read the cases from `cases/`, never a
@@ -22,6 +22,7 @@ fixture of their own, except a toy that isolates one rule.
 cases/
   sibar-activity/          schema.json, scenarios.json (first, opinion), policy.json
   editorial-review/        schema.json, scenarios.json (published, late, left-alone)
+  warehouse-arrival/       schema.json, scenarios.json (tuesday, saved)
 ```
 
 A **scenario** is a list of **steps**, `{ writer, gist, payload }`, posted to an empty thread; a step may
@@ -29,11 +30,20 @@ be labelled, `confirmed`, or expected `refused`. A payload may point at an earli
 **placeholder**, `$line` (a labelled step's line id), `$goal` (`goal::` and that id) or `$find` (the first
 line a check matches), since an id is a hash nobody can write down. `playScenario(steps, io)` resolves each
 step against the thread as it stands and posts it through whatever `io.send` is: the engine's tests post
-with `post`, the playground with its own `send`, so both play the same files. The module is the engine's own (`scenario.ts`) and knows no gist.
+with `post`, the playground with its own `send`, so both play the same files; with `options.as` every step is
+posted as one writer, the person who opens. The module is the engine's own (`scenario.ts`) and knows no gist.
 
-`test/scenarios.test.ts` tests the resolver and plays SIBAR's two scenarios; `test/editorial.test.ts` plays
-the review's three, with assertions at the steps that matter, and pins one test to each of the five
-misfits of [misfits.md](misfits.md), `collect-writer` registered in a kit inside the test.
+The reverse walk is in the same module. `prune(lines, reading, schema)` says, line by line, which of a thread
+a scenario need not say: the engine writes it again (a goal's line, a record), it is a mistake or its
+undoing (out of force, or a revoke), the world will state it again (a kin the schema does not judge), or a
+goal's check will find it again; every other line is left open for a person to decide on. `stepsOf(kept,
+all)` turns the lines kept into steps, each id in a payload made a `$line`, a `$goal` or a `$find`.
+
+`test/scenarios.test.ts` tests the resolver and plays SIBAR's two scenarios, prunes SIBAR's «opinion», and
+plays the warehouse's: «Tuesday», `prune` and `stepsOf` of it, and the dry run of «Saved» against it.
+`test/editorial.test.ts` plays the review's three, with assertions at the steps that matter, and pins one
+test to each of the five misfits of [misfits.md](misfits.md), `collect-writer` registered in a kit inside
+the test.
 
 ## The modules of `consequitur`
 

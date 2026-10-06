@@ -1,8 +1,8 @@
 # Scenarios — spec
 
-Status: proposed for the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../decisions/templates-are-scenarios.md). Holes come with the round «Holes» and are marked so. Words as in the [glossary](../glossary.md).
+Status: built in the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../decisions/templates-are-scenarios.md). Holes come with the round «Holes» and are marked so; they are not built. Words as in the [glossary](../glossary.md).
 
-A scenario has been a test device since the editorial round: a domain's story as data, played into an empty thread by `cases/scenario.ts`. This spec makes it a product device too. An application keeps a scenario as what its users call a template, plays it to open a new activity, and saves one from an activity a person configured by hand. The engine never sees a scenario; it sees the lines the player posts.
+A scenario was a test device from the editorial round: a domain's story as data, played into an empty thread. It is a product device too. An application keeps a scenario as what its users call a template, plays it to open a new activity, and saves one from an activity a person configured by hand. The engine never sees a scenario; it sees the lines the player posts.
 
 ## 1 · What a scenario is
 
@@ -19,9 +19,9 @@ A reference is not a placeholder. The player leaves it alone, and the reading re
 
 ## 2 · The player, in the package
 
-The module `cases/scenario.ts` moves into `packages/consequitur/src/scenario.ts` and is exported from the package: `Step`, `Scenario`, `Labels`, `Io`, `Played`, `resolve`, `draftOf`, `playScenario`, `readScenarios`. In the engine's import order it comes after `offers.ts`; it imports `inOrder`, `matches`, `validChecks` and the types. `cases/scenario.ts` is deleted; the tests and the playground import the package.
+The module is `packages/consequitur/src/scenario.ts`, exported from the package: `Step`, `Scenario`, `Labels`, `Io`, `Played`, `Pruned`, `resolve`, `draftOf`, `playScenario`, `readScenarios`, `prune`, `stepsOf`. In the engine's import order it comes after `offers.ts`; it imports `inOrder`, `matches`, `validChecks`, the small guards of `util.ts` and the types. It was `cases/scenario.ts` before the round; the tests and the playground import the package.
 
-`playScenario(steps, io, options)` gains one option:
+`playScenario(steps, io, options)` has, besides `after` and `labels`, one option:
 
 - `as?: Writer`: the writer every step is posted as. An application playing a template passes the person who opens; a test replaying a story passes nothing, and each step keeps its own writer.
 
@@ -78,7 +78,7 @@ A saved scenario is checked against the thread it came from, with nothing invent
 
 1. Play the steps into a thread nobody keeps, with `post` as `io.send`, as the saver.
 2. *(Round «Holes»)* Fill each hole with the value that was there before it was holed, by posting the fill lines.
-3. Feed the lines `prune` left as `found` or `outside`, in their reading order, each through `post`.
+3. Feed the lines `prune` left as `found` or `outside`, in their reading order, each through `post`; and the open lines the saving session turned into what a goal awaits, in their place in that order.
 4. Compare where the handles ended with the source thread's: `diff(source.handles, played.handles, kit)` is empty.
 
 The comparison is on the handles, not line by line, because the lines the saving session changed are written by a goal in the dry run and were written by a person in the source. The check proves that the scenario reproduces the activity it came from; another order of events on another day is not proved.
@@ -100,7 +100,7 @@ No new function: the steps above are `playScenario`, `post` and `diff`. The case
 
 `scenarios.json` holds two stories. «Tuesday» is the activity as it happened, with every kind of line: the manager's plan (goals that announce the arrival, assign the sorting, close the activity), a goal set by mistake and revoked, the scanner's line, a comment, the work (`done` lines), and one memo the manager wrote by hand when sorting was done, with no goal behind it. «Saved» is the scenario a person saves from it: the plan's lines, the by-hand memo turned into a goal, and, from the round «Holes» on, holes for the supplier's reference, the unloader and the sorter.
 
-The tests, in `packages/consequitur/test/scenarios.test.ts` or beside it: `prune` of «Tuesday» leaves out exactly the lines §3 says, for the reasons it says, and leaves open the plan's lines, the comment and the by-hand memo; `stepsOf` of the kept lines gives the steps of «Saved» but the goal the person added; and the dry run of §4 ends with no difference in the handles.
+The tests, in `packages/consequitur/test/scenarios.test.ts` or beside it: `prune` of «Tuesday» leaves out exactly the lines §3 says, for the reasons it says, and leaves open the plan's lines, the comment, the `done` of sorting, which no goal of «Tuesday» waits for, and the by-hand memo; `stepsOf` of the kept lines (the open lines but the comment, the `done` of sorting and the by-hand memo; the added goal waits for the one and writes the other) gives the steps of «Saved» but the goal the person added; and the dry run of §4 ends with no difference in the handles.
 
 The playground does not gain a third domain in this round: the case is the test's and the spec's truth.
 

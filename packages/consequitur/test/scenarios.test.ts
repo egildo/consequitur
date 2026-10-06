@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, consequitur, draftOf, dryRun, emptyState, inOrder, lockedBy, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
+import { admit, consequitur, diff, draftOf, dryRun, emptyState, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
@@ -277,5 +277,108 @@ describe('the offers and admission, at every state the scenarios pass through', 
     }
     expect(states).toBeGreaterThan(40);
     expect(offered).toBeGreaterThan(100);
+  });
+});
+
+describe('the warehouse arrival', () => {
+  const schema = strict(JSON.parse(readFileSync(casePath('warehouse-arrival', 'schema.json'), 'utf8')));
+  const scenarios = new Map(readScenarios(readFileSync(casePath('warehouse-arrival', 'scenarios.json'), 'utf8')).map((s) => [s.id, s]));
+  const MROSSI: Writer = 'user::mrossi';
+
+  /** «Tuesday» played to its end, and what `prune` makes of it. */
+  async function tuesday() {
+    const h = host(schema);
+    const played = await playScenario(scenarios.get('tuesday')!.steps, h.io);
+    expect(played.failed).toBeUndefined();
+    const { lines, handles } = h.state();
+    return { lines, handles, played, pruned: prune(lines, consequitur(lines, handles, schema), schema) };
+  }
+
+  /**
+   * What a person would keep of «Tuesday»: the open lines, but the comment, the memo written by hand and the
+   * sorting, which the goal the person adds in its place waits for.
+   */
+  const kept = (open: EventLine[]) => open.filter((l) => !['comment', 'done'].includes(l.gist) && !(l.gist === 'memo' && l.payload.text === 'Put on shelves, aisle 4'));
+
+  it('«Tuesday»: the goals write the notice, the memo to sorting and the closing; the team grows with the memos', async () => {
+    const { lines, handles, played } = await tuesday();
+    expect(valuesOf(handles)).toEqual({ name: 'Arrivo Ferrari · DDT 4471', steps: ['unload', 'sort', 'shelve'], status: 'closed' });
+    expect(handles.set).toEqual({ team: ['cneri', 'gverdi', 'lbianchi', 'mrossi'] });
+    const goalLines = lines.filter((l) => l.writer.startsWith('goal::'));
+    expect(goalLines.map((l) => l.gist)).toEqual(['notice', 'memo', 'closed']);
+    expect(goalLines.find((l) => l.gist === 'notice')?.writer).toBe(`goal::${played.labels.get('registered')}`);
+    // the goal set by mistake never fired, and the last goal closed the activity for good
+    expect(goalLines.find((l) => l.gist === 'closed')).toBeDefined();
+    expect(lockedBy(goalLines.find((l) => l.gist === 'closed')!, lines)).toBeDefined();
+  });
+
+  it('prune says why each line of «Tuesday» is left out, and leaves open the plan, the comment, the work nobody awaits and the memo written by hand', async () => {
+    const { lines, pruned } = await tuesday();
+    const why = new Map(pruned.left.map((l) => [l.line.id, l.why] as const));
+    expect(inOrder(lines).map((l) => [l.gist, why.get(l.id) ?? 'open'])).toEqual([
+      ['open', 'open'],
+      ['metadata_set', 'engine'],
+      ['assigned', 'engine'],
+      ['assigned', 'engine'],
+      ['memo', 'open'],
+      ['set_goal', 'open'],
+      ['set_goal', 'open'],
+      ['set_goal', 'open'],
+      ['set_goal', 'revoked'],
+      ['set_goal_revoke', 'revoked'],
+      ['arrival_scanned', 'outside'],
+      ['notice', 'engine'],
+      ['comment', 'open'],
+      ['done', 'found'],
+      ['memo', 'engine'],
+      ['metadata_set', 'engine'],
+      ['assigned', 'engine'],
+      ['done', 'open'],
+      ['metadata_set', 'engine'],
+      ['memo', 'open'],
+      ['assigned', 'engine'],
+      ['done', 'found'],
+      ['closed', 'engine'],
+      ['metadata_set', 'engine'],
+      ['metadata_set', 'engine'],
+    ]);
+    expect(pruned.open.map((l) => [l.gist, l.writer])).toEqual([
+      ['open', MROSSI],
+      ['memo', MROSSI],
+      ['set_goal', MROSSI],
+      ['set_goal', MROSSI],
+      ['set_goal', MROSSI],
+      ['comment', 'user::lbianchi'],
+      ['done', 'user::gverdi'],
+      ['memo', MROSSI],
+    ]);
+  });
+
+  it('stepsOf the lines a person keeps gives the steps of «Saved», but the goal the person added', async () => {
+    const { lines, pruned } = await tuesday();
+    const saved = scenarios.get('saved')!.steps;
+    const steps = stepsOf(kept(pruned.open), lines);
+    expect(saved.at(-1)).toMatchObject({ gist: 'set_goal', payload: { name: 'to_shelves' } });
+    expect(steps).toEqual(saved.slice(0, -1));
+  });
+
+  it('«Saved» played as the manager, with the lines of «Tuesday» that were awaited fed in, ends where «Tuesday» ended', async () => {
+    const source = await tuesday();
+    const h = host(schema);
+    const played = await playScenario(scenarios.get('saved')!.steps, h.io, { as: MROSSI });
+    expect(played.failed).toBeUndefined();
+
+    // what the scenario awaits: the world's lines, a goal's finds, and the work the goal the person added waits for
+    const added = scenarios.get('saved')!.steps.at(-1)!.payload.checks as Check[];
+    const awaited = inOrder(source.lines).filter((l) => {
+      const why = source.pruned.left.find((left) => left.line.id === l.id)?.why;
+      return why === 'found' || why === 'outside' || (why === undefined && added.some((check) => matches(check, l)));
+    });
+    expect(awaited.map((l) => l.gist)).toEqual(['arrival_scanned', 'done', 'done', 'done']);
+    for (const line of awaited) {
+      const sent = await h.io.send({ gist: line.gist, writer: line.writer, payload: line.payload }, false);
+      expect(sent, `${line.gist} by ${line.writer}`).toBeUndefined();
+    }
+    expect(diff(source.handles, h.state().handles, schema.kit)).toEqual([]);
   });
 });

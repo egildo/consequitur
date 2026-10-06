@@ -1,0 +1,45 @@
+{
+  "opening": "open",
+  "authority": "system::warehouse",
+  "sets": ["team"],
+  "records": { "value": "metadata_set", "join": "assigned", "leave": "unassigned", "warning": "goal_warning" },
+  "judged": ["user"],
+  "gists": [
+    {
+      "gist": "open",
+      "writers": ["user"],
+      "rules": [
+        { "rule": "value", "key": "name", "from": "name", "required": true },
+        { "rule": "join", "set": "team", "from": "team", "required": true }
+      ]
+    },
+    {
+      "gist": "memo",
+      "writers": ["user", "goal"],
+      "rules": [{ "rule": "join", "set": "team", "from": "assignTo" }],
+      "when": { "in": "team" }
+    },
+    {
+      "gist": "done",
+      "writers": ["user"],
+      "rules": [{ "rule": "value", "key": "steps", "collect": "step", "required": true }],
+      "when": { "in": "team" }
+    },
+    { "gist": "comment", "writers": ["user"], "rules": [], "when": { "in": "team" } },
+    { "gist": "set_goal", "writers": ["user"], "rules": [{ "rule": "goal" }], "when": { "in": "team" } },
+    {
+      "gist": "set_goal_revoke",
+      "writers": ["user"],
+      "rules": [{ "rule": "revoke", "from": "target", "gists": ["set_goal"] }],
+      "when": { "in": "team" }
+    },
+    { "gist": "notice", "writers": ["goal"], "rules": [] },
+    { "gist": "closed", "writers": ["goal"], "rules": [{ "rule": "value", "key": "status", "value": "closed" }] },
+    { "gist": "arrival_scanned", "writers": ["system"], "rules": [] },
+    { "gist": "metadata_set", "writers": ["system"], "rules": [] },
+    { "gist": "assigned", "writers": ["system"], "rules": [] },
+    { "gist": "unassigned", "writers": ["system"], "rules": [] },
+    { "gist": "goal_warning", "writers": ["goal"], "rules": [] }
+  ],
+  "laws": [{ "law": "settles", "strength": "refuse" }]
+}

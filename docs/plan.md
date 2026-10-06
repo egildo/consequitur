@@ -124,6 +124,7 @@ The ProseMirror correspondence, which the library should feel like:
    `cases/scenario.ts`, SIBAR's examples in the same shape, the engine's tests of the scenarios and of the
    five misfits, [misfits.md](misfits.md), and the playground with a domain picker. The engine did not change.
 6. **Order and scenarios**, the round that needs nothing from outside: goals fire one per round in thread order and a post runs to its end, with the bound the goals give, as [goals fire in thread order](decisions/goals-fire-in-thread-order.md) and the [engine spec](specs/engine.md) §7 say; the scenario player moves into the package, `prune` and `stepsOf` join it, and the warehouse is the third case, with its dry run against its own source, as [specs/scenarios.md](specs/scenarios.md) says, holes left for later.
+   Done: goals fire one per round in thread order and `settle` runs to the bound the goals give (`MAX_ROUNDS` is gone); `scenario.ts` is in the package with `prune`, `stepsOf` and the `as` option, and `cases/warehouse-arrival/` plays «Tuesday» and checks «Saved» by a dry run against it.
 7. **Conditions**, answering the misfits in one round, as [specs/conditions.md](specs/conditions.md)
    says: in kdlet, `kdlet-guards` (published, 0.1.1) gains the third answer the menu needs for a `$draft` operand; here, `when` and goals rewritten on it with
    `line`, `at-least` and the references, named guards in the schema, `collect-writer` in

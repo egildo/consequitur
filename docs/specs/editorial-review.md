@@ -102,7 +102,7 @@ Where the build had to choose:
   payload can point at the line it posted, `confirmed: true` for a `confirm` law, and `refused:
   <code>`, for a step the scenario expects the engine to refuse. The last step of «left alone» is
   that: the scenario ends on the refusal, and the playground leaves it under the bar.
-- **Placeholders**, one resolver for all, `cases/scenario.ts` (the tests and the playground import it,
+- **Placeholders**, one resolver for all, `scenario.ts` of the engine package (the tests and the playground import it,
   and it knows no gist): `{ "$line": "<label>" }` is the id of the line a step posted; `{ "$goal":
   "<label>" }` is `goal::` and that id, the writer of what a goal writes; `{ "$find": <check> }` is the
   first line, in reading order, that the check matches, for a line no step posted. A placeholder may
