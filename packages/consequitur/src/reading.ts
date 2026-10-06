@@ -9,6 +9,7 @@
 // another shape, states nothing.
 
 import { conditionHolds, conditionProblem, evaluateCondition, lostAt, markLost } from './condition.ts';
+import { referencesOf, resolvePayload } from './check.ts';
 import { canonical, inForce, inOrder } from './line.ts';
 import type {
   Check,
@@ -18,6 +19,7 @@ import type {
   GistSchema,
   GoalReading,
   Handles,
+  Hole,
   Json,
   LineId,
   Payload,
@@ -82,39 +84,75 @@ export interface Expectations {
   accumulators: Map<string, unknown>;
   /** What the thread expects each handle to be, by the kind's name. */
   handles: Handles;
+  /** The lines in force as the rules and the conditions read them, each reference replaced. */
+  read: EventLine[];
+  /** The values a reference reads: what the lines whose payload holds no reference state, by key. */
+  values: Payload;
+  /** The values some line in force refers to and none states. */
+  holes: Hole[];
   goals: GoalReading[];
   /** The lines the goals still owe, goal by goal: the outcome, then the warning. */
   missing: Denunciation[];
 }
 
 /**
- * The first two steps of the reading: which lines are in force, and what they
- * expect, goals included. It does not look at the handles, so `whenHolds` can ask
- * what the thread expects without having a record to compare it with.
+ * The first three steps of the reading: which lines are in force, and what they expect, goals included.
+ * It does not look at the handles, so `whenHolds` can ask what the thread expects without having a record
+ * to compare it with. What they expect is read in two passes over the lines in force: the lines whose
+ * payload holds no reference state their values; then every line is read with each reference replaced by
+ * the value the first pass stated under its key, one that states nothing leaving the reference out. A
+ * goal's line is read as it is written, since its `when` and its `with` carry references of their own.
  */
 export function expectations(lines: EventLine[], schema: Schema): Expectations {
   const { gists, kit } = schema;
   // 1. which lines stand
   const standing = inForce(lines, gists);
+  const isGoal = (l: EventLine) => gists.find((g) => g.gist === l.gist)?.rules.some((r) => r.rule === 'goal') === true;
+  const refers = (l: EventLine) => !isGoal(l) && referencesOf(l.payload).length > 0;
 
-  // 2. what they expect, the later line winning
-  const accumulators = new Map(kit.handles.map((h) => [h.kind, h.start(schema)] as const));
-  const goals = new Map<string, StoredGoal>();
-
-  for (const line of standing.inForce) {
-    // the first schema of a gist is the one read
-    const gist = gists.find((g) => g.gist === line.gist);
-    if (!gist) continue;
-    for (const binding of gist.rules) {
-      if (binding.rule === 'revoke') continue; // step 1 has read it
-      if (binding.rule === 'goal') {
-        const goal = readGoal(line, schema);
-        if (goal) goals.set(goal.name, goal);
-        continue;
+  // 2. what they expect, the later line winning: the lines that refer to nothing first, for the values a reference reads
+  const start = () => new Map(kit.handles.map((h) => [h.kind, h.start(schema)] as const));
+  const state = (acc: Map<string, unknown>, from: EventLine[], read: (l: EventLine) => EventLine, goals?: Map<string, StoredGoal>) => {
+    for (const line of from) {
+      // the first schema of a gist is the one read
+      const gist = gists.find((g) => g.gist === line.gist);
+      if (!gist) continue;
+      for (const binding of gist.rules) {
+        if (binding.rule === 'revoke') continue; // step 1 has read it
+        if (binding.rule === 'goal') {
+          const goal = readGoal(line, schema);
+          if (goal && goals) goals.set(goal.name, goal);
+          continue;
+        }
+        kit.rules.find((r) => r.rule === binding.rule)?.expect(binding, read(line), (kind) => acc.get(kind));
       }
-      kit.rules.find((r) => r.rule === binding.rule)?.expect(binding, line, (kind) => accumulators.get(kind));
     }
+  };
+  const valuesOf = (acc: Map<string, unknown>): Payload => {
+    const stated = kit.handles.find((h) => h.kind === 'value')?.expected(acc.get('value'));
+    return isRecord(stated) ? stated : {};
+  };
+  const references = lines.some(refers);
+  let values: Payload = {};
+  const read = (l: EventLine): EventLine => (references && refers(l) ? { ...l, payload: resolvePayload(l.payload, values) } : l);
+  const accumulators = start();
+  const goals = new Map<string, StoredGoal>();
+  if (references) {
+    const first = start();
+    state(first, standing.inForce.filter((l) => !refers(l)), (l) => l);
+    values = valuesOf(first);
   }
+  state(accumulators, standing.inForce, read, goals);
+  // with nothing to resolve the one pass is the first, and states the values too
+  if (!references) values = valuesOf(accumulators);
+
+  // the values awaited: referred to by a line in force (a goal's `when` is read, not carried) and stated by no line in the first pass
+  const awaited = new Map<string, LineId[]>();
+  for (const line of standing.inForce) {
+    const carried = isGoal(line) ? (isRecord(line.payload) && has(line.payload, 'with') ? [line.payload.with] : []) : [line.payload];
+    for (const key of new Set(carried.flatMap(referencesOf))) if (!has(values, key)) awaited.set(key, [...(awaited.get(key) ?? []), line.id]);
+  }
+  const holes = [...awaited].sort(([a], [b]) => compare(a, b)).map(([key, held]): Hole => ({ key, lines: held }));
 
   // the goals read what the thread expects, so the handles come first
   const handles = Object.fromEntries(kit.handles.map((h) => [h.kind, h.expected(accumulators.get(h.kind))] as const));
@@ -125,15 +163,15 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
   // without a gist for the warning, the thread expects none and no node is judged lost
   const warning = schema.records.warning;
   const warns = warning !== undefined && gists.some((g) => g.gist === warning);
-  // a goal states no value a check could rest on
-  const notGoal = (l: EventLine) => !gists.find((g) => g.gist === l.gist)?.rules.some((r) => r.rule === 'goal');
-  const candidates = standing.inForce.filter(notGoal);
-  const everHeld = lines.filter(notGoal);
+  // the lines a `line` node looks among are read as every rule read them; a goal states no value a check could rest on
+  const resolved = standing.inForce.map(read);
+  const candidates = resolved.filter((l) => !isGoal(l));
+  const everHeld = lines.filter((l) => !isGoal(l)).map(read);
   const ids = new Set(lines.map((l) => l.id));
   for (const name of [...goals.keys()].sort(compare)) {
     const goal = goals.get(name)!;
     // the goal never meets its own `line` node
-    const trace = evaluateCondition(goal.when, { handles, lines: standing.inForce, guards: schema.guards, self: goal.line.id });
+    const trace = evaluateCondition(goal.when, { handles, lines: resolved, guards: schema.guards, self: goal.line.id });
     const met = trace.holds;
     const writer = goalWriter(goal.line.id);
     // once: the goal's line anywhere in the thread, revoked or not, is its outcome
@@ -157,7 +195,7 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
     if (!written) missing.push({ sort: 'line', gist: warning, writer, line: goal.line.id, payload: { path } });
   }
 
-  return { standing, accumulators, handles, goals: goalReadings, missing };
+  return { standing, accumulators, handles, read: resolved, values, holes, goals: goalReadings, missing };
 }
 
 /**
@@ -168,7 +206,9 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
  * never the reverse.
  */
 export function holds(expected: Expectations, writer: Writer, when: Condition, schema: Schema, payload?: Payload): boolean {
-  const scope = { handles: expected.handles, lines: expected.standing.inForce, guards: schema.guards, writer, draft: payload ?? ('unknown' as const) };
+  // the draft is read as the lines are: each reference replaced, one that states nothing left out
+  const draft = payload === undefined ? ('unknown' as const) : resolvePayload(payload, expected.values);
+  const scope = { handles: expected.handles, lines: expected.read, guards: schema.guards, writer, draft };
   return conditionHolds(when, scope) !== false;
 }
 
@@ -197,6 +237,7 @@ export function consequitur(lines: EventLine[], handles: Handles, schema: Schema
     inForce: expected.standing.inForce.map((l) => l.id),
     revoked: expected.standing.revoked.map((l) => l.id),
     expected: expected.handles,
+    holes: expected.holes,
     goals: expected.goals,
     denunciations,
     settled: denunciations.length === 0,

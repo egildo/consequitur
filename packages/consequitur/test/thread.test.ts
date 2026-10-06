@@ -2576,6 +2576,7 @@ describe('posting to a thread', () => {
         inForce: [],
         revoked: [],
         expected: hold({ k: null }, []),
+        holes: [],
         goals: [],
         denunciations: [{ sort: 'handle', kind: 'value', key: 'k', expected: null, line: 'x' }],
         settled: false,

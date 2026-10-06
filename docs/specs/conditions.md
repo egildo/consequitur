@@ -2,7 +2,7 @@
 
 Status: §1 to §6 built in the round «Conditions» ([plan](../plan.md) §4), where the build chose as §6 and §8 say. From the decision
 [conditions are kdlet's guards](../decisions/conditions-are-kdlt-guards.md). Built on the module
-`kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is for the round «Holes», from [holes are unstated values](../decisions/holes-are-unstated-values.md); the firing order of goals is in the [engine spec](engine.md) §7.
+`kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is built in the round «Holes», from [holes are unstated values](../decisions/holes-are-unstated-values.md), and §8 says where it chose; the firing order of goals is in the [engine spec](engine.md) §7.
 
 ## 1 · Where a condition stands
 
@@ -112,7 +112,7 @@ playground's «Schemi» and «Leggi» show each part in KDL, from `toKdl`, or in
 
 ## 7 · References in payloads: holes and fills
 
-*Round «Holes».* A **hole** is a reference to a value no line in force states. The conditions above read references; this section lets a reference stand in any payload, so that a line can be written before everything it names is known, and completed later by another line.
+*Round «Holes», built.* A **hole** is a reference to a value no line in force states. The conditions above read references; this section lets a reference stand in any payload, so that a line can be written before everything it names is known, and completed later by another line.
 
 **Where a reference may stand.** `{ "$value": key }` may stand wherever a JSON value stands in a payload, a list's item included. `$set`, `$writer` and `$draft` stay in conditions. A payload value that is an object with the single key `$value` is a reference, never a literal, as [value references in checks](../decisions/value-references-in-checks.md) already settled for checks.
 
@@ -130,6 +130,8 @@ A value stated through a reference serves no other reference, so there are neith
 | `{ rule: 'value', keyFrom, from, where? }` | the key under `keyFrom` in the payload, the value under `from` |
 
 `keyFrom` and `from` are payload keys. Admission refuses the line (`invalid-payload`) when the key is not a string, when it is a key some `value` binding of the schema states (a hole named `status` must not set the status), or when the value holds a reference: a fill holds plain values. The expectation is the key's value, later line wins, as for every value. The warehouse case has such a gist, `fill`, written by people.
+
+`required` is not allowed on this binding, and a fill whose payload lacks the key or the value states nothing, as a payload that lacks what a binding reads always does.
 
 **What the reading says.** `Reading` gains `holes: Array<{ key: string; lines: LineId[] }>`: every key some line in force refers to and no line states, by key, with the lines that hold the reference in reading order. Nothing is denounced and nothing is unsettled: a hole is answered by a person, and the application decides whether to prompt, wait or ignore. Admission treats a reference where a rule reads as present, so `required` is satisfied by a hole; the rule's own checks on the value's shape apply once it is resolved.
 
@@ -155,3 +157,13 @@ A value stated through a reference serves no other reference, so there are neith
 - **The cases.** SIBAR's guards are `assignee` and `open_assignee`; the review's `member`, `reviewer`, `editor` and `reviewing`; the warehouse's `member`. In the review, `request_changes` may be written by a goal (the deadline's), and the law on the reviewers holds while the status is `in_review` and a `request_review` line is in force: otherwise «draft or changes requested» would let `revision` be offered on a draft and every one refused by that law. «Published» loses the revoke of the old goal with the step «goal-v2», the two lines that changed it, and its goal's label is `goal`. The quorum is in the misfits' test, not in a scenario: none of the three is about a third reviewer. A goal of one check is a `line` node, not an `all` of one.
 - **The playground**'s composer holds checks and sends them as an `all` of `line` nodes; «Cambia» opens only a goal whose condition is a `line` or an `all` of `line` nodes, which is every goal the page writes. The dock, the cards and the inspector («Riga») draw the trace as a tree, a goal that is an `all` as the one list of its children. Each domain has words for its schema's guards, and `defineDomain` refuses one that lacks or adds any.
 - **Render.** `keyOfCheck(goal, path)` and `lineFacts`' warnings by path; the `n`th check of an `all` keeps the key it had.
+
+*Round «Holes».* Where the build had to choose:
+
+- **The helper** is `resolvePayload(payload, values, keep?)` in `check.ts`, beside `isValueReference` and `referencesOf`, which gives the keys a value refers to. It leaves a reference to a key `values` lacks out (an object's key, a list's item), or, with `keep`, in place. `resolveCheck` is no longer its own loop: it reads the same helper, against the value handle the condition is read with, and gives nothing when a key of the check's payload was left out. A reference inside a list or an object in a check's payload is resolved too, which it was not before; one that does not resolve leaves its item out.
+- **The first pass** runs when some line holds a reference. Otherwise the one pass states the values too. A goal's line is never resolved, nor counted as holding a reference: its `when` is a condition and its `with` is what the outcome will carry.
+- **A condition reads the thread's expectation,** `$value` in an operand or in a check being the value handle as the whole reading states it (§2); only a payload's references read the first pass alone. The two differ only for a key stated through a reference.
+- **`holes`** lists the keys a reference names that the first pass did not state. So a reference to a key only a reference states (the chain §7 forbids) is a hole, and stays one. A line holds a reference by its payload; a goal's line by its `with` only, so a goal that waits for a value in its `when` is not a hole, and one whose outcome carries a reference is, and so is the outcome once it is written.
+- **Admission** gives each rule kind's `admit` the draft with each reference that resolves replaced and the others left, a reference counting as present, and, besides, the draft as written and the schema (`admit(binding, payload, written, schema)`). The fill's three refusals are read on the draft as written, so a reference that would resolve is no key and no value either. The set of keys the schema states is read from its gists in each admission, not stored. `join` lets a reference stand as the names or as an item. The outcome of a goal, `with`, is admitted the same way.
+- **The draft a `when` reads** has its references replaced the same way; a reference that states nothing is absent, and `has` is false.
+- **Not done: the stopping law** (§7), as the spec says, and `keeps-set`'s `while`, which still reads the lines in force as they are written: a `line` node there does not see a reference resolved.

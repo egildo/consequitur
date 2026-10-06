@@ -9,7 +9,7 @@
 // a menu is drawn for: there, a node that reads `$draft` is neither true nor false.
 
 import { check, evaluate, problems, UNKNOWN, type Condition as ModuleCondition, type Host, type Operand as ModuleOperand, type Ref, type Trace as ModuleTrace, type Word } from 'kdlet-guards';
-import { isValueReference, matches, validCheck } from './check.ts';
+import { matches, resolvePayload, validCheck } from './check.ts';
 import type { Check, Condition, EventLine, Handles, Json, LineId, Operand, Payload, Reference, Trace, Writer } from './types.ts';
 import { has, idOf, isObject, isRecord, kinOf } from './util.ts';
 
@@ -210,14 +210,8 @@ const membersOf = (handles: Handles, set: string): string[] => {
 /** The check with each `$value` in its payload replaced by what the value handle holds, or nothing when a key is not held. */
 export function resolveCheck(line: Check, handles: Handles): Check | undefined {
   if (line.payload === undefined) return line;
-  const values = isRecord(handles.value) ? handles.value : {};
-  const payload: Payload = {};
-  for (const [key, value] of Object.entries(line.payload)) {
-    if (!isValueReference(value)) payload[key] = value;
-    else if (has(values, value.$value)) payload[key] = values[value.$value];
-    else return undefined;
-  }
-  return { ...line, payload };
+  const payload = resolvePayload(line.payload, isRecord(handles.value) ? handles.value : {});
+  return Object.keys(payload).length === Object.keys(line.payload).length ? { ...line, payload } : undefined;
 }
 
 /** `at-least n`: true with n children true, false when fewer than n could still be, otherwise unknown. */

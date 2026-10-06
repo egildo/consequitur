@@ -57,16 +57,16 @@ unknown, and what can no longer hold.
 types.ts       every type, kits' interfaces included
 util.ts        small guards, `compare` (never localeCompare), `keysAre`, `kinOf`, `idOf`
 line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
-check.ts       validCheck, isValueReference, matches, whereMatches
+check.ts       validCheck, isValueReference, referencesOf, resolvePayload, matches, whereMatches: and the one place a payload's references are replaced
 condition.ts   conditionProblem, guardsProblems, toModuleForm, fromModuleForm, resolveCheck, conditionHolds, evaluateCondition, nodes, markLost, lostAt: consequitur's form of a condition, read through kdlet-guards
 schema.ts      readSchema, readGists, readLaws, readPolicy
-reading.ts     expectations, holds, whenHolds, consequitur
+reading.ts     expectations, holds, whenHolds, consequitur: the two passes over the lines in force, and the holes
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState
 offers.ts      offers
 scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, stepsOf: the one resolver of scenarios, and saving one from a thread
 kit.ts         BASE_KIT
 handles/       value, set
-rules/         value, collect-writer, join, leave
+rules/         value (four forms: from, value, collect, and the fill, keyFrom), collect-writer, join, leave
 laws/          keeps-set, keeps-goals, settles
 ```
 
@@ -128,7 +128,7 @@ engine, render and `consequitur-kdl` know nothing of it.
 
 **Mechanics** are the thread's own and the engine reads them: the envelope and its hash, reading
 order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, the
-three steps of the reading, the loop and bound of reconciliation, and where laws sit in a post.
+three steps of the reading (the second in two passes, below), the loop and bound of reconciliation, and where laws sit in a post.
 A schema names a mechanic and gives it its words; it cannot replace it.
 
 **Kinds** are everything a domain's words can mean beyond that, and each is registered by name:
@@ -144,6 +144,24 @@ opening gist, the authority, the record gists, the sets, the judged kins and the
 the schema's head. The one place it knows two kinds by name is a condition's references (`$set` reads the `set`
 handle, `$value` the `value` handle); that is the cost of conditions that every schema can use without
 a kind of its own.
+
+## References in payloads
+
+A `{ "$value": key }` may stand wherever a JSON value stands in a payload, and the reading resolves it
+before any rule, `when` or `line` node reads the payload. The second step of the reading goes over the lines
+in force twice, both in reading order: first the lines whose payload holds no reference state their values,
+into accumulators nobody keeps, and the `value` handle's expectation is what a reference reads; then every
+line is read, by every rule, with each reference replaced by that value, and left out where the first pass
+stated none. One small pure helper does it, `resolvePayload` in `check.ts`, and `resolveCheck` in
+`condition.ts` reads the same one for a `line` node's check. A line as stored keeps its reference and the hash
+covers it; the goal's line is read as written, since its `when` and `with` hold references of their own.
+Where no line holds a reference the first pass is the only one. Admission resolves a draft against the same
+first pass and keeps, as present and unchecked, the reference that does not resolve; the `value` rule's
+fill, `{ rule: 'value', keyFrom, from }`, is how a line states what a reference refers to.
+
+`Reading.holes` lists each key a line in force refers to and the first pass did not state, by key, with the
+lines that hold it. It is a list and not a denunciation: nothing reconciles a hole and the thread stays
+settled. `changes` in the render package says one opened or filled.
 
 ## The kit
 
@@ -162,8 +180,9 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
 `post(state, draft, schema, now, options)` is `dryRun` and then a decision.
 
 1. **Admit** the draft: an object whose writer is a string, gist, writer's kin, `when` (read with the
-   writer and the payload as it will be stored), then that payload, after a JSON round trip (a plain
-   object, then each rule kind's `admit`, then the mechanics of revoke and goal).
+   writer and the payload as it will be stored, its references replaced), then that payload, after a JSON
+   round trip (a plain object, then each rule kind's `admit`, which reads a reference that resolves as its
+   value and one that does not as present, then the mechanics of revoke and goal).
 2. **Append** it, stamped, with its payload as JSON holds it, and refuse it if the opening rule would break.
 3. **Settle**: read; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);

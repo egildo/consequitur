@@ -4,9 +4,10 @@
 // that record a reconciliation are its own, so they skip admission; admission
 // refuses them, and a goal's lines, from anyone else.
 
+import { referencesOf, resolvePayload } from './check.ts';
 import { conditionProblem } from './condition.ts';
 import { asStored, canonical, inForce, inOrder, lockedBy, revokeOf, stamp } from './line.ts';
-import { consequitur, whenHolds } from './reading.ts';
+import { consequitur, expectations, whenHolds } from './reading.ts';
 import type {
   Change,
   Denunciation,
@@ -37,9 +38,13 @@ export function emptyState(schema: Schema): ThreadState {
 /**
  * Why a payload does not satisfy what a gist's rules read, as an English
  * sentence, or undefined. Every other key is free. A draft and a goal's outcome
- * are held to the same checks, in the order of the bindings.
+ * are held to the same checks, in the order of the bindings. A reference in the
+ * payload is read as `values` say, the values the thread's lines state: one that
+ * resolves is checked as its value, one that does not counts as present and is
+ * not checked, so a hole satisfies `required`.
  */
-export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payload): string | undefined {
+export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payload, values: Payload = {}): string | undefined {
+  const read = referencesOf(payload).length > 0 ? resolvePayload(payload, values, true) : payload;
   // only the first revoke binding of a gist is read
   const revoking = gist.rules.find((r) => r.rule === 'revoke');
 
@@ -50,7 +55,7 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
       if (typeof payload[binding.from as string] !== 'string') return `The key "${binding.from}" must hold a line id in a "${gist.gist}" line.`;
       continue;
     }
-    const why = schema.kit.rules.find((r) => r.rule === binding.rule)?.admit(binding, payload);
+    const why = schema.kit.rules.find((r) => r.rule === binding.rule)?.admit(binding, read, payload, schema);
     if (why !== undefined) return `${why} in a "${gist.gist}" line.`;
   }
   return undefined;
@@ -101,7 +106,9 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   if (!plain || !isRecord(stored)) return invalid('The payload must be an object');
   const payload = stored;
 
-  const problem = payloadProblem(schema, gist, payload);
+  // the values a reference reads are the thread's as it stands, before the draft
+  const values = referencesOf(payload).length > 0 ? expectations(lines, schema).values : {};
+  const problem = payloadProblem(schema, gist, payload, values);
   if (problem !== undefined) return refuse('invalid-payload', problem);
 
   if (gist.rules.some((r) => r.rule === 'goal')) {
@@ -120,7 +127,7 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
       return invalid(`The gist "${outcome.gist}" named by "then" revokes or sets a goal, which a goal's line cannot`);
     }
     // the outcome's `when` is not asked: the authority's own lines skip admission
-    const wrong = payloadProblem(schema, outcome, (payload.with ?? {}) as Payload);
+    const wrong = payloadProblem(schema, outcome, (payload.with ?? {}) as Payload, values);
     if (wrong !== undefined) return invalid(`The key "with" does not fit the gist "${outcome.gist}" named by "then" (${wrong.slice(0, -1)})`);
   }
 

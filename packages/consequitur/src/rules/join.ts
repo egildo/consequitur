@@ -1,11 +1,14 @@
 // The `join` rule: the names under a payload key (a name, or a list of names)
 // are expected in a set. Whoever asked first keeps the line that asked.
 
+import { isValueReference } from '../check.ts';
 import type { SetAcc } from '../handles/set.ts';
 import type { Json, RuleBinding, RuleKind } from '../types.ts';
 import { has, keysAre, optionalFlag } from '../util.ts';
 
-const namesMembers = (value: Json): boolean => typeof value === 'string' || (Array.isArray(value) && value.every((u) => typeof u === 'string'));
+// a reference no line states yet is a name to come: it is not checked
+const isName = (value: Json): boolean => typeof value === 'string' || isValueReference(value);
+const namesMembers = (value: Json): boolean => isName(value) || (Array.isArray(value) && value.every(isName));
 
 export const joinRule: RuleKind = {
   rule: 'join',

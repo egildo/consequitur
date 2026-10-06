@@ -2,7 +2,7 @@
 // a condition's `line` node asks one, and a binding's `where` is the payload half.
 
 import { canonical } from './line.ts';
-import type { Check, EventLine, Payload } from './types.ts';
+import type { Check, EventLine, Json, Payload } from './types.ts';
 import { has, isObject, kinOf } from './util.ts';
 
 const CHECK_KEYS = ['gist', 'kin', 'writer', 'payload'];
@@ -10,6 +10,37 @@ const CHECK_KEYS = ['gist', 'kin', 'writer', 'payload'];
 /** A reference to the value handle, `{ "$value": key }`: what a check's payload value may be besides a plain one. */
 export const isValueReference = (value: unknown): value is { $value: string } =>
   isObject(value) && Object.keys(value).length === 1 && typeof value.$value === 'string';
+
+/** The key of every `$value` reference a value holds, at any depth, in order, a key once for each. */
+export function referencesOf(value: Json): string[] {
+  if (isValueReference(value)) return [value.$value];
+  if (Array.isArray(value)) return value.flatMap(referencesOf);
+  return isObject(value) ? Object.values(value).flatMap((item) => referencesOf(item as Json)) : [];
+}
+
+/**
+ * A value with each reference replaced by what `values` holds under its key. A reference to a key `values` lacks
+ * is left out, as a key of its object or an item of its list, and so states nothing; with `keep` it stays as it
+ * is, which is how admission treats it: present, and not yet checked.
+ */
+function resolveValue(value: Json, values: Payload, keep: boolean): Json | undefined {
+  if (isValueReference(value)) return has(values, value.$value) ? values[value.$value] : keep ? value : undefined;
+  if (Array.isArray(value)) {
+    const items = value.map((item) => resolveValue(item, values, keep));
+    return items.filter((item): item is Json => item !== undefined);
+  }
+  return isObject(value) ? resolvePayload(value as Payload, values, keep) : value;
+}
+
+/** A payload read against `values`, each reference replaced as `resolveValue` says; it is a new payload, the line's own is not touched. */
+export function resolvePayload(payload: Payload, values: Payload, keep = false): Payload {
+  const out: Payload = {};
+  for (const [key, value] of Object.entries(payload)) {
+    const resolved = resolveValue(value, values, keep);
+    if (resolved !== undefined) out[key] = resolved;
+  }
+  return out;
+}
 
 /**
  * Whether a check can be read: an object stating at least one of `gist`, `kin`, `writer` (strings) and `payload`

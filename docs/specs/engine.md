@@ -3,6 +3,7 @@
 Status: settled, built in round 3 («Generalise», [plan](../plan.md) §4). This describes
 `packages/consequitur`; where the build had to add to what was proposed, the text says so in place.
 The round «Conditions» changed `when`, goals, two laws and the base kit; each change is marked where it is.
+The round «Holes» let a reference stand in a payload: the reading, the `value` rule and admission, marked where they are.
 Words as in the [glossary](../glossary.md).
 
 What does not change from the ported engine is not repeated here: the line and its envelope
@@ -109,6 +110,36 @@ Order: `thread`; then `line` (by goal name, the outcome before the goal's one wa
 then `handle`, by kind in the kit's order, then each kind's own order (value by key; set by set,
 then member).
 
+The reading as a whole *(round «Holes» added `holes`)*:
+
+```ts
+export interface Reading {
+  inForce: LineId[];
+  revoked: LineId[];
+  expected: Handles;
+  /** The values some line in force refers to by { "$value": key } and no line states, by key. */
+  holes: Array<{ key: string; lines: LineId[] }>;
+  goals: GoalReading[];
+  denunciations: Denunciation[];
+  settled: boolean;
+}
+```
+
+A hole is awaited, never denounced: a person answers it, so it leaves `denunciations` and `settled` as
+they were, and the application decides whether to prompt, wait or ignore. Its `lines` are the lines in
+force that hold the reference, in reading order. A goal's line holds the references of its `with`, which
+the outcome carries, and not those of its `when`, which the goal reads.
+
+**Two passes.** The reading's second step reads the lines in force twice, both in reading order. The lines
+whose payload holds no reference state their values; that gives the values a reference reads. Then every
+line is read with each `{ "$value": key }` replaced by the value the first pass stated under its key, or,
+where it stated none, left out (a key of an object, an item of a list), so that a rule states nothing from
+it. That resolved payload is what every rule's `expect`, every `line` node of a condition and a `when`
+read; the line as stored keeps the reference and its id covers it. A goal's line is read as it is written,
+since its `when` and its `with` hold references of their own. A value stated through a reference serves no
+other reference; there are neither chains nor circles. Where no line holds a reference the two passes are
+one.
+
 ## 4 · Rules
 
 | Binding | Was | Reads |
@@ -116,13 +147,17 @@ then member).
 | `{ rule: 'value', key, from, required?, where? }` | `metadata … from` | the payload key's value |
 | `{ rule: 'value', key, value, where? }` | `metadata … value` | a fixed value |
 | `{ rule: 'value', key, collect, required?, where? }` | `metadata … collect` | adds to the key's list |
+| `{ rule: 'value', keyFrom, from, where? }` | — *(round «Holes»)* | the value under `from`, stated under the key the payload holds under `keyFrom`: a fill |
 | `{ rule: 'collect-writer', key }` | — *(round «Conditions»)* | adds the writer's id to the key's list, as `collect` does |
 | `{ rule: 'join', set, from, required? }` | `assign` | a name or a list of names |
 | `{ rule: 'leave', set }` | `release` | the writer's id leaves the set |
 | `{ rule: 'revoke', from, gists }` | the same | mechanic |
 | `{ rule: 'goal' }` | the same | mechanic |
 
-`join` and `leave` must name a set the schema declares.
+`join` and `leave` must name a set the schema declares. A `value` binding has exactly one of its four forms,
+which are `from`, `value`, `collect` (each with a `key`) and `keyFrom` (with `from`, and no `key`); `required`
+is not allowed with `keyFrom`, since a fill that lacks its key or its value states nothing, as a payload that
+lacks what a binding reads always does. A later line wins, as for every value.
 
 ```ts
 export interface RuleKind {
@@ -131,9 +166,13 @@ export interface RuleKind {
   handles: string[];
   /** The binding as typed, or a problem in English. Unknown keys are a problem. */
   read(binding: Record<string, unknown>, schema: SchemaHead): RuleBinding | string;
-  /** Why a payload cannot carry this binding, in English and without the gist, or nothing. */
-  admit(binding: RuleBinding, payload: Payload): string | undefined;
-  /** States what the line expects, into the accumulators of the handle kinds. */
+  /**
+   * Why a payload cannot carry this binding, in English and without the gist, or nothing. `payload` is the draft
+   * with each reference that resolves replaced by its value and the others left as they are: a reference counts
+   * as present and is not checked. `written` is the draft as written (round «Holes»).
+   */
+  admit(binding: RuleBinding, payload: Payload, written: Payload, schema: Schema): string | undefined;
+  /** States what the line expects, into the accumulators of the handle kinds; the payload is read with each reference replaced. */
   expect(binding: RuleBinding, line: EventLine, acc: (kind: string) => unknown): void;
 }
 ```
@@ -141,6 +180,20 @@ export interface RuleKind {
 `admit` is asked of a draft and of a goal's outcome payload alike («a draft and a goal's outcome
 are held to the same checks»), so there is no second method for the goal. `handles` lets the
 reader refuse, when the schema is read, a rule that states into a handle kind the kit lacks.
+
+*Round «Holes».* Admission reads a draft's references against the values the thread states as it stands
+(the first pass above). `payloadProblem(schema, gist, payload, values?)` gives each rule kind's `admit` the
+payload with each reference that resolves replaced by its value and each that does not left in place, so a
+hole counts as present: `required` is satisfied by it, and a rule's own checks on the value's shape (`join`
+wants a name or a list of names) apply where the reference resolved and not where it did not. A reference
+that stays is a name to come, as an item of a list too. The `value` rule's fill is judged as written: `admit`
+refuses it, as `invalid-payload`, when the payload holds under `keyFrom` something that is not a string
+(a reference is not one), when that key is one a binding of the schema states (any binding that has a
+`key`: a hole named `status` must not set the status; the set is read from the schema's gists in each
+admission), and when the value under `from` holds a reference, at any depth, whether or not it would
+resolve: a fill states a plain value. A fill whose `where` does not match its payload is not asked. A
+`when` reads the draft with its references replaced the same way, so a hole makes `has` false and `is`
+false.
 
 ## 5 · The schema
 

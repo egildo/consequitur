@@ -157,11 +157,20 @@ export interface GoalReading {
   outcomeRevoked?: true;
 }
 
+/** A value some lines in force refer to by `{ "$value": key }` and no line states: awaited, never denounced. */
+export interface Hole {
+  key: string;
+  /** The lines in force that hold the reference, in reading order. */
+  lines: LineId[];
+}
+
 export interface Reading {
   inForce: LineId[];
   revoked: LineId[];
   /** What the thread expects the handles to be. */
   expected: Handles;
+  /** The values awaited, by key. */
+  holes: Hole[];
   goals: GoalReading[];
   denunciations: Denunciation[];
   settled: boolean;
@@ -299,9 +308,13 @@ export interface RuleKind {
   handles: string[];
   /** The binding as typed, or a problem in English. Unknown keys are a problem. */
   read(binding: Record<string, unknown>, schema: SchemaHead): RuleBinding | string;
-  /** Why a payload cannot carry this binding, in English and without the gist, or nothing. */
-  admit(binding: RuleBinding, payload: Payload): string | undefined;
-  /** States what the line expects, into the accumulators of the handle kinds. */
+  /**
+   * Why a payload cannot carry this binding, in English and without the gist, or nothing. `payload` is the draft with
+   * each reference that resolves replaced by its value and the others left as they are: a reference counts as present
+   * and is not checked. `written` is the draft as it was written, and `schema` the schema it is written under.
+   */
+  admit(binding: RuleBinding, payload: Payload, written: Payload, schema: Schema): string | undefined;
+  /** States what the line expects, into the accumulators of the handle kinds; the line's payload is read with each reference replaced, one left out when its key is not stated. */
   expect(binding: RuleBinding, line: EventLine, acc: (kind: string) => unknown): void;
 }
 

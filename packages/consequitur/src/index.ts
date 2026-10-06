@@ -1,6 +1,6 @@
 export type * from './types.ts';
 export { canonical, inForce, inOrder, lockedBy, stamp, verify } from './line.ts';
-export { isValueReference, matches, validCheck, whereMatches } from './check.ts';
+export { isValueReference, matches, referencesOf, resolvePayload, validCheck, whereMatches } from './check.ts';
 export { conditionHolds, conditionProblem, evaluateCondition, fromModuleForm, guardsProblems, lostAt, nodes, resolveCheck, toModuleForm } from './condition.ts';
 export type { Names, Scope } from './condition.ts';
 export { compare, idOf, isJson, keysAre, kinOf, optionalFlag } from './util.ts';
