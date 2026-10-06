@@ -7,10 +7,10 @@ Status: settled. Each principle says what it forbids and where it comes from. Th
 
 **Forbids** writing a handle directly, by anyone, the engine included: every change is a line,
 and the handles are a cache the thread can always rebuild. Forbids a line that changes after it
-is written: its id is the hash of its content and the previous id, computed once and stored.
+is written: its id is the hash of its content and the previous id, computed once and stored. Forbids a third truth value in the reading: what no line in force says is not so, since every change is a line; only a line not yet written, the draft a menu is drawn for, is unknown.
 
 **From** the record that grew one field and one function per client meeting until nobody could
-say why it held what it held.
+say why it held what it held — and, for the third sentence, from SQL's null, which made an absent value unknown and never recovered ([decision](decisions/closed-world-reading.md)). Amended 2026-10-06.
 
 ## Conf, not code
 
