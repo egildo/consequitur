@@ -96,7 +96,7 @@ export interface Expectations {
 }
 
 /**
- * The first three steps of the reading: which lines are in force, and what they expect, goals included.
+ * The first two steps of the reading: which lines are in force, and what they expect, goals included.
  * It does not look at the handles, so `whenHolds` can ask what the thread expects without having a record
  * to compare it with. What they expect is read in two passes over the lines in force: the lines whose
  * payload holds no reference state their values; then every line is read with each reference replaced by

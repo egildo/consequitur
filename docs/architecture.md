@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 7, «Conditions». What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 8, «Holes». What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
