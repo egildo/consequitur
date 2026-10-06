@@ -1,6 +1,6 @@
 # Templates are scenarios
 
-Status: settled 2026-10-06, not built. Built in the round «Order and scenarios» ([plan](../plan.md) §4) without holes, and completed by the round «Holes»; the spec is [scenarios](../specs/scenarios.md).
+Status: settled 2026-10-06, built in the round «Order and scenarios» ([plan](../plan.md) §4) without holes; the round «Holes» completes it; the spec is [scenarios](../specs/scenarios.md).
 
 ## Context
 

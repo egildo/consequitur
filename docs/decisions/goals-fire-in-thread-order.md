@@ -1,6 +1,6 @@
 # Goals fire in thread order
 
-Status: settled 2026-10-06, not built. Built in the round «Order and scenarios» ([plan](../plan.md) §4).
+Status: settled 2026-10-06, built in the round «Order and scenarios» ([plan](../plan.md) §4).
 
 ## Context
 

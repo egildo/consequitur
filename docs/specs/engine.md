@@ -7,7 +7,7 @@ Words as in the [glossary](../glossary.md).
 What does not change from the ported engine is not repeated here: the line and its envelope
 (`canonical`, `stamp`, `verify`, `inOrder`), reading order, in force and revoking, the three
 steps of the reading, goals (once, final, `with`, warnings and anchoring), `when` and the
-offers, the cap of three rounds (a bound since the round «Order and scenarios», §7), the dry run and its `added`, `rounds`, `verdicts`. Their
+offers, the rounds of reconciliation (capped at three then, within a bound the goals give since the round «Order and scenarios», §7), the dry run and its `added`, `rounds`, `verdicts`. Their
 behaviour is the 250 tests'; this round changes the words and opens the kinds, never the meaning.
 
 ## 1 · What is a mechanic and what is a kind
