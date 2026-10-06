@@ -1,6 +1,6 @@
 # The plan — extracting the engine into a library
 
-Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 5 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. This file is the brief for the
+Status: settled 2026-10-04 by Egildo's answers (section 5); rounds 1 to 8 are done. Rounds 6 to 9 reordered 2026-10-06: the order of goals and the scenarios need nothing from outside and go first; conditions and holes follow; «Publish» moves from 7 to 9. This file is the brief for the
 rounds; as each lands, what it made true moves into `architecture.md`, and a ruling worth
 keeping into `decisions/`.
 
