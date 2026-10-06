@@ -12,7 +12,7 @@ those marked *(new)* were proposed by the plan and accepted.
 | **writer** | Who wrote a line, as `KIN::ID`: `user::mrossi`, `system::bridge`, `goal::<line id>`. |
 | **kin** | The part of a writer before `::`. A gist's schema says which kins may write it. |
 | **schema** | A domain, as data: a head, its gist schemas, its laws. Read once by `readSchema` against a kit. |
-| **head** *(new)* | The part of a schema that names its own words: the `opening` gist, the `authority`, the `sets`, the `records`, the kins `judged`. |
+| **head** *(new)* | The part of a schema that names its own words: the `opening` gist, the `authority`, the `sets`, the `records`, the kins `judged`, the named `guards`. |
 | **authority** *(new)* | The writer of the lines that record a reconciliation, named by the head. In SIBAR, `system::sibardoc`. |
 | **gist schema** | One gist's configuration: its writers, its `when`, its rule bindings. |
 | **opening gist** *(new)* | The gist a thread starts with; exactly one is in force. In SIBAR, `create`. |
@@ -35,10 +35,13 @@ those marked *(new)* were proposed by the plan and accepted.
 | **record** *(new)* | A line the authority writes to say a reconciliation changed a handle. Each has a **role** (`value`, `join`, `leave`, or one of a kit's own), and the head's `records` names the gist of each role, and of the goal's `warning`. |
 | **goal** | A line that names checks and an outcome. When every check finds a line, the goal writes its outcome, once. |
 | **check** | An equality on a line's gist, kin, writer and payload keys. |
+| **condition** *(new)* | What a `when`, a goal and a law's `while` say: kdlet's guards, `is`, `has`, `not`, `all`, `any` and a named **guard**, with the two **words** consequitur registers, written as JSON with **references** ([specs/conditions.md](specs/conditions.md)). It holds or it does not; only the draft a menu is drawn for is unknown. |
+| **guard** *(new)* | A condition the schema's head names, used by `{ "guard": name }` in a `when`, a goal or a law. |
+| **word** *(new)* | A node of a condition that consequitur registers on `kdlet-guards`: `line` (a line in force matches a check) and `at-least` (a quorum of its children). |
 | **outcome** | The line a goal writes, with the payload the goal carries. |
 | **final** | A goal whose outcome can never be revoked. |
 | **warning** | The line a goal writes, once per check, when the thread lost what the check names. |
-| **when** | When a gist may be written: `checks`, being `in` a set, `values` of the value handle. What the menu is built from. |
+| **when** | When a gist may be written: a condition, read with the writer and the draft. What the menu is built from: there the draft is unknown, and a gist is offered unless its `when` is false. |
 | **offer** | A gist a writer may write now, with the lines it may name if it revokes. |
 | **law** | A registered judgement on what a line would cause, with a strength: refuse, or confirm. The schema binds it, and its head says whose lines are `judged`. |
 | **verdict** | One law found broken by a dry run. |

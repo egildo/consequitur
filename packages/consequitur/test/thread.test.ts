@@ -29,6 +29,8 @@ import {
   validChecks,
   verify,
   whenHolds,
+  type Check,
+  type Condition,
   type Denunciation,
   type EventLine,
   type GistSchema,
@@ -38,6 +40,7 @@ import {
   type Json,
   type Kit,
   type LineDraft,
+  type Operand,
   type Offer,
   type Payload,
   type Reading,
@@ -45,7 +48,6 @@ import {
   type RuleKind,
   type Schema,
   type ThreadState,
-  type When,
   type Writer,
 } from '../src/index.ts';
 import { HEAD, PLAIN, RECORD_GISTS, SIBAR, SIBAR_JSON, SYSTEM_WRITER, custom, emptyHandles, hold, membersOf, sibar, unchecked, valuesOf } from './helpers.ts';
@@ -920,14 +922,19 @@ describe('readGists', () => {
     ['a gist name of thirty-three characters', { gist: 'a'.repeat(33), writers: ['user'], rules: [] }],
     ['a key the schema does not have', other([], { label: 'x' })],
     ['a when with a key it does not have', other([], { when: { after: 'x' } })],
-    ['a when whose in is not a name', other([], { when: { in: false } })],
-    ['a when whose in names a set the schema does not declare', other([], { when: { in: 'owners' } })],
-    ['a when whose values are empty', other([], { when: { values: {} } })],
-    ['a when whose values are not an object', other([], { when: { values: ['open'] } })],
-    ['a when whose values hold something that is not JSON', other([], { when: { values: { status: undefined } } })],
-    ['the old words of a when', other([], { when: { assignee: true } })],
-    ['a when with checks that are empty', other([], { when: { checks: [] } })],
-    ['a when with a check that states nothing', other([], { when: { checks: [{}] } })],
+    ['a when with the old parts', other([], { when: { in: 'assignees' } })],
+    ['a when with two kinds of node', other([], { when: { has: 'x', not: { has: 'y' } } })],
+    ['a when whose is has no values', other([], { when: { is: { $value: 'status' }, values: [] } })],
+    ['a when whose operand is an object', other([], { when: { is: { $value: 'status' }, values: [{ open: true }] } })],
+    ['a when that reads a set the schema does not declare', other([], { when: { has: { $set: 'owners' } } })],
+    ['a when whose writer reference reads neither id nor kin', other([], { when: { has: { $writer: 'name' } } })],
+    ['a when with a reference that is not one', other([], { when: { has: { $line: 'x' } } })],
+    ['a when with an empty all', other([], { when: { all: [] } })],
+    ['a when with a line that states nothing', other([], { when: { line: {} } })],
+    ['a when whose line check has a key too many', other([], { when: { line: { gist: 'memo', not: true } } })],
+    ['a when that names a guard the schema lacks', other([], { when: { guard: 'nobody' } })],
+    ['a when whose atLeast is more than its conditions', other([], { when: { atLeast: 2, of: [{ line: { gist: 'memo' } }] } })],
+    ['a when that is empty', other([], { when: {} })],
     ['a when that is a list', other([], { when: [] })],
     ['a when that is null', other([], { when: null })],
     ['a schema without its rules', { gist: 'other', writers: ['user'] }],
@@ -980,13 +987,14 @@ describe('readGists', () => {
     expect(readOf([ok])).toEqual({ gists: [ok], problems: [] });
   });
 
-  it('accepts a when with any of its three parts, or none', () => {
-    const whens = [
-      {},
-      { in: 'assignees' },
-      { values: { status: 'open', n: 1, deep: { k: [null] } } },
-      { checks: [{ gist: 'memo' }, { kin: 'system', payload: { x: 1 } }] },
-      { checks: [{ gist: 'memo' }], in: 'assignees', values: { status: 'open' } },
+  it('accepts a when of any node, with the references a when may read', () => {
+    const whens: Condition[] = [
+      { is: { $writer: 'id' }, values: [{ $set: 'assignees' }] },
+      { is: { $value: 'status' }, values: ['open', 'closed', 1, true, null] },
+      { has: { $draft: 'about' } },
+      { not: { is: { $writer: 'kin' }, values: ['system'] } },
+      { any: [{ line: { gist: 'memo' } }, { line: { kin: 'system', payload: { x: 1, y: { $value: 'name' } } } }] },
+      { atLeast: 1, of: [{ guard: 'assignee' }, { guard: 'open_assignee' }] },
     ];
     for (const when of whens) {
       const ok = other([], { when });
@@ -1823,78 +1831,98 @@ describe('posting to a thread', () => {
       });
 
       describe('whenHolds', () => {
-        const probe = (when?: When): GistSchema => ({ gist: 'probe', writers: ['user'], rules: [], ...(when ? { when } : {}) });
+        const probe = (when?: Condition): GistSchema => ({ gist: 'probe', writers: ['user'], rules: [], ...(when ? { when } : {}) });
         const conf: GistSchema = { gist: 'conf', writers: ['user'], rules: [{ rule: 'value', key: 'conf', from: 'conf' }] };
         const all = sibar({ add: [conf], laws: [] });
         const open = () => thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] }), mrossi('memo', { assignTo: ['lbianchi'] })]);
+        const assignee: Condition = { is: { $writer: 'id' }, values: [{ $set: 'assignees' }] };
+        const status = (...values: Operand[]): Condition => ({ is: { $value: 'status' }, values });
 
-        it('holds when the schema has no when, or an empty one, whoever writes', async () => {
+        it('holds when the schema has no when, whoever writes', async () => {
           const lines = await open();
-          for (const writer of ['user::mrossi', 'user::gverdi', 'nobody'] as Writer[]) {
-            expect(whenHolds(lines, writer, probe(), all)).toBe(true);
-            expect(whenHolds(lines, writer, probe({}), all)).toBe(true);
-          }
+          for (const writer of ['user::mrossi', 'user::gverdi', 'nobody'] as Writer[]) expect(whenHolds(lines, writer, probe(), all)).toBe(true);
           expect(whenHolds([], 'user::mrossi', probe(), all)).toBe(true);
         });
 
-        it('in: the writer after the first :: is an expected assignee, whatever the kin', async () => {
+        it('a $set among the values: the writer after the first :: is an expected member, whatever the kin', async () => {
           const lines = await open();
-          const when = probe({ in: 'assignees' });
+          const when = probe(assignee);
           expect(whenHolds(lines, 'user::mrossi', when, all)).toBe(true);
           expect(whenHolds(lines, 'user::lbianchi', when, all)).toBe(true);
           expect(whenHolds(lines, 'system::lbianchi', when, all)).toBe(true);
           expect(whenHolds(lines, 'user::gverdi', when, all)).toBe(false);
           expect(whenHolds(lines, 'lbianchi' as Writer, when, all)).toBe(false);
           expect(whenHolds([], 'user::mrossi', when, all)).toBe(false);
+          // and $writer reads the kin too
+          expect(whenHolds(lines, 'system::x', probe({ is: { $writer: 'kin' }, values: ['system'] }), all)).toBe(true);
         });
 
-        it('in follows what the thread expects: a quit and a revoked memo take an assignee away', async () => {
+        it('membership follows what the thread expects: a quit and a revoked memo take an assignee away', async () => {
           const lines = await open();
           const quit = await thread([...lines, by('user::lbianchi', 'quit', {})]);
-          expect(whenHolds(quit, 'user::lbianchi', probe({ in: 'assignees' }), all)).toBe(false);
+          expect(whenHolds(quit, 'user::lbianchi', probe(assignee), all)).toBe(false);
           const revoked = await thread([...lines, mrossi('memo_revoke', { target: lines[1].id })]);
-          expect(whenHolds(revoked, 'user::lbianchi', probe({ in: 'assignees' }), all)).toBe(false);
-          expect(whenHolds(revoked, 'user::mrossi', probe({ in: 'assignees' }), all)).toBe(true);
+          expect(whenHolds(revoked, 'user::lbianchi', probe(assignee), all)).toBe(false);
+          expect(whenHolds(revoked, 'user::mrossi', probe(assignee), all)).toBe(true);
         });
 
-        it('values: each key is expected, and equals the value by its canonical form', async () => {
-          const lines = await thread([...(await open()), mrossi('conf', { conf: { b: 2, a: [1, null] } })]);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open', name: 'A' } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { conf: { a: [1, null], b: 2 } } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'closed' } }), all)).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open', name: 'B' } }), all)).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { conf: { a: [null, 1], b: 2 } } }), all)).toBe(false);
-          // a key the thread does not expect fails, even if it is asked to be null
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { absent: null } }), all)).toBe(false);
-          expect(whenHolds([], 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(false);
+        it('$value: the key is expected, and equals one of the values given', async () => {
+          const lines = await thread([...(await open()), mrossi('conf', { conf: 2 })]);
+          expect(whenHolds(lines, 'user::mrossi', probe(status('open')), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe(status('closed', 'open')), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ all: [status('open'), { is: { $value: 'name' }, values: ['A'] }] }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ is: { $value: 'conf' }, values: [2] }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ is: { $value: 'conf' }, values: ['2'] }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe(status('closed')), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe({ all: [status('open'), { is: { $value: 'name' }, values: ['B'] }] }), all)).toBe(false);
+          // a key the thread does not expect is absent, and `is` is false, even if it is asked to be null
+          expect(whenHolds(lines, 'user::mrossi', probe({ is: { $value: 'absent' }, values: [null] }), all)).toBe(false);
+          expect(whenHolds([], 'user::mrossi', probe(status('open')), all)).toBe(false);
         });
 
-        it('values read the thread, not the handles', async () => {
+        it('$value reads the thread, not the handles', async () => {
           const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);
           expect(consequitur(lines, hold({}, []), all).settled).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', probe({ values: { status: 'open' } }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe(status('open')), all)).toBe(true);
         });
 
-        it('checks: each finds a line in force, as a goal check does', async () => {
+        it('line: a line in force matches the check', async () => {
           const lines = await open();
-          const check = (...checks: NonNullable<When['checks']>) => probe({ checks });
-          expect(whenHolds(lines, 'user::mrossi', check({ gist: 'memo' }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', check({ gist: 'memo' }, { kin: 'user', writer: 'user::mrossi', payload: { assignTo: ['lbianchi'] } }), all)).toBe(true);
-          expect(whenHolds(lines, 'user::mrossi', check({ gist: 'memo' }, { gist: 'got_it' }), all)).toBe(false);
-          expect(whenHolds(lines, 'user::mrossi', check({ gist: 'memo', payload: { assignTo: ['x'] } }), all)).toBe(false);
-          expect(whenHolds([], 'user::mrossi', check({ gist: 'memo' }), all)).toBe(false);
+          const line = (...checks: Check[]) => probe({ all: checks.map((check) => ({ line: check })) });
+          expect(whenHolds(lines, 'user::mrossi', line({ gist: 'memo' }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', line({ gist: 'memo' }, { kin: 'user', writer: 'user::mrossi', payload: { assignTo: ['lbianchi'] } }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', line({ gist: 'memo' }, { gist: 'got_it' }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', line({ gist: 'memo', payload: { assignTo: ['x'] } }), all)).toBe(false);
+          expect(whenHolds([], 'user::mrossi', line({ gist: 'memo' }), all)).toBe(false);
           const revoked = await thread([...lines, mrossi('memo_revoke', { target: lines[1].id })]);
-          expect(whenHolds(revoked, 'user::mrossi', check({ gist: 'memo' }), all)).toBe(false);
+          expect(whenHolds(revoked, 'user::mrossi', line({ gist: 'memo' }), all)).toBe(false);
         });
 
-        it('all three parts must hold', async () => {
+        it('not, all, any and a named guard, as their names say', async () => {
           const lines = await open();
-          const when = (over: When = {}) => probe({ checks: [{ gist: 'memo' }], in: 'assignees', values: { status: 'open' }, ...over });
-          expect(whenHolds(lines, 'user::lbianchi', when(), all)).toBe(true);
-          expect(whenHolds(lines, 'user::gverdi', when(), all)).toBe(false);
-          expect(whenHolds(lines, 'user::lbianchi', when({ values: { status: 'closed' } }), all)).toBe(false);
-          expect(whenHolds(lines, 'user::lbianchi', when({ checks: [{ gist: 'got_it' }] }), all)).toBe(false);
+          const memo: Condition = { line: { gist: 'memo' } };
+          expect(whenHolds(lines, 'user::lbianchi', probe({ all: [memo, assignee, status('open')] }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::gverdi', probe({ all: [memo, assignee, status('open')] }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::gverdi', probe({ any: [assignee, { not: memo }] }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::gverdi', probe({ any: [assignee, memo] }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::gverdi', probe({ not: assignee }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::lbianchi', probe({ guard: 'open_assignee' }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::gverdi', probe({ guard: 'open_assignee' }), all)).toBe(false);
+        });
+
+        it('$draft: admission reads the payload; the menu, which has none, says no only when the when is false', async () => {
+          const lines = await open();
+          const draft: Condition = { is: { $draft: 'stage' }, values: ['firma'] };
+          expect(whenHolds(lines, 'user::mrossi', probe(draft), all, { stage: 'firma' })).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe(draft), all, { stage: 'bozza' })).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe(draft), all, {})).toBe(false);
+          expect(whenHolds(lines, 'user::mrossi', probe(draft), all)).toBe(true);
+          // under `not` the draft is still unknown, and the menu still offers what admission would accept
+          expect(whenHolds(lines, 'user::mrossi', probe({ not: draft }), all)).toBe(true);
+          expect(whenHolds(lines, 'user::mrossi', probe({ not: draft }), all, { stage: 'bozza' })).toBe(true);
+          // a part that is false is false, whatever the draft
+          expect(whenHolds(lines, 'user::gverdi', probe({ all: [assignee, draft] }), all)).toBe(false);
+          expect(whenHolds(lines, 'user::gverdi', probe({ any: [assignee, draft] }), all)).toBe(true);
         });
 
         it('never throws on a thread it cannot read, and changes none of its arguments', async () => {
@@ -1903,7 +1931,7 @@ describe('posting to a thread', () => {
             mrossi('memo', { assignTo: 7 }),
             by('nobody' as Writer, 'mystery', { a: null }),
           ]);
-          const when = probe({ checks: [{ gist: 'memo' }], in: 'assignees', values: { status: 'open' } });
+          const when = probe({ all: [{ line: { gist: 'memo' } }, assignee, status('open')] });
           const copies = [structuredClone(odd), structuredClone(when), structuredClone(all.gists)] as const;
           expect(whenHolds(odd, 'user::mrossi', when, all)).toBe(false);
           expect(whenHolds(odd, 'user' as Writer, when, all)).toBe(false);

@@ -9,9 +9,11 @@
 // another shape, states nothing.
 
 import { matches, validChecks } from './check.ts';
+import { conditionHolds } from './condition.ts';
 import { canonical, inForce, inOrder } from './line.ts';
 import type {
   Check,
+  Condition,
   Denunciation,
   EventLine,
   GistSchema,
@@ -22,10 +24,9 @@ import type {
   Payload,
   Reading,
   Schema,
-  When,
   Writer,
 } from './types.ts';
-import { compare, has, idOf, isObject, isRecord } from './util.ts';
+import { compare, has, isObject, isRecord } from './util.ts';
 
 /** A writer type cannot be built from a template without stating it, so one place states it. */
 export const goalWriter = (id: LineId): Writer => `goal::${id}`;
@@ -157,31 +158,25 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
   return { standing, accumulators, handles, goals: goalReadings, missing };
 }
 
-/** The part of `when` that reads what the thread expects, once it has been computed. */
-export function holds(expected: Expectations, writer: Writer, when: When): boolean {
-  if (when.checks && !when.checks.every((check) => expected.standing.inForce.some((l) => matches(check, l)))) return false;
-  if (when.in !== undefined) {
-    const id = idOf(writer);
-    const sets = expected.handles.set;
-    const members = isRecord(sets) ? sets[when.in] : undefined;
-    if (id === undefined || !Array.isArray(members) || !members.includes(id)) return false;
-  }
-  if (when.values) {
-    const values = expected.handles.value;
-    for (const [key, value] of Object.entries(when.values)) {
-      if (!isRecord(values) || !has(values, key) || canonical(values[key]) !== canonical(value)) return false;
-    }
-  }
-  return true;
+/**
+ * Whether a gist's `when` lets this writer write it, once the expectations are computed. Given the draft's
+ * payload it is admission's question, and has two answers. Without one it is the menu's, asked before there
+ * is a draft: a node that reads `$draft` is unknown, unknown spreads by Kleene's strong tables, and the
+ * answer is no only when the `when` is false. So the menu may offer what admission refuses for its payload,
+ * never the reverse.
+ */
+export function holds(expected: Expectations, writer: Writer, when: Condition, schema: Schema, payload?: Payload): boolean {
+  const scope = { handles: expected.handles, lines: expected.standing.inForce, guards: schema.guards, writer, draft: payload ?? ('unknown' as const) };
+  return conditionHolds(when, scope) !== false;
 }
 
 /**
- * Whether a gist may be written by this writer on this thread. A gist with no
- * `when`, or an empty one, holds. Admission and the offers both ask this, so a menu
- * drawn from the offers cannot disagree with the authority.
+ * Whether a gist may be written by this writer on this thread, with this payload, or, without one, whether
+ * the menu offers it. A gist with no `when` holds. Admission and the offers both ask this, so a menu drawn
+ * from the offers cannot refuse what the authority admits.
  */
-export function whenHolds(lines: EventLine[], writer: Writer, gist: GistSchema, schema: Schema): boolean {
-  return gist.when === undefined || holds(expectations(lines, schema), writer, gist.when);
+export function whenHolds(lines: EventLine[], writer: Writer, gist: GistSchema, schema: Schema, payload?: Payload): boolean {
+  return gist.when === undefined || holds(expectations(lines, schema), writer, gist.when, schema, payload);
 }
 
 export function consequitur(lines: EventLine[], handles: Handles, schema: Schema): Reading {

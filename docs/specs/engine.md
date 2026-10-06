@@ -146,13 +146,14 @@ reader refuse, when the schema is read, a rule that states into a handle kind th
   "sets": ["assignees"],
   "records": { "value": "metadata_set", "join": "assigned", "leave": "unassigned", "warning": "goal_warning" },
   "judged": ["user"],
+  "guards": { "assignee": { "is": { "$writer": "id" }, "values": [{ "$set": "assignees" }] } },
   "gists": [
     { "gist": "create", "writers": ["user"], "rules": [
       { "rule": "value", "key": "name", "from": "name", "required": true },
       { "rule": "value", "key": "status", "value": "open" },
       { "rule": "join", "set": "assignees", "from": "assignTo", "required": true }
     ] },
-    { "gist": "quit", "writers": ["user"], "rules": [{ "rule": "leave", "set": "assignees" }], "when": { "in": "assignees" } }
+    { "gist": "quit", "writers": ["user"], "rules": [{ "rule": "leave", "set": "assignees" }], "when": { "guard": "assignee" } }
   ],
   "laws": [
     { "law": "keeps-set", "set": "assignees", "while": { "status": "open" }, "strength": "refuse" },
@@ -170,8 +171,10 @@ reader refuse, when the schema is read, a rule that states into a handle kind th
   named; `warning` may be left out, and then the thread expects no warnings and no check is
   judged. A schema that uses fewer handle kinds is read against a smaller kit.
 - `laws`: optional; a schema with none judges nothing.
-- `when`: `{ checks?, in?: <set>, values?: { [key]: Json } }` — `in` and `values` replace
-  `assignee` and `metadata`.
+- `when`: a condition ([conditions](conditions.md) §2), read with the writer and the draft. `guards`:
+  optional, the named guards, each a condition, used by `{ "guard": name }` in a `when`, a goal or a
+  law; a guard may read `$writer` and `$draft`, and then only a `when` may use it. *(Round «Conditions»;
+  `when` was `{ checks?, in?, values? }`.)*
 
 ```ts
 export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems: string[] };
@@ -257,8 +260,12 @@ after? }`; `set` gives `{ kind: 'set', key, member, change: 'join' | 'leave' }`.
 ## 8 · Offers
 
 `offers` computes the expectations once per call, not once per gist. Same result. Admission and
-the menu still ask one question: `whenHolds(lines, writer, gist, schema)` computes the
-expectations for its one gist, and `offers` asks the same part of them (`holds`) for each.
+the menu still ask one question: `whenHolds(lines, writer, gist, schema, payload?)` computes the
+expectations for its one gist, and `offers` asks the same part of them (`holds`) for each. Admission
+passes the draft's payload, as it will be stored; the menu has none, so a node of a `when` that reads
+`$draft` is unknown, unknown spreads by Kleene's strong tables, and a gist is offered unless its `when`
+is false ([the reading is closed-world](../decisions/closed-world-reading.md)). The menu may offer what
+admission then refuses for its payload, never the reverse.
 The engine neither offers the lines it writes itself, one by a writer of kin `goal` and one of a gist
 the head's `records` names (`warning` included), nor admits them (`writer-not-allowed`): `settle`
 writes them, and they skip admission. A revoke names only a line in force: one of a line already out

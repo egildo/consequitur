@@ -4,6 +4,10 @@
   "sets": ["assignees"],
   "records": { "value": "metadata_set", "join": "assigned", "leave": "unassigned", "warning": "goal_warning" },
   "judged": ["user"],
+  "guards": {
+    "assignee": { "is": { "$writer": "id" }, "values": [{ "$set": "assignees" }] },
+    "open_assignee": { "all": [{ "guard": "assignee" }, { "is": { "$value": "status" }, "values": ["open"] }] }
+  },
   "gists": [
     {
       "gist": "create",
@@ -18,20 +22,20 @@
       "gist": "memo",
       "writers": ["user", "goal"],
       "rules": [{ "rule": "join", "set": "assignees", "from": "assignTo" }],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
     {
       "gist": "memo_revoke",
       "writers": ["user"],
       "rules": [{ "rule": "revoke", "from": "target", "gists": ["memo"] }],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
-    { "gist": "comment", "writers": ["user"], "rules": [], "when": { "in": "assignees" } },
+    { "gist": "comment", "writers": ["user"], "rules": [], "when": { "guard": "assignee" } },
     {
       "gist": "got_it",
       "writers": ["user"],
       "rules": [{ "rule": "value", "key": "acknowledged", "from": "about", "required": true }],
-      "when": { "values": { "status": "open" }, "in": "assignees", "checks": [{ "gist": "memo" }] }
+      "when": { "all": [{ "guard": "open_assignee" }, { "line": { "gist": "memo" } }] }
     },
     {
       "gist": "doc_ref",
@@ -41,45 +45,45 @@
         { "rule": "value", "key": "documents_in", "collect": "document", "where": { "direction": "inbound" } },
         { "rule": "value", "key": "documents_out", "collect": "document", "where": { "direction": "outbound" } }
       ],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
     {
       "gist": "doc_ref_revoke",
       "writers": ["user"],
       "rules": [{ "rule": "revoke", "from": "target", "gists": ["doc_ref"] }],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
     {
       "gist": "set_goal",
       "writers": ["user"],
       "rules": [{ "rule": "goal" }],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
     {
       "gist": "set_goal_revoke",
       "writers": ["user"],
       "rules": [{ "rule": "revoke", "from": "target", "gists": ["set_goal"] }],
-      "when": { "in": "assignees" }
+      "when": { "guard": "assignee" }
     },
     {
       "gist": "stage",
       "writers": ["user", "goal"],
       "rules": [{ "rule": "value", "key": "stage", "from": "stage", "required": true }],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
     {
       "gist": "closed",
       "writers": ["goal", "user"],
       "rules": [{ "rule": "value", "key": "status", "value": "closed" }],
-      "when": { "values": { "status": "open" }, "in": "assignees" }
+      "when": { "guard": "open_assignee" }
     },
     {
       "gist": "closed_revoke",
       "writers": ["user"],
       "rules": [{ "rule": "revoke", "from": "target", "gists": ["closed"] }],
-      "when": { "in": "assignees" }
+      "when": { "guard": "assignee" }
     },
-    { "gist": "quit", "writers": ["user"], "rules": [{ "rule": "leave", "set": "assignees" }], "when": { "in": "assignees" } },
+    { "gist": "quit", "writers": ["user"], "rules": [{ "rule": "leave", "set": "assignees" }], "when": { "guard": "assignee" } },
     { "gist": "doc_signed", "writers": ["system"], "rules": [] },
     { "gist": "doc_created", "writers": ["system"], "rules": [] },
     { "gist": "assigned", "writers": ["system"], "rules": [] },

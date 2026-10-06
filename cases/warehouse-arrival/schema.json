@@ -4,6 +4,9 @@
   "sets": ["team"],
   "records": { "value": "metadata_set", "join": "assigned", "leave": "unassigned", "warning": "goal_warning" },
   "judged": ["user"],
+  "guards": {
+    "member": { "is": { "$writer": "id" }, "values": [{ "$set": "team" }] }
+  },
   "gists": [
     {
       "gist": "open",
@@ -17,21 +20,21 @@
       "gist": "memo",
       "writers": ["user", "goal"],
       "rules": [{ "rule": "join", "set": "team", "from": "assignTo" }],
-      "when": { "in": "team" }
+      "when": { "guard": "member" }
     },
     {
       "gist": "done",
       "writers": ["user"],
       "rules": [{ "rule": "value", "key": "steps", "collect": "step", "required": true }],
-      "when": { "in": "team" }
+      "when": { "guard": "member" }
     },
-    { "gist": "comment", "writers": ["user"], "rules": [], "when": { "in": "team" } },
-    { "gist": "set_goal", "writers": ["user"], "rules": [{ "rule": "goal" }], "when": { "in": "team" } },
+    { "gist": "comment", "writers": ["user"], "rules": [], "when": { "guard": "member" } },
+    { "gist": "set_goal", "writers": ["user"], "rules": [{ "rule": "goal" }], "when": { "guard": "member" } },
     {
       "gist": "set_goal_revoke",
       "writers": ["user"],
       "rules": [{ "rule": "revoke", "from": "target", "gists": ["set_goal"] }],
-      "when": { "in": "team" }
+      "when": { "guard": "member" }
     },
     { "gist": "notice", "writers": ["goal"], "rules": [] },
     { "gist": "closed", "writers": ["goal"], "rules": [{ "rule": "value", "key": "status", "value": "closed" }] },

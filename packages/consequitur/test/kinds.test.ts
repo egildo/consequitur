@@ -250,6 +250,7 @@ describe('readSchema', () => {
     expect(schema.sets).toEqual(['assignees']);
     expect(schema.records).toEqual({ value: 'metadata_set', join: 'assigned', leave: 'unassigned', warning: 'goal_warning' });
     expect(schema.judged).toEqual(['user']);
+    expect(Object.keys(schema.guards)).toEqual(['assignee', 'open_assignee']);
     expect(schema.gists).toHaveLength(19);
     expect(schema.laws).toHaveLength(3);
     expect(schema.kit).toBe(BASE_KIT);
@@ -283,12 +284,26 @@ describe('readSchema', () => {
     ['records that are not an object', { records: 'x' }, /records/],
     ['records that lack a role', { records: { value: 'metadata_set', join: 'assigned' } }, /leave/],
     ['records that name a role no handle kind has', { records: { ...SIBAR_JSON.records, mood: 'comment' } }, /mood/],
+    ['guards that are not an object', { guards: [] }, /guards/],
+    ['a guard that is not a condition', { guards: { ...SIBAR_JSON.guards, odd: { maybe: true } } }, /guard "odd"/],
+    ['a guard that names a guard the head lacks', { guards: { ...SIBAR_JSON.guards, odd: { guard: 'nobody' } } }, /guard "odd"/],
+    ['two guards that depend on each other', { guards: { a: { guard: 'b' }, b: { not: { guard: 'a' } } } }, /depends on itself/],
+    ['a guard that reads a set the head does not declare', { guards: { odd: { has: { $set: 'owners' } } } }, /owners/],
   ];
 
   it.each(brokenHeads)('a head with %s gives an empty schema, and says why', (_, change, why) => {
     const out = read({ ...SIBAR_JSON, ...change });
     expect(out.schema.gists).toEqual([]);
     expect(out.problems.join(' ')).toMatch(why);
+  });
+
+  it('reads a schema with no guards as one whose guards are none, and a when that names a guard it lacks is a problem', () => {
+    const { guards: _guards, ...json } = SIBAR_JSON;
+    expect(read({ ...json, gists: [] }).problems.join(' ')).not.toMatch(/guards/);
+    const out = read(json);
+    expect(out.schema.gists).toEqual([]);
+    expect(out.problems.join(' ')).toMatch(/the guard "open_assignee" is not one the schema names/);
+    expect(read({ ...json, gists: SIBAR_JSON.gists.map(({ when: _when, ...g }) => g) }).schema.guards).toEqual({});
   });
 
   it('a record whose gist has no schema gives an empty schema, and names the gist', () => {

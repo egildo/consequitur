@@ -10,8 +10,8 @@
 // only that gist stated had never been said. `readGists` and `readLaws` read
 // their lists alone, and there one bad element does not stop the others.
 
-import { validChecks } from './check.ts';
-import type { GistSchema, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
+import { conditionProblem, guardsProblems } from './condition.ts';
+import type { Condition, GistSchema, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
 import { idOf, isJson, isObject, isStrings, keysAre, kinOf } from './util.ts';
 import { canonical } from './line.ts';
 
@@ -21,20 +21,7 @@ const GIST_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 const MECHANICS = ['revoke', 'goal'];
 
 /** A schema that reads nothing: the answer when anything fails. */
-const emptySchema = (kit: Kit): Schema => ({ opening: '', authority: '::', sets: [], records: {}, judged: [], gists: [], laws: [], kit });
-
-/** Whether a `when` holds only the parts it may, each of the shape the part has. */
-function whenProblem(when: unknown, head: SchemaHead): string | undefined {
-  if (!isObject(when) || Object.keys(when).some((k) => !['checks', 'in', 'values'].includes(k))) {
-    return 'when must be an object with only checks, in and values.';
-  }
-  if ('checks' in when && !validChecks(when.checks)) return "when.checks must be a non-empty list of valid checks, as a goal's.";
-  if ('in' in when && !(typeof when.in === 'string' && head.sets.includes(when.in))) return 'when.in must name a set the schema declares.';
-  if ('values' in when && !(isObject(when.values) && Object.keys(when.values).length > 0 && isJson(when.values))) {
-    return 'when.values must be an object with at least one key.';
-  }
-  return undefined;
-}
+const emptySchema = (kit: Kit): Schema => ({ opening: '', authority: '::', sets: [], records: {}, judged: [], guards: {}, gists: [], laws: [], kit });
 
 /** The first thing wrong with one binding of a gist, in English, or undefined. */
 function bindingProblem(binding: unknown, kit: Kit, head: SchemaHead): string | undefined {
@@ -69,8 +56,8 @@ function gistProblem(element: unknown, names: Array<string | undefined>, at: num
   if (!isStrings(element.writers) || element.writers.length === 0) return `${label}: writers must be a non-empty list of strings.`;
   if (!Array.isArray(element.rules)) return `${label}: rules must be a list.`;
   if ('when' in element) {
-    const problem = whenProblem(element.when, head);
-    if (problem !== undefined) return `${label}: ${problem}`;
+    const problem = conditionProblem(element.when, head, true);
+    if (problem !== undefined) return `${label}: when: ${problem}`;
   }
 
   for (const [i, binding] of element.rules.entries()) {
@@ -148,7 +135,7 @@ export function readLaws(value: unknown, kit: Kit, head: SchemaHead): { laws: La
 /** The head's own faults: what it states, before it is set beside the gists. */
 function headProblems(json: Record<string, unknown>, kit: Kit): string[] {
   const problems: string[] = [];
-  const known = ['opening', 'authority', 'sets', 'records', 'judged', 'gists', 'laws'];
+  const known = ['opening', 'authority', 'sets', 'records', 'judged', 'guards', 'gists', 'laws'];
   for (const key of Object.keys(json)) if (!known.includes(key)) problems.push(`The schema has the key "${key}", which it may not.`);
   if (typeof json.opening !== 'string' || !GIST_NAME.test(json.opening)) problems.push('opening must name a gist, in lower snake case.');
   if (!kinOf(json.authority) || !idOf(json.authority)) problems.push('authority must be a writer, as KIN::ID.');
@@ -156,6 +143,7 @@ function headProblems(json: Record<string, unknown>, kit: Kit): string[] {
     problems.push('sets must be a list of distinct, non-empty names.');
   }
   if ('judged' in json && !(isStrings(json.judged) && json.judged.every((k) => k !== ''))) problems.push('judged must be a list of kins.');
+  if ('guards' in json) problems.push(...guardsProblems(json.guards, isStrings(json.sets) ? json.sets : []));
 
   const roles = kit.handles.flatMap((h) => h.roles);
   if (!isObject(json.records) || !Object.values(json.records).every((g) => typeof g === 'string')) {
@@ -191,7 +179,7 @@ function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
 
 /**
  * Reads a schema from JSON against a kit: the head (`opening`, `authority`,
- * `sets`, `records`, `judged`), the gist schemas and the laws. Never throws. A
+ * `sets`, `records`, `judged`, `guards`), the gist schemas and the laws. Never throws. A
  * schema with any problem is empty, and its problems say why: a head that fails,
  * a gist schema or a law that fails, or a head that names a gist that is not
  * there or does not fit. A rule or a law that names a kind the kit lacks is a
@@ -208,6 +196,7 @@ export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems:
     sets: (json.sets as string[] | undefined) ?? [],
     records: json.records as Record<string, string>,
     judged: (json.judged as string[] | undefined) ?? [],
+    guards: (json.guards as Record<string, Condition> | undefined) ?? {},
   };
   const { gists, problems } = readGists(json.gists, kit, head);
   const { laws, problems: lawProblems } = 'laws' in json ? readLaws(json.laws, kit, head) : { laws: [], problems: [] };

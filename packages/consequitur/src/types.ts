@@ -42,18 +42,8 @@ export interface GistSchema {
   /** The kins that may write it. */
   writers: string[];
   rules: RuleBinding[];
-  /** When it may be written; a gist with none may be written at any point of a thread. */
-  when?: When;
-}
-
-/** When a gist may be written. Every stated part must hold. */
-export interface When {
-  /** Each check finds a line in force, as a goal's checks do. */
-  checks?: Check[];
-  /** The writer is, in what the thread expects, a member of this set. */
-  in?: string;
-  /** Each key is, in the value handle the thread expects, the value given. */
-  values?: Record<string, Json>;
+  /** When it may be written, read with the writer and the draft; a gist with none may be written at any point of a thread. */
+  when?: Condition;
 }
 
 /** What a writer may post to a thread as it stands. */
@@ -268,6 +258,8 @@ export interface SchemaHead {
   records: Record<string, string>;
   /** The kins whose lines the laws judge. */
   judged: string[];
+  /** The named guards: conditions a `when`, a goal or a law uses by name, `{ "guard": name }`. */
+  guards: Record<string, Condition>;
 }
 
 /** A domain, as data, with the kit it was read against. */

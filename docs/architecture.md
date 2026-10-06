@@ -125,9 +125,9 @@ A schema names a mechanic and gives it its words; it cannot replace it.
 
 The engine never names a gist except through the schema, and never names a domain word: the
 opening gist, the authority, the record gists, the sets and the judged kins are in the schema's
-head. The one place it knows two kinds by name is `when` (`in` reads the `set` handle, `values`
-the `value` handle); that is the cost of a `when` that every schema can use without a kind of its
-own.
+head. The one place it knows two kinds by name is a condition's references (`$set` reads the `set`
+handle, `$value` the `value` handle); that is the cost of conditions that every schema can use without
+a kind of its own.
 
 ## The kit
 

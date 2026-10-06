@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { BASE_KIT, readSchema, type GistSchema, type Handles, type Json, type Kit, type Schema, type SchemaHead, type ThreadState, type Writer } from '../src/index.ts';
+import { BASE_KIT, readSchema, type Condition, type GistSchema, type Handles, type Json, type Kit, type Schema, type SchemaHead, type ThreadState, type Writer } from '../src/index.ts';
 
 const root = join(import.meta.dirname, '..', '..', '..');
 
@@ -14,6 +14,7 @@ export const SIBAR_JSON = JSON.parse(readFileSync(join(root, 'cases', 'sibar-act
   sets: string[];
   records: Record<string, string>;
   judged: string[];
+  guards: Record<string, Condition>;
   gists: GistSchema[];
   laws: unknown[];
 };
@@ -27,6 +28,7 @@ export const HEAD: SchemaHead = {
   sets: SIBAR_JSON.sets,
   records: SIBAR_JSON.records,
   judged: SIBAR_JSON.judged,
+  guards: SIBAR_JSON.guards,
 };
 
 /** Reads a schema and fails the test that built it if the reader found any problem. */

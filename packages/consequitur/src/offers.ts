@@ -31,7 +31,8 @@ export function offers(lines: EventLine[], writer: Writer, schema: Schema): Offe
     seen.add(gist.gist);
     if (kin === undefined || kin === 'goal' || !gist.writers.includes(kin)) continue;
     if (records.includes(gist.gist)) continue;
-    if (gist.when && !holds(expected, writer, gist.when)) continue;
+    // with no draft yet, a `when` that reads the draft is unknown, and the gist is offered unless the `when` is false
+    if (gist.when && !holds(expected, writer, gist.when, schema)) continue;
     if (gist.gist === schema.opening ? openings !== 0 : openings !== 1) continue;
 
     const revoking = revokeOf(gist);

@@ -82,11 +82,6 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
     return refuse('writer-not-allowed', `The writer "${draft.writer}" is not of a kin that may write "${draft.gist}".`);
   }
 
-  if (!whenHolds(lines, draft.writer, gist, schema)) {
-    return refuse('not-now', `The gist "${draft.gist}" may not be written by "${draft.writer}" on the thread as it stands.`);
-  }
-
-  const invalid = (detail: string) => refuse('invalid-payload', `${detail} in a "${draft.gist}" line.`);
   // a plain object, judged as `stamp` will store it: what a JSON round trip gives back,
   // which must be an object too; a payload JSON cannot write is refused, not thrown
   const plain = isObject(draft.payload) && [Object.prototype, null].includes(Object.getPrototypeOf(draft.payload));
@@ -96,6 +91,13 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   } catch {
     stored = undefined;
   }
+
+  // the `when` reads the draft as it will be stored; one that is not an object has nothing to read
+  if (!whenHolds(lines, draft.writer, gist, schema, isRecord(stored) ? stored : {})) {
+    return refuse('not-now', `The gist "${draft.gist}" may not be written by "${draft.writer}" on the thread as it stands.`);
+  }
+
+  const invalid = (detail: string) => refuse('invalid-payload', `${detail} in a "${draft.gist}" line.`);
   if (!plain || !isRecord(stored)) return invalid('The payload must be an object');
   const payload = stored;
 
