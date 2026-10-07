@@ -98,6 +98,33 @@ describe('canonical', () => {
     expect(canonical('1')).not.toBe(canonical(1));
     expect(canonical(null)).toBe('null');
   });
+
+  // RFC 8785, the JSON Canonicalization Scheme: its own examples, §3.2.2, §3.2.3 and appendix B
+  it('writes the RFC 8785 example as the RFC does', () => {
+    const value = JSON.parse(
+      '{"numbers":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001],' +
+        '"string":"\\u20ac$\\u000F\\u000aA\'\\u0042\\u0022\\u005c\\\\\\"\\/","literals":[null,true,false]}',
+    );
+    expect(canonical(value)).toBe(
+      '{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\\u000f\\nA\'B\\"\\\\\\\\\\"/"}',
+    );
+  });
+
+  it('sorts keys by UTF-16 code unit, as RFC 8785 does', () => {
+    const value = { '\u20ac': 0, '\r': 0, '\ufb33': 0, '1': 0, '\ud83d\ude00': 0, '\u0080': 0, '\u00f6': 0 };
+    expect(canonical(value)).toBe('{"\\r":0,"1":0,"\u0080":0,"ö":0,"€":0,"😀":0,"דּ":0}');
+  });
+
+  it('writes numbers as RFC 8785 appendix B does', () => {
+    const cases: [number, string][] = [
+      [0, '0'], [-0, '0'], [5e-324, '5e-324'], [-5e-324, '-5e-324'],
+      [1.7976931348623157e308, '1.7976931348623157e+308'], [9007199254740992, '9007199254740992'],
+      [-9007199254740992, '-9007199254740992'], [295147905179352830000, '295147905179352830000'],
+      [9.999999999999997e22, '9.999999999999997e+22'], [1e23, '1e+23'], [0.000001, '0.000001'],
+      [9.999999999999997e-7, '9.999999999999997e-7'],
+    ];
+    for (const [number, text] of cases) expect(canonical(number)).toBe(text);
+  });
 });
 
 describe('stamp', () => {
@@ -150,12 +177,19 @@ describe('stamp', () => {
 
   it('stores the payload as JSON holds it, so a line verifies after a JSON round trip', async () => {
     // what a host may hand over whatever the type says: values JSON drops or writes otherwise
-    const payload = { text: 'a', gone: undefined, at: new Date(0), run: () => 1, n: Number.NaN } as unknown as Payload;
+    const payload = { text: 'a', gone: undefined, at: new Date(0), run: () => 1 } as unknown as Payload;
     const line = await stamp({ gist: 'note', writer: 'user::mrossi', payload }, [], NOW);
-    expect(Object.keys(line.payload)).toEqual(['text', 'at', 'n']);
-    expect(line.payload).toEqual({ text: 'a', at: '1970-01-01T00:00:00.000Z', n: null });
+    expect(Object.keys(line.payload)).toEqual(['text', 'at']);
+    expect(line.payload).toEqual({ text: 'a', at: '1970-01-01T00:00:00.000Z' });
     expect(await verify(line)).toBe(true);
     expect(await verify(JSON.parse(JSON.stringify(line)) as EventLine)).toBe(true);
+  });
+
+  it('refuses what RFC 8785 refuses: a number that is not finite, a string that is not well-formed', async () => {
+    // JSON would write NaN as null, and the value would be lost without a word
+    for (const payload of [{ n: Number.NaN }, { n: -Infinity }, { text: 'a\udfff' }, { '\ud800': 1 }] as Payload[]) {
+      await expect(stamp({ gist: 'note', writer: 'user::mrossi', payload }, [], NOW)).rejects.toThrow(TypeError);
+    }
   });
 
   it('changes none of its arguments', async () => {
@@ -2334,6 +2368,12 @@ describe('posting to a thread', () => {
       ['a payload whose toJSON gives a string', { gist: 'comment', writer: 'user::mrossi', payload: { text: 'a', toJSON: () => 'gone' } }, 'invalid-payload'],
       ['a payload that holds a BigInt', { gist: 'comment', writer: 'user::mrossi', payload: { n: 1n } }, 'invalid-payload'],
       ['a payload that holds itself', { gist: 'comment', writer: 'user::mrossi', payload: cycle() }, 'invalid-payload'],
+      // and as RFC 8785 refuses, the canonical form the hash is taken of
+      ['a payload that holds NaN', { gist: 'comment', writer: 'user::mrossi', payload: { text: 'a', n: NaN } }, 'invalid-payload'],
+      ['a payload that holds Infinity', { gist: 'comment', writer: 'user::mrossi', payload: { text: 'a', n: [Infinity] } }, 'invalid-payload'],
+      ['a payload that holds a lone surrogate', { gist: 'comment', writer: 'user::mrossi', payload: { text: 'a\ud800' } }, 'invalid-payload'],
+      ['a payload whose key is a lone surrogate', { gist: 'comment', writer: 'user::mrossi', payload: { text: 'a', '\udc00': 1 } }, 'invalid-payload'],
+      ['a writer that is a lone surrogate', { gist: 'comment', writer: 'user::\ud800', payload: { text: 'a' } }, 'writer-not-allowed'],
     ])('refuses %s, and post says so without throwing', async (_, draft, code) => {
       // a host hands over what it was sent: the type is a promise the engine cannot rely on
       const lines = await thread([mrossi('create', { name: 'A', assignTo: ['mrossi'] })]);

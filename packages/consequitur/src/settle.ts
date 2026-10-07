@@ -74,7 +74,7 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
 export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Refusal | undefined {
   const { gists } = schema;
   // a draft comes from outside, so its type is a promise and not a fact
-  if (!isObject(draft) || typeof draft.writer !== 'string') return refuse('writer-not-allowed', 'A draft must be an object whose writer is a string.');
+  if (!isObject(draft) || typeof draft.writer !== 'string' || !draft.writer.isWellFormed()) return refuse('writer-not-allowed', 'A draft must be an object whose writer is a well-formed string.');
   const gist = gists.find((g) => g.gist === draft.gist);
   if (!gist) return refuse('unknown-gist', `The gist "${draft.gist}" has no schema.`);
 

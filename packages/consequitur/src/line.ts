@@ -36,8 +36,18 @@ async function hashOf(line: Omit<EventLine, 'id'>): Promise<LineId> {
 /**
  * A payload as a stored line gives it back: through a JSON round trip, as `stamp`
  * stores it. Throws where JSON does: on a BigInt, or an object that holds itself.
+ * Throws too where RFC 8785, the canonical form the hash is taken of, refuses:
+ * on a number that is not finite, which JSON would write as null, and on a string
+ * or key that is not well-formed Unicode (a lone surrogate).
  */
-export const asStored = (payload: unknown): unknown => JSON.parse(JSON.stringify(payload));
+export const asStored = (payload: unknown): unknown =>
+  JSON.parse(
+    JSON.stringify(payload, (key: string, value: unknown) => {
+      if (typeof value === 'number' && !Number.isFinite(value)) throw new TypeError(`The number ${value} has no JSON form.`);
+      if (!key.isWellFormed() || (typeof value === 'string' && !value.isWellFormed())) throw new TypeError('A string is not well-formed Unicode.');
+      return value;
+    }),
+  );
 
 /**
  * The authority's envelope for a draft. The id is computed here, once, and stored:
