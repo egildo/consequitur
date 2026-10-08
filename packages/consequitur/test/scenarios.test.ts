@@ -295,7 +295,7 @@ describe('the offers and admission, at every state the scenarios pass through', 
               const lines = revoking ? state.lines.filter((l) => (revoking.gists as string[]).includes(l.gist)).map((l) => l.id) : [];
               for (const target of lines.length > 0 ? lines : [undefined]) {
                 const draft: LineDraft = { gist: gist.gist, writer, payload: revoking && target !== undefined ? { [revoking.from as string]: target } : {} };
-                const named = `${domain} ${scenario.id}, ${writer} ${gist.gist}${target ? ` of ${target.slice(0, 8)}` : ''}`;
+                const named = `${domain} ${scenario.id}, ${writer} ${gist.gist}${target ? ` of ${target.split(':')[1].slice(0, 8)}` : ''}`;
                 const isOffered = offer !== undefined && (!revoking || (target !== undefined && offer.targets?.includes(target) === true));
                 const refusal = admit(state.lines, draft, schema);
                 if (isOffered) {

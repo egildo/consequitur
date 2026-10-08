@@ -27,7 +27,11 @@ export function canonical(value: Json): string {
   return JSON.stringify(value);
 }
 
-async function hashOf(line: Omit<EventLine, 'id'>): Promise<LineId> {
+// The id begins with the name of the recipe that made it, `algorithm:encoded`. Only
+// `sha256` is known: the five fields in RFC 8785's form, as UTF-8, by SHA-256, in hex.
+const RECIPE = 'sha256';
+
+async function hashOf(line: Omit<EventLine, 'id'>): Promise<string> {
   const text = canonical([line.previous, line.gist, line.writer, line.timestamp, line.payload]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -67,12 +71,17 @@ export async function stamp(draft: LineDraft, lines: EventLine[], now: string): 
     timestamp: new Date(now).toISOString(),
     payload: asStored(draft.payload) as Payload,
   };
-  return { id: await hashOf(body), ...body };
+  return { id: `${RECIPE}:${await hashOf(body)}`, ...body };
 }
 
-/** Whether the stored id is the hash of the stored fields. */
+/**
+ * Whether the stored id is its recipe's hash of the stored fields. An id whose name
+ * is not known, or that has none, does not verify, as one that does not match.
+ */
 export async function verify(line: EventLine): Promise<boolean> {
-  return (await hashOf(line)) === line.id;
+  const id: unknown = line.id;
+  if (typeof id !== 'string' || !id.startsWith(`${RECIPE}:`)) return false;
+  return id.slice(RECIPE.length + 1) === (await hashOf(line));
 }
 
 /**

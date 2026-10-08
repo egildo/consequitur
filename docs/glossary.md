@@ -7,7 +7,7 @@ those marked *(new)* were proposed by the plan and accepted.
 |---|---|
 | **thread** | The append-only list of lines of one record. Read in **reading order**: by the chain: from the line with no `previous`, each next line the one that names the last. |
 | **line** | One entry: `id`, `previous`, `gist`, `writer`, `timestamp`, `payload`. The payload is free JSON. |
-| **id** | The SHA-256 of the line's content and its `previous` id, computed once when the line is written and stored. |
+| **id** | What names a line: `sha256:` and then the SHA-256 of the line's content and its `previous` id, in RFC 8785's form, computed once when the line is written and stored. The id names its recipe: `verify` reads the name before it checks, and refuses one it does not know. |
 | **gist** | What a line says happened: `memo`, `doc_signed`, `bank_tr_complete`. Lower snake case, at most 32 characters. |
 | **writer** | Who wrote a line, as `KIN::ID`: `user::mrossi`, `system::bridge`, `goal::<line id>`. |
 | **kin** | The part of a writer before `::`. A gist's schema says which kins may write it. |

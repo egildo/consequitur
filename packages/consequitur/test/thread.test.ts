@@ -132,7 +132,20 @@ describe('stamp', () => {
     const [first, second] = await thread([note, note]);
     expect(first.previous).toBeNull();
     expect(second.previous).toBe(first.id);
-    expect(first.id).toMatch(/^[0-9a-f]{64}$/);
+    expect(first.id).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it('verifies only an id whose name it knows and whose hex is the hash', async () => {
+    const [line] = await thread([note]);
+    const hex = line.id.slice('sha256:'.length);
+    expect(await verify(line)).toBe(true);
+    expect(await verify(JSON.parse(JSON.stringify(line)) as EventLine)).toBe(true);
+    expect(await verify({ ...line, id: `sha512:${hex}` })).toBe(false);
+    expect(await verify({ ...line, id: hex })).toBe(false);
+    expect(await verify({ ...line, id: `:${hex}` })).toBe(false);
+    expect(await verify({ ...line, id: '' })).toBe(false);
+    expect(await verify({ ...line, id: `sha256:${'0'.repeat(64)}` })).toBe(false);
+    expect(await verify({ ...line, id: `sha256:${hex.toUpperCase()}` })).toBe(false);
   });
 
   it('writes the instant it is given, never bent: it may repeat', async () => {

@@ -1,6 +1,6 @@
 # The id names its recipe
 
-Status: settled 2026-10-08 by Egildo (the label is the word `sha256`, not a standard code). The second of the three decisions that change ids for ever, so it binds before publishing 0.1.0. The third, whether a thread names its schema and policy, is written apart (Egildo, 2026-10-08).
+Status: settled 2026-10-08 by Egildo (the label is the word `sha256`, not a standard code), built in the round «The id names its recipe» ([plan](../plan.md) §4). The second of the three decisions that change ids for ever, so it binds before publishing 0.1.0. The third, whether a thread names its schema and policy, is written apart (Egildo, 2026-10-08).
 
 ## Context
 

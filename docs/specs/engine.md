@@ -14,6 +14,8 @@ behaviour is the 250 tests'; this round changes the words and opens the kinds, n
 
 The round «Chain order» changed one of them, by [the chain is the order](../decisions/the-chain-is-the-order.md): the reading order is the chain, not the timestamps. `inOrder` walks `previous` from the line that has none, and throws an `Error` whose sentence names the last line read before the break when the thread is not one chain: no first line or two, a fork, a gap, a line the walk never reaches. `stamp` writes the instant it is given as it is, so a timestamp may repeat or go back, and no id of a thread written before moves.
 
+The round «The id names its recipe» made the id begin with its recipe's name, by [the id names its recipe](../decisions/the-id-names-its-recipe.md): `stamp` writes `sha256:` before the 64 hex characters, `previous` quotes the id whole, and `verify` reads the name first and does not verify an id whose name it does not know or that has none.
+
 ## 1 · What is a mechanic and what is a kind
 
 **Mechanics** belong to the thread and are not registrable: the envelope and its hash; reading
