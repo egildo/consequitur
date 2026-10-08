@@ -25,11 +25,15 @@ posts, not a feature someone codes.
 ## A pure reading
 
 **Forbids** a clock, a locale, randomness or I/O in the reading: `now` is an argument, strings
-compare with `<`, never `localeCompare`. Forbids the reading from throwing on any thread: a
-payload that lacks what a rule reads states nothing. Forbids the reading from writing anything.
+compare with `<`, never `localeCompare`. Forbids the reading from throwing on any thread that is
+one chain declared for its schema: a payload that lacks what a rule reads states nothing. A thread
+that is not one chain, or is declared for another schema, is not this thread under these rules, and
+is refused whole. Forbids the reading from writing anything.
 
 **From** the reading being shared by the server and every client: two readers of one thread must
-agree, and a client must be able to read what it was given.
+agree, and a client must be able to read what it was given. The refusals, from [the chain is the
+order](decisions/the-chain-is-the-order.md) and [the first line declares the
+thread](decisions/the-first-line-declares-the-thread.md). Amended 2026-10-08.
 
 ## The server decides, a client previews
 
