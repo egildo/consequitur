@@ -1,6 +1,6 @@
 # The first line declares the thread
 
-Status: proposed 2026-10-08. The third of the three decisions that change ids for ever. The second, [the id names its recipe](the-id-names-its-recipe.md), is settled and makes this one postponable: a later recipe, under a new name, could add what this one adds, and old ids would still verify. Doing it before publishing spares carrying two recipes for ever.
+Status: settled 2026-10-08 by Egildo's answers to the three questions below: refuse another version for now; keep the nonce; the name optional for now. The third of the three decisions that change ids for ever. The second, [the id names its recipe](the-id-names-its-recipe.md), is settled and makes this one postponable: a later recipe, under a new name, could add what this one adds, and old ids would still verify. Doing it before publishing spares carrying two recipes for ever.
 
 ## Context
 
@@ -18,19 +18,19 @@ The canon, from memory and not re-read for this decision:
 - **A log's identity is fixed at its start.** In Secure Scuttlebutt and Hypercore a feed is named by a key made when it begins, and every entry belongs to it. Git has no such thing: two root commits are told apart only by their content.
 - **Events outlive the code that wrote them.** In event-sourced systems, each event names its type and version, and a reader translates an old version into the current one before reading it, which is called *upcasting* (Greg Young, *Versioning in an Event Sourced System*).
 
-## Decision, proposed
+## Decision
 
-**The schema names itself.** Its head gains `name`, in lower kebab case, and `version`, a whole number from 1. `readSchema` requires both.
+**The schema may name itself.** Its head may hold `name`, in lower kebab case, and `version`, a whole number from 1: both or neither. Optional for now; `readSchema` lists a problem for one without the other, or for either in the wrong form.
 
-**The first line declares the thread.** The first line's envelope has one field more, `thread`: `{ schema, version, nonce }`, the schema's name and version and a nonce, a random value used once, 16 bytes in hex. Only the first line has it. It is in the hash, so the recipe named `sha256` covers it: nothing is stored yet, so the name does not change. `stamp` writes it when the thread is empty, from the schema it is given and a nonce it draws, or one it is handed, so a test or a scenario can be played twice to the same ids.
+**The first line declares the thread.** The first line's envelope has one field more, `thread`: `{ nonce }`, and `schema` and `version` when the schema names itself. The nonce is a random value used once, 16 bytes in lowercase hex. Only the first line has it. It is in the hash, as a sixth element of the list after `payload`, on the first line only, so the recipe named `sha256` covers it: nothing is stored yet, so the name does not change. `stamp` writes it when the thread is empty, from the schema's name and version and a nonce it draws, or one it is handed, so a test or a scenario can be played twice to the same ids.
 
-**The reading refuses a thread declared for another schema.** A first line that names another schema, or another version, is refused as a broken chain is: the reading throws, and the sentence names both. A host that keeps old threads keeps the schema versions they were written under, and reads each by its own.
+**The reading refuses a thread declared for another schema.** The first line's `schema` and `version` must equal the schema's `name` and `version`, absent counting as a value: a thread that declares none is read by a schema that has none, and refused by one that has a name, and the other way round. A thread that does not match is refused as a broken chain is: it throws, and the sentence names both. A host that keeps old threads keeps the schema versions they were written under, and reads each by its own.
 
-## Open questions
+## The three questions, answered
 
-1. **Another version: refuse, or read and say so?** Refusing is honest and strict: a host must keep every version. Reading and saying so (a field of the reading) keeps old threads open under a new schema, as today, but no longer silently. Upcasting, a translation from one version to the next, would be the full answer, and is later if ever.
-2. **The nonce: in the first line, or the first line's id enough?** Without it, two identical first lines stay possible where a program writes. With it, `stamp` draws randomness, the first thing in the engine that does; the reading still never does.
-3. **The name: required, or optional while the three cases are the only schemas?** Required costs three lines, one per case.
+1. **Another version: refused, for now.** Reading and saying so, or upcasting (a translation from one version to the next), are later if ever.
+2. **The nonce: kept.** Without it, two identical first lines stay possible where a program writes. `stamp` draws randomness, the first thing in the engine that does; the reading still never does.
+3. **The name: optional, for now.** The three cases name themselves anyway, at version 1, so the declaration is played by real schemas.
 
 ## Nuance
 
@@ -42,4 +42,4 @@ The canon, from memory and not re-read for this decision:
 
 ## Consequences
 
-`SchemaHead` gains `name` and `version`; `EventLine` gains `thread?`; `stamp` writes it on the first line and takes an optional nonce; `inOrder`, or the reading's first step, refuses a first line that lacks it or declares another schema; the three cases gain a name and version 1; the glossary gains **declaration**; the tests that build threads by hand give their first line one.
+`SchemaHead` gains `name?` and `version?`; `EventLine` gains `thread?`; `stamp` writes it on the first line and takes an optional nonce, as do `post`, `dryRun` and the scenario player; every public entry that reads a thread against a schema refuses a declaration that does not match, through one shared check; `consequitur-kdl` reads and writes `name` and `version`; the three cases gain a name and version 1; the glossary gains **declaration**. A first line with no `thread` declares nothing, so the tests that build threads by hand against an unnamed schema need no change.

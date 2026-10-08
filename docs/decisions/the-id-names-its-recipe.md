@@ -22,7 +22,7 @@ The canon, from memory and not re-read for this decision, has three answers:
 
 ## Decision
 
-**What the hash covers stays as it is:** the five fields, in that order, in RFC 8785's form, as UTF-8, by SHA-256. The payload is hashed inline, not as its own fingerprint.
+**What the hash covers stays as it is:** the five fields, in that order (and on a thread's first line a sixth, its declaration, by [the first line declares the thread](the-first-line-declares-the-thread.md)), in RFC 8785's form, as UTF-8, by SHA-256. The payload is hashed inline, not as its own fingerprint.
 
 **Every id begins with its recipe's name, in the OCI digest form.** Today's recipe is named `sha256`, so an id is `sha256:` and the 64 hex characters, and `previous` quotes it whole. The name means the whole recipe, not the hash alone: a later recipe takes a name never used before, even with the same hash.
 
