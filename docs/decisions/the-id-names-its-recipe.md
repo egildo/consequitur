@@ -40,4 +40,4 @@ The canon, from memory and not re-read for this decision, has three answers:
 
 ## Consequences
 
-`stamp` writes `sha256:` before the hex; `verify` reads the name, checks the recipe it names, and refuses a name it does not know. `LineId` stays a string. The test that pins an id's pattern pins the name. The glossary's **id** says the id names its recipe. Built in one round with the decision on the thread's schema and policy, before publishing.
+`stamp` writes `sha256:` before the hex; `verify` reads the name, checks the recipe it names, and refuses a name it does not know. `LineId` stays a string. The test that pins an id's pattern pins the name. The glossary's **id** says the id names its recipe. Built in the round «The id names its recipe» ([plan](../plan.md) §4), alone: the decision on the thread's schema and policy is not written yet, and may change the recipe again.
