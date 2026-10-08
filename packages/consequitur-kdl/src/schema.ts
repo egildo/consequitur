@@ -4,6 +4,8 @@
 // `consequitur`'s `fromModuleForm` and `toModuleForm` translate; a `line` node, whose check holds a
 // payload, and `at-least`, whose argument is one number, are read and written here.
 //
+//     name sibar-activity
+//     version 1
 //     opening create
 //     authority "system::sibardoc"
 //     sets assignees
@@ -265,7 +267,7 @@ function bindingNode(binding: Record<string, Json>, head: string, condition?: st
 // The schema
 // ---------------------------------------------------------------------------
 
-const TOP = ['opening', 'authority', 'sets', 'records', 'judged', 'guard', 'gist', 'law'];
+const TOP = ['name', 'version', 'opening', 'authority', 'sets', 'records', 'judged', 'guard', 'gist', 'law'];
 
 /**
  * Reads a schema written in KDL into the schema object, which `readSchema` then reads against a kit. Never
@@ -291,13 +293,18 @@ export function fromKdl(text: string): { json: Record<string, Json>; problems: P
       problem(sink, `a schema takes ${TOP.join(', ')}, not "${name}"`, node);
       continue;
     }
-    if (['opening', 'authority', 'sets', 'records', 'judged'].includes(name) && name in json) {
+    if (['name', 'version', 'opening', 'authority', 'sets', 'records', 'judged'].includes(name) && name in json) {
       problem(sink, `"${name}" is written twice`, node);
       continue;
     }
-    if (name === 'opening' || name === 'authority') {
+    if (name === 'name' || name === 'opening' || name === 'authority') {
       const value = word(sink, node);
       if (value !== undefined) json[name] = value;
+    } else if (name === 'version') {
+      const [entry, ...more] = entriesOf(node).args;
+      const value = entry === undefined ? undefined : plain(sink, entry, '"version"');
+      if (typeof value !== 'number' || more.length > 0 || node.hasProperties() || node.hasChildren()) problem(sink, '"version" takes one number', node);
+      else json.version = value;
     } else if (name === 'sets' || name === 'judged') json[name] = words(sink, node);
     else if (name === 'records') {
       if (node.hasArguments() || node.hasChildren()) problem(sink, '"records" takes properties only', node);
@@ -349,10 +356,13 @@ export function fromKdl(text: string): { json: Record<string, Json>; problems: P
 export function toKdl(json: Record<string, Json>): string {
   const document = new Document();
   const put = (node: Node) => document.appendNode(node);
-  for (const key of ['opening', 'authority'] as const) {
-    if (typeof json[key] !== 'string') continue;
+  for (const key of ['name', 'version', 'opening', 'authority'] as const) {
+    const value = json[key];
+    // a version is a number, the others are words
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    if ((key === 'version') !== (typeof value === 'number')) continue;
     const node = Node.create(key);
-    node.addArgument(json[key]);
+    node.addArgument(value);
     put(node);
   }
   for (const key of ['sets', 'records', 'judged'] as const) {

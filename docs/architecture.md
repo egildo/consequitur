@@ -76,7 +76,11 @@ laws/          keeps-set, keeps-goals, settles
 Each file imports only from those above it in this list, apart from `kit.ts`, which gathers the
 kinds and is imported by nothing but `index.ts` and the consumer. The reading (`reading.ts`) is
 synchronous and pure; only the lines that must be hashed (`stamp`, so `settle`, `dryRun`, `post`)
-are asynchronous.
+are asynchronous. `stamp` is also the one place that draws randomness: the nonce of a thread's first
+line, its **declaration**, unless one is handed to it. `inOrder`, given the schema, refuses a thread
+declared for another, as it refuses a broken chain, and every entry that reads a thread against a
+schema passes it the schema: `expectations` (so the reading, the offers, `whenHolds` and every post),
+`admit`, `prune`, and `lineFacts` in render.
 
 ## The modules of `consequitur-render`
 
@@ -129,8 +133,8 @@ engine, render and `consequitur-kdl` know nothing of it.
 
 ## The boundary: mechanics and kinds
 
-**Mechanics** are the thread's own and the engine reads them: the envelope and its hash, reading
-order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, the
+**Mechanics** are the thread's own and the engine reads them: the envelope and its hash, the
+declaration on the first line, reading order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, the
 three steps of the reading (the second in two passes, below), the loop and bound of reconciliation, and where laws sit in a post.
 A schema names a mechanic and gives it its words; it cannot replace it.
 
@@ -186,7 +190,9 @@ record role the kit lacks. A schema that needs fewer kinds is read against a sma
    writer and the payload as it will be stored, its references replaced), then that payload, after a JSON
    round trip (a plain object, then each rule kind's `admit`, which reads a reference that resolves as its
    value and one that does not as present, then the mechanics of revoke and goal).
-2. **Append** it, stamped, with its payload as JSON holds it, and refuse it if the opening rule would break.
+2. **Append** it, stamped, with its payload as JSON holds it (on an empty thread, with the declaration:
+   the nonce in `options`, or one drawn, and the schema's name and version), and refuse it if the opening
+   rule would break.
 3. **Settle**: read; the handle kinds compare what the thread expects with the handles; `answer`
    keeps what the authority answers (everything but the thread's, and what its policy leaves);
    `reconcile` has each handle kind answer its own, and writes each record as the authority; repeat,

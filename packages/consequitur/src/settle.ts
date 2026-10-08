@@ -6,8 +6,8 @@
 
 import { referencesOf, resolvePayload } from './check.ts';
 import { conditionProblem } from './condition.ts';
-import { asStored, canonical, inForce, inOrder, lockedBy, revokeOf, stamp } from './line.ts';
-import { consequitur, expectations, whenHolds } from './reading.ts';
+import { asStored, canonical, inOrder, lockedBy, revokeOf, stamp } from './line.ts';
+import { consequitur, expectations, holds } from './reading.ts';
 import type {
   Change,
   Denunciation,
@@ -73,6 +73,8 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
  */
 export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Refusal | undefined {
   const { gists } = schema;
+  // the thread as it stands, read once; a thread that is not one chain declared for this schema is refused whole
+  const expected = expectations(lines, schema);
   // a draft comes from outside, so its type is a promise and not a fact
   if (!isObject(draft) || typeof draft.writer !== 'string' || !draft.writer.isWellFormed()) return refuse('writer-not-allowed', 'A draft must be an object whose writer is a well-formed string.');
   const gist = gists.find((g) => g.gist === draft.gist);
@@ -98,7 +100,7 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   }
 
   // the `when` reads the draft as it will be stored; one that is not an object has nothing to read
-  if (!whenHolds(lines, draft.writer, gist, schema, isRecord(stored) ? stored : {})) {
+  if (gist.when !== undefined && !holds(expected, draft.writer, gist.when, schema, isRecord(stored) ? stored : {})) {
     return refuse('not-now', `The gist "${draft.gist}" may not be written by "${draft.writer}" on the thread as it stands.`);
   }
 
@@ -107,7 +109,7 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   const payload = stored;
 
   // the values a reference reads are the thread's as it stands, before the draft
-  const values = referencesOf(payload).length > 0 ? expectations(lines, schema).values : {};
+  const values = expected.values;
   const problem = payloadProblem(schema, gist, payload, values);
   if (problem !== undefined) return refuse('invalid-payload', problem);
 
@@ -142,7 +144,7 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
     const final = lockedBy(line, lines);
     if (final !== undefined) return refuse('not-revocable', `The "${line.gist}" line "${target}" was written by a final goal.`);
     // a revoke of a line already out of force would change nothing, and the offers leave it out
-    if (!inForce(lines, gists).inForce.some((l) => l.id === target)) return refuse('not-revocable', `The "${line.gist}" line "${target}" is already out of force.`);
+    if (!expected.standing.inForce.some((l) => l.id === target)) return refuse('not-revocable', `The "${line.gist}" line "${target}" is already out of force.`);
   }
   return undefined;
 }
@@ -247,7 +249,7 @@ export async function settle(
     const out = reconcile({ ...reading, denunciations: answered }, handles, schema);
     handles = out.handles;
     const next = [...lines];
-    for (const draft of out.drafts) next.push(await stamp(draft, next, now));
+    for (const draft of out.drafts) next.push(await stamp(draft, next, now, schema));
     lines = next;
     reading = consequitur(lines, handles, schema);
   }
@@ -272,16 +274,18 @@ function judge(schema: Schema, before: { reading: Reading; handles: Handles; lin
  * opening rule is refused too: no reconciliation could ever answer that. When the
  * draft's writer is of a kin the schema judges, each law is judged on what the
  * line leaves behind, what goals write in answer to it included; a fact from
- * outside has already happened, so it is never judged.
+ * outside has already happened, so it is never judged. On an empty thread the draft's
+ * line declares the thread, with `nonce` when one is given, so a dry run and a post, or
+ * two plays, give the same ids; without one, `stamp` draws it.
  */
-export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schema, now: string, options: { policy?: Policy } = {}): Promise<DryRun> {
+export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schema, now: string, options: { policy?: Policy; nonce?: string } = {}): Promise<DryRun> {
   const policy = options.policy ?? [];
   const before = counted(consequitur(state.lines, state.handles, schema), state.handles, policy);
   const refused = (refusal: Refusal): DryRun => ({ state, reading: before, refusal, added: [], rounds: [], verdicts: [] });
   const refusal = admit(state.lines, draft, schema);
   if (refusal) return refused(refusal);
 
-  const lines = [...state.lines, await stamp(draft, state.lines, now)];
+  const lines = [...state.lines, await stamp(draft, state.lines, now, schema, options.nonce)];
   const broken = consequitur(lines, state.handles, schema).denunciations.find((d) => d.sort === 'thread');
   if (broken?.sort === 'thread') {
     return refused(refuse('unreconcilable', `The thread would hold ${broken.found} "${schema.opening}" lines in force; it must hold exactly one.`));
@@ -296,14 +300,15 @@ export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schem
  * Posts a draft: a dry run, then the decision. A `refuse` verdict refuses the line
  * as `law`; a `confirm` verdict refuses it as `unconfirmed` unless `confirmed` is
  * true; both carry every verdict found. Otherwise the dry run's state is the
- * result. A refusal returns the state as it was, read but not settled.
+ * result. A refusal returns the state as it was, read but not settled. `nonce` is
+ * the dry run's.
  */
 export async function post(
   state: ThreadState,
   draft: LineDraft,
   schema: Schema,
   now: string,
-  options: { confirmed?: boolean; policy?: Policy } = {},
+  options: { confirmed?: boolean; policy?: Policy; nonce?: string } = {},
 ): Promise<PostResult> {
   const run = await dryRun(state, draft, schema, now, options);
   // a refusal leaves the state as it was, so it reads that state, not the one the dry run settled

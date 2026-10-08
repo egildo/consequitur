@@ -21,7 +21,7 @@ export interface LineFacts {
 
 /** The facts of every line, in reading order. */
 export function lineFacts(lines: EventLine[], reading: Reading, schema: Schema): LineFacts[] {
-  const ordered = inOrder(lines);
+  const ordered = inOrder(lines, schema);
   const position = new Map(ordered.map((l, i) => [l.id, i] as const));
   const standing = new Set(reading.inForce);
   const revoked = new Set(reading.revoked);

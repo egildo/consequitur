@@ -4,7 +4,7 @@
 // Strings are compared with `<` everywhere, never `localeCompare`: two readers
 // must agree on an order whatever their locale.
 
-import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload } from './types.ts';
+import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload, SchemaHead } from './types.ts';
 import { compare, idOf, isRecord, kinOf } from './util.ts';
 
 /**
@@ -28,13 +28,18 @@ export function canonical(value: Json): string {
 }
 
 // The id begins with the name of the recipe that made it, `algorithm:encoded`. Only
-// `sha256` is known: the five fields in RFC 8785's form, as UTF-8, by SHA-256, in hex.
+// `sha256` is known: the five fields, and the declaration as a sixth on the line that
+// has one, in RFC 8785's form, as UTF-8, by SHA-256, in hex.
 const RECIPE = 'sha256';
 
+const hex = (bytes: Uint8Array): string => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+
 async function hashOf(line: Omit<EventLine, 'id'>): Promise<string> {
-  const text = canonical([line.previous, line.gist, line.writer, line.timestamp, line.payload]);
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const fields: Json[] = [line.previous, line.gist, line.writer, line.timestamp, line.payload];
+  // every other line keeps the five fields, so no other id changes shape
+  if (line.thread !== undefined) fields.push(line.thread);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical(fields)));
+  return hex(new Uint8Array(digest));
 }
 
 /**
@@ -59,18 +64,23 @@ export const asStored = (payload: unknown): unknown =>
  * given, as given: it may repeat or go back, for the chain is the order, not the
  * clock. The payload is stored as JSON holds it, so what is hashed is what a
  * stored line gives back: a key that holds `undefined` or a function is left out,
- * a date is its string.
+ * a date is its string. On an empty thread the line declares it: the nonce given,
+ * or 16 random bytes drawn here, and the schema's name and version when it has them.
  */
-export async function stamp(draft: LineDraft, lines: EventLine[], now: string): Promise<EventLine> {
+export async function stamp(draft: LineDraft, lines: EventLine[], now: string, schema?: SchemaHead, nonce?: string): Promise<EventLine> {
   // the thread's last line is the chain's last: the array's own order is never read
   const last = inOrder(lines).at(-1);
-  const body = {
+  const body: Omit<EventLine, 'id'> = {
     previous: last?.id ?? null,
     gist: draft.gist,
     writer: draft.writer,
     timestamp: new Date(now).toISOString(),
     payload: asStored(draft.payload) as Payload,
   };
+  if (lines.length === 0) {
+    const declared = schema?.name !== undefined && schema.version !== undefined ? { schema: schema.name, version: schema.version } : {};
+    body.thread = { nonce: nonce ?? hex(crypto.getRandomValues(new Uint8Array(16))), ...declared };
+  }
   return { id: `${RECIPE}:${await hashOf(body)}`, ...body };
 }
 
@@ -84,14 +94,22 @@ export async function verify(line: EventLine): Promise<boolean> {
   return id.slice(RECIPE.length + 1) === (await hashOf(line));
 }
 
+/** A declaration's schema, or a schema's own name and version, as a sentence says it. */
+const named = (name: unknown, version: unknown): string =>
+  name === undefined && version === undefined ? 'no schema' : `the schema ${JSON.stringify(name) ?? 'with no name'} version ${JSON.stringify(version) ?? 'none'}`;
+
 /**
  * The reading order: the chain. The first line is the one with no `previous`, each
  * next line the one that names the last. The array's own order is never read.
  * A thread that is not one chain is refused, and the sentence names the place: the
  * last line read before the break. Broken is: no first line or two, a fork, a gap,
- * a line the walk never reaches.
+ * a line the walk never reaches. Given the schema it is read by, a thread whose
+ * first line declares another schema is refused the same way, and the sentence names
+ * both; absent counts as a value, so a first line that declares no schema is read only
+ * by a schema that has no name. Every entry that reads a thread against a schema
+ * comes through here with it.
  */
-export function inOrder(lines: EventLine[]): EventLine[] {
+export function inOrder(lines: EventLine[], schema?: SchemaHead): EventLine[] {
   if (lines.length === 0) return [];
   const firsts = lines.filter((l) => l.previous === null);
   if (firsts.length === 0) throw new Error('The thread has no first line: every line names a previous one.');
@@ -109,6 +127,11 @@ export function inOrder(lines: EventLine[]): EventLine[] {
     const ids = new Set(lines.map((l) => l.id));
     const gap = lines.some((l) => l.previous !== null && !ids.has(l.previous));
     throw new Error(`The thread ${gap ? 'has a gap' : 'is cut'} after line ${last}: ${lines.length - ordered.length} line(s) cannot be reached from the first.`);
+  }
+  // a stored line comes from outside, so its declaration may be any value
+  const declared: { schema?: unknown; version?: unknown } | undefined = firsts[0].thread;
+  if (schema !== undefined && (declared?.schema !== schema.name || declared?.version !== schema.version)) {
+    throw new Error(`The thread is declared for ${named(declared?.schema, declared?.version)}, and is read by ${named(schema.name, schema.version)}.`);
   }
   return ordered;
 }

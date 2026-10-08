@@ -9,6 +9,8 @@ const root = join(import.meta.dirname, '..', '..', '..');
 
 /** The case as the file holds it: the head, the gists and the laws. */
 export const SIBAR_JSON = JSON.parse(readFileSync(join(root, 'cases', 'sibar-activity', 'schema.json'), 'utf8')) as {
+  name: string;
+  version: number;
   opening: string;
   authority: Writer;
   sets: string[];

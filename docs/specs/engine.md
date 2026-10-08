@@ -16,6 +16,8 @@ The round «Chain order» changed one of them, by [the chain is the order](../de
 
 The round «The id names its recipe» made the id begin with its recipe's name, by [the id names its recipe](../decisions/the-id-names-its-recipe.md): `stamp` writes `sha256:` before the 64 hex characters, `previous` quotes the id whole, and `verify` reads the name first and does not verify an id whose name it does not know or that has none.
 
+The round «The first line declares the thread» gave a thread a **declaration**, by [the first line declares the thread](../decisions/the-first-line-declares-the-thread.md). A schema may name itself, `name` and `version` in its head (§5). `stamp(draft, lines, now, schema?, nonce?)` writes `thread` on a thread's first line only: the nonce it is handed, or 16 random bytes it draws in lowercase hex, and the schema's name and version when it has them. On that line the hash covers `thread` as a sixth field after `payload`, under the same recipe `sha256`; every other line hashes its five, and `verify` follows the same rule. `post`, `dryRun` and `playScenario` take an optional `nonce` and pass it on, so a thread can be played twice to the same ids. `inOrder(lines, schema?)`, given the schema, refuses a thread whose first line declares another schema, as it refuses a broken chain: it throws an `Error` whose sentence names both, absent counting as a value, so a first line with no declaration is read only by a schema with no name. Every entry that reads a thread against a schema comes through it with the schema: `expectations` (and so `consequitur`, `offers`, `whenHolds`, `settle`, `dryRun`, `post`), `admit`, which now reads the thread's expectations once at its start, `prune`, and `lineFacts` in render. An empty thread declares nothing yet and is read by any schema.
+
 ## 1 · What is a mechanic and what is a kind
 
 **Mechanics** belong to the thread and are not registrable: the envelope and its hash; reading
@@ -203,6 +205,8 @@ false.
 
 ```json
 {
+  "name": "sibar-activity",
+  "version": 1,
   "opening": "create",
   "authority": "system::sibardoc",
   "sets": ["assignees"],
@@ -225,6 +229,9 @@ false.
 }
 ```
 
+- `name` and `version`: optional, both or neither: the schema's name in lower kebab case, and a whole
+  number from 1. A thread's first line declares them, and a schema reads only the threads declared for
+  it. *(Round «The first line declares the thread».)*
 - `opening`: the gist of the opening rule. `authority`: the writer of the records. `judged`: the
   kins whose lines the laws judge (none if left out). `sets`: the names of the sets (none if left
   out). `records`: one gist per role; each must be a gist of the schema whose writers include the
@@ -245,7 +252,7 @@ export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems:
 Never throws, and names every problem it finds; a schema with any problem gives an empty schema and
 the problems, since a gist schema or law left out would change what the rest does: the next post
 would answer as though what only that gist stated had never been said. A problem may be in the head
-(`opening`, `authority`, `sets`, `records`, `judged`, `guards`), in a gist schema or a law, or in how the head
+(`name` and `version`, `opening`, `authority`, `sets`, `records`, `judged`, `guards`), in a gist schema or a law, or in how the head
 fits the gists: an opening gist, or a record gist, with no schema, or whose writers do not fit, or a
 record gist with rules. A rule or law naming a kind the kit lacks is a problem. `readGists(value,
 kit, head)` and `readLaws(value, kit, head)` read the two lists alone, and keep each element that

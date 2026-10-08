@@ -21,9 +21,10 @@ A reference is not a placeholder. The player leaves it alone, and the reading re
 
 The module is `packages/consequitur/src/scenario.ts`, exported from the package: `Step`, `Scenario`, `Labels`, `Io`, `Played`, `Pruned`, `resolve`, `draftOf`, `playScenario`, `readScenarios`, `prune`, `stepsOf`. In the engine's import order it comes after `offers.ts`; it imports `inOrder`, `matches`, `validCheck`, `nodes` (for the `line` nodes of a goal's trace), the small guards of `util.ts` and the types. It was `cases/scenario.ts` before the round; the tests and the playground import the package.
 
-`playScenario(steps, io, options)` has, besides `after` and `labels`, one option:
+`playScenario(steps, io, options)` has, besides `after` and `labels`, two options:
 
 - `as?: Writer`: the writer every step is posted as. An application playing a template passes the person who opens; a test replaying a story passes nothing, and each step keeps its own writer.
+- `nonce?: string`: handed to every `io.send` as its third argument, for `post`, so the first line, which declares the thread, and every id after it are the same each time the scenario is played; without one, each play is a thread of its own. *(Round «The first line declares the thread».)*
 
 Everything else is as today: a step may be `confirmed`, a step may be expected `refused` with a code, the first step that does not go as the scenario says stops the play, and `after` is told of each step.
 

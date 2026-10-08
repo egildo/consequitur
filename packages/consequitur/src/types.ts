@@ -1,7 +1,7 @@
 // The vocabulary of a thread. This package imports nothing outside itself:
 // a client runs the same code, so it can read a thread the way the authority does.
 
-/** SHA-256, 64 hex characters. */
+/** The recipe's name and the hash: `sha256:` and 64 hex characters. */
 export type LineId = string;
 
 /** `KIN::ID`, for example `user::mrossi` or `goal::<line id>`. */
@@ -20,6 +20,8 @@ export interface EventLine {
   /** The authority's time, as `Date.prototype.toISOString` writes it. */
   timestamp: string;
   payload: Payload;
+  /** The declaration, on a thread's first line only: a nonce, and the name and version of the schema it is read by, when the schema has them. */
+  thread?: { nonce: string; schema?: string; version?: number };
 }
 
 /** What a writer hands over. The host states `writer` from the identity it authenticated. */
@@ -258,6 +260,10 @@ export type Policy = Array<{
 
 /** What a schema says before any of its gists or laws: the words the kinds read it by. */
 export interface SchemaHead {
+  /** The schema's name, in lower kebab case: both or neither with `version`. */
+  name?: string;
+  /** A whole number from 1. */
+  version?: number;
   /** The gist a thread starts with; exactly one line of it is in force. */
   opening: string;
   /** The writer of the lines that record a reconciliation. */

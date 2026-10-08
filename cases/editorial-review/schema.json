@@ -1,4 +1,6 @@
 {
+  "name": "editorial-review",
+  "version": 1,
   "opening": "submit",
   "authority": "system::clock",
   "sets": ["team", "reviewers", "editors"],

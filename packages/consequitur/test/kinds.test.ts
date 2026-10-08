@@ -245,6 +245,8 @@ describe('readSchema', () => {
   it('reads the case: its head, nineteen gists and three laws, no problem', () => {
     const { schema, problems } = read(SIBAR_JSON);
     expect(problems).toEqual([]);
+    expect(schema.name).toBe('sibar-activity');
+    expect(schema.version).toBe(1);
     expect(schema.opening).toBe('create');
     expect(schema.authority).toBe('system::sibardoc');
     expect(schema.sets).toEqual(['assignees']);
@@ -295,6 +297,25 @@ describe('readSchema', () => {
     const out = read({ ...SIBAR_JSON, ...change });
     expect(out.schema.gists).toEqual([]);
     expect(out.problems.join(' ')).toMatch(why);
+  });
+
+  it('reads a name and a version, both or neither, and says what is wrong with either', () => {
+    const { name, version, ...unnamed } = SIBAR_JSON;
+    const out = read(unnamed);
+    expect(out.problems).toEqual([]);
+    expect('name' in out.schema || 'version' in out.schema).toBe(false);
+    const wrong: Array<[Record<string, unknown>, RegExp]> = [
+      [{ ...unnamed, name }, /one without the other/],
+      [{ ...unnamed, version }, /one without the other/],
+      ...['Sibar', 'sibar_activity', '-sibar', 'sibar-', 'sibar--activity', '1sibar', '', 3].map((bad): [Record<string, unknown>, RegExp] => [{ ...SIBAR_JSON, name: bad }, /lower kebab case/]),
+      ...[0, -1, 1.5, '1', null].map((bad): [Record<string, unknown>, RegExp] => [{ ...SIBAR_JSON, version: bad }, /whole number from 1/]),
+    ];
+    for (const [json, why] of wrong) {
+      const got = read(json);
+      expect(got.schema.gists, JSON.stringify([json.name, json.version])).toEqual([]);
+      expect(got.problems.join(' ')).toMatch(why);
+    }
+    expect(read({ ...SIBAR_JSON, name: 'x9-2nd', version: 12 }).problems).toEqual([]);
   });
 
   it('reads a schema with no guards as one whose guards are none, and a when that names a guard it lacks is a problem', () => {
@@ -378,11 +399,10 @@ describe('readSchema', () => {
     expect(out.problems).toHaveLength(1);
     expect(out.problems[0]).toMatch(/"stage"/);
     expect(out.schema.gists).toEqual([]);
-    // read partially, the next comment on a thread with a stage used to erase it from the handles
+    // read partially, the next comment on a thread with a stage used to erase it from the handles; the
+    // empty schema has no name, so a thread declared for the case is refused whole
     const state = await posted(PLAIN, [mrossi('create', { name: 'x', assignTo: ['mrossi'] }), mrossi('stage', { stage: 'review' })]);
-    const after = await post(state, mrossi('comment', { text: 'hi' }), out.schema, NOW);
-    expect(after.refusal?.code).toBe('unknown-gist');
-    expect(after.state).toBe(state);
+    await expect(post(state, mrossi('comment', { text: 'hi' }), out.schema, NOW)).rejects.toThrow('declared for the schema "sibar-activity" version 1, and is read by no schema');
   });
 
   it('a set the head declares can be joined, and is in the empty state', () => {

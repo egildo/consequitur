@@ -6,13 +6,14 @@ those marked *(new)* were proposed by the plan and accepted.
 | Name | What it is |
 |---|---|
 | **thread** | The append-only list of lines of one record. Read in **reading order**: by the chain: from the line with no `previous`, each next line the one that names the last. |
-| **line** | One entry: `id`, `previous`, `gist`, `writer`, `timestamp`, `payload`. The payload is free JSON. |
+| **line** | One entry: `id`, `previous`, `gist`, `writer`, `timestamp`, `payload`, and on a thread's first line only its **declaration**, `thread`. The payload is free JSON. |
+| **declaration** *(new)* | What a thread's first line says of the thread, in its `thread` field: a nonce, a random value used once (16 bytes in lowercase hex, drawn by `stamp` or handed to it), and the schema's `name` and `version` when it has them. It is in the line's hash. A thread declared for another schema is refused whole; a first line with no `thread` declares nothing. |
 | **id** | What names a line: `sha256:` and then the SHA-256 of the line's content and its `previous` id, in RFC 8785's form, computed once when the line is written and stored. The id names its recipe: `verify` reads the name before it checks, and refuses one it does not know. |
 | **gist** | What a line says happened: `memo`, `doc_signed`, `bank_tr_complete`. Lower snake case, at most 32 characters. |
 | **writer** | Who wrote a line, as `KIN::ID`: `user::mrossi`, `system::bridge`, `goal::<line id>`. |
 | **kin** | The part of a writer before `::`. A gist's schema says which kins may write it. |
 | **schema** | A domain, as data: a head, its gist schemas, its laws. Read once by `readSchema` against a kit. |
-| **head** *(new)* | The part of a schema that names its own words: the `opening` gist, the `authority`, the `sets`, the `records`, the kins `judged`, the named `guards`. |
+| **head** *(new)* | The part of a schema that names its own words: its `name` and `version`, both or neither, the `opening` gist, the `authority`, the `sets`, the `records`, the kins `judged`, the named `guards`. |
 | **authority** *(new)* | The writer of the lines that record a reconciliation, named by the head. In SIBAR, `system::sibardoc`. |
 | **gist schema** | One gist's configuration: its writers, its `when`, its rule bindings. |
 | **opening gist** *(new)* | The gist a thread starts with; exactly one is in force. In SIBAR, `create`. |

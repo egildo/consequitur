@@ -105,6 +105,8 @@ export interface Expectations {
  */
 export function expectations(lines: EventLine[], schema: Schema): Expectations {
   const { gists, kit } = schema;
+  // a thread that is not one chain declared for this schema is refused here, before anything is read
+  const ordered = inOrder(lines, schema);
   // 1. which lines stand
   const standing = inForce(lines, gists);
   const isGoal = (l: EventLine) => gists.find((g) => g.gist === l.gist)?.rules.some((r) => r.rule === 'goal') === true;
@@ -157,7 +159,6 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
   const handles = Object.fromEntries(kit.handles.map((h) => [h.kind, h.expected(accumulators.get(h.kind))] as const));
   const goalReadings: GoalReading[] = [];
   const missing: Denunciation[] = [];
-  const ordered = inOrder(lines);
   const revokedIds = new Set(standing.revoked.map((l) => l.id));
   // without a gist for the warning, the thread expects none and no node is judged lost
   const warning = schema.records.warning;

@@ -19,6 +19,7 @@ import {
   offers,
   payloadProblem,
   post,
+  prune,
   readGists,
   readLaws,
   readSchema,
@@ -47,12 +48,14 @@ import {
   type Refusal,
   type RuleKind,
   type Schema,
+  type SchemaHead,
   type ThreadState,
   type Writer,
 } from '../src/index.ts';
-import { HEAD, PLAIN, RECORD_GISTS, SIBAR, SIBAR_JSON, SYSTEM_WRITER, allOf, custom, emptyHandles, hold, lineNodes, membersOf, sibar, unchecked, valuesOf } from './helpers.ts';
+import { HEAD, PLAIN, RECORD_GISTS, SIBAR, SIBAR_JSON, SYSTEM_WRITER, allOf, custom, emptyHandles, hold, lineNodes, membersOf, sibar, strict, unchecked, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
+const NONCE = '00'.repeat(16);
 
 /** One word for a denunciation: its handle kind and key (and member), or its sort. */
 const labelOf = (d: Denunciation): string => (d.sort === 'handle' ? [d.kind, d.key, d.member].filter((p) => p !== undefined).join(' ') : d.sort);
@@ -69,12 +72,20 @@ const GISTS: GistSchema[] = [
 
 const note: LineDraft = { gist: 'note', writer: 'user::mrossi', payload: { text: 'uno' } };
 
-/** Stamps each draft against the lines before it. */
-async function thread(drafts: LineDraft[], now = NOW): Promise<EventLine[]> {
-  const lines: EventLine[] = [];
-  for (const draft of drafts) lines.push(await stamp(draft, lines, now));
-  return lines;
-}
+/**
+ * Stamps each draft against the lines before it. The first declares the thread for the schema it
+ * will be read by, with one nonce, so a thread built twice has the same ids.
+ */
+const threadFor =
+  (schema: SchemaHead) =>
+  async (drafts: LineDraft[], now = NOW): Promise<EventLine[]> => {
+    const lines: EventLine[] = [];
+    for (const draft of drafts) lines.push(await stamp(draft, lines, now, schema, NONCE));
+    return lines;
+  };
+
+/** A thread of the case. */
+const thread = threadFor(PLAIN);
 
 const idsOf = (lines: EventLine[]) => lines.map((l) => l.id);
 
@@ -241,6 +252,114 @@ describe('a stored id', () => {
   });
 });
 
+describe('the declaration', () => {
+  const create: LineDraft = { gist: 'create', writer: 'user::mrossi', payload: { name: 'A', assignTo: ['mrossi'] } };
+  const { name: _name, version: _version, ...unnamedJson } = SIBAR_JSON;
+  /** The case's gists under no name. */
+  const UNNAMED = strict({ ...unnamedJson, laws: [] });
+  const sha256 = async (text: string) => {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return `sha256:${[...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+  };
+
+  it('is written on the first line only: the nonce, and the name and version of a schema that has them', async () => {
+    const [first, second] = await thread([note, note]);
+    expect(first.thread).toEqual({ nonce: NONCE, schema: 'sibar-activity', version: 1 });
+    expect('thread' in second).toBe(false);
+    const [plain, next] = await threadFor(UNNAMED)([note, note]);
+    expect(plain.thread).toEqual({ nonce: NONCE });
+    expect('thread' in next).toBe(false);
+    expect((await stamp(note, [], NOW)).thread).toEqual({ nonce: expect.stringMatching(/^[0-9a-f]{32}$/) });
+  });
+
+  it('a nonce handed gives the same first id twice; one drawn gives two ids for one first draft', async () => {
+    expect((await stamp(note, [], NOW, PLAIN, NONCE)).id).toBe((await stamp(note, [], NOW, PLAIN, NONCE)).id);
+    const [a, b] = [await stamp(note, [], NOW, PLAIN), await stamp(note, [], NOW, PLAIN)];
+    expect(a.thread?.nonce).not.toBe(b.thread?.nonce);
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('is in the hash as a sixth field, and only there: every other line hashes its five', async () => {
+    const [first, second] = await thread([note, note]);
+    const five = (l: EventLine) => [l.previous, l.gist, l.writer, l.timestamp, l.payload];
+    expect(first.id).toBe(await sha256(canonical([...five(first), first.thread!])));
+    expect(second.id).toBe(await sha256(canonical(five(second))));
+    expect(await verify(first)).toBe(true);
+    expect(await verify(JSON.parse(JSON.stringify(first)) as EventLine)).toBe(true);
+    const { thread: _thread, ...bare } = first;
+    for (const edited of [{ ...first, thread: { ...first.thread!, nonce: '11'.repeat(16) } }, { ...first, thread: { nonce: NONCE } }, { ...first, thread: { ...first.thread!, version: 2 } }, bare]) {
+      expect(await verify(edited)).toBe(false);
+    }
+  });
+
+  describe('a thread declared for another schema is refused, and the sentence names both', () => {
+    const other = (lines: EventLine[], schema: Schema, why: RegExp) => async () => {
+      const state = { lines, handles: emptyHandles() };
+      expect(() => consequitur(lines, state.handles, schema)).toThrow(why);
+      await expect(post(state, { gist: 'comment', writer: 'user::mrossi', payload: { text: 'x' } }, schema, NOW)).rejects.toThrow(why);
+    };
+
+    it('another name', async () => other(await thread([create]), sibar({ laws: [], head: { name: 'other-case' } }), /declared for the schema "sibar-activity" version 1, and is read by the schema "other-case" version 1\./)());
+    it('another version', async () => other(await thread([create]), sibar({ laws: [], head: { version: 2 } }), /declared for the schema "sibar-activity" version 1, and is read by the schema "sibar-activity" version 2\./)());
+    it('a declaration, against a schema with no name', async () => other(await thread([create]), UNNAMED, /declared for the schema "sibar-activity" version 1, and is read by no schema\./)());
+    it('no declaration, against a schema with a name', async () => other(await threadFor(UNNAMED)([create]), PLAIN, /declared for no schema, and is read by the schema "sibar-activity" version 1\./)());
+
+    it('a first line with no thread declares nothing: read by a schema with no name, refused by one with a name', async () => {
+      const [first, ...rest] = await threadFor(UNNAMED)([create, note]);
+      const { thread: _thread, ...bare } = first;
+      const lines = [bare, ...rest];
+      expect(consequitur(lines, emptyHandles(), UNNAMED).inForce).toEqual(idsOf(lines));
+      await other(lines, PLAIN, /declared for no schema/)();
+    });
+
+    it('by every entry that reads a thread against a schema', async () => {
+      const lines = await thread([create]);
+      const state = { lines, handles: emptyHandles() };
+      const v2 = sibar({ laws: [], head: { version: 2 } });
+      const draft: LineDraft = { gist: 'comment', writer: 'user::mrossi', payload: { text: 'x' } };
+      const why = /declared for the schema "sibar-activity" version 1, and is read by the schema "sibar-activity" version 2/;
+      expect(() => inOrder(lines, v2)).toThrow(why);
+      expect(() => consequitur(lines, state.handles, v2)).toThrow(why);
+      expect(() => offers(lines, 'user::mrossi', v2)).toThrow(why);
+      expect(() => admit(lines, draft, v2)).toThrow(why);
+      expect(() => whenHolds(lines, 'user::mrossi', v2.gists.find((g) => g.when !== undefined)!, v2)).toThrow(why);
+      expect(() => prune(lines, consequitur(lines, state.handles, PLAIN), v2)).toThrow(why);
+      await expect(dryRun(state, draft, v2, NOW)).rejects.toThrow(why);
+      await expect(post(state, draft, v2, NOW)).rejects.toThrow(why);
+      await expect(settle(state, v2, NOW)).rejects.toThrow(why);
+    });
+
+    it('an empty thread declares nothing yet, and is read by any schema', async () => {
+      for (const schema of [PLAIN, UNNAMED, sibar({ laws: [], head: { version: 2 } })]) {
+        expect(consequitur([], emptyHandles(), schema).inForce).toEqual([]);
+        const out = await post(emptyState(schema), create, schema, NOW);
+        expect(out.refusal).toBeUndefined();
+        expect(out.state.lines[0].thread).toEqual({ nonce: expect.any(String), ...(schema.name === undefined ? {} : { schema: schema.name, version: schema.version }) });
+      }
+    });
+  });
+
+  it('a thread declared for its schema reads as before, whether the schema has a name or not', async () => {
+    for (const schema of [PLAIN, UNNAMED]) {
+      const lines = await threadFor(schema)([create, note]);
+      const reading = consequitur(lines, emptyHandles(), schema);
+      expect(reading.inForce).toEqual(idsOf(lines));
+      expect(reading.expected).toEqual({ value: { name: 'A', status: 'open' }, set: { assignees: ['mrossi'] } });
+    }
+  });
+
+  it('post and dryRun take a nonce: two posts and a dry run of one first draft give one thread', async () => {
+    const options = { nonce: NONCE, confirmed: true };
+    const [a, b] = [await post(emptyState(SIBAR), create, SIBAR, NOW, options), await post(emptyState(SIBAR), create, SIBAR, NOW, options)];
+    const run = await dryRun(emptyState(SIBAR), create, SIBAR, NOW, options);
+    expect(idsOf(a.state.lines)).toEqual(idsOf(b.state.lines));
+    expect(idsOf(run.state.lines)).toEqual(idsOf(a.state.lines));
+    expect(a.state.lines[0].thread).toEqual({ nonce: NONCE, schema: 'sibar-activity', version: 1 });
+    const drawn = await post(emptyState(SIBAR), create, SIBAR, NOW);
+    expect(drawn.state.lines[0].id).not.toBe(a.state.lines[0].id);
+  });
+});
+
 describe('inOrder', () => {
   it('gives the same result from a reversed array, and leaves the argument alone', async () => {
     const lines = await thread([note, note, note, note]);
@@ -402,6 +521,8 @@ describe('consequitur', () => {
     { gist: 'goal', writers: ['user'], rules: [{ rule: 'goal' }] },
     { gist: 'done', writers: ['goal', 'user'], rules: [{ rule: 'value', key: 'status', value: 'closed' }] },
   ]);
+  // a thread read by these gists alone declares no schema, as RULES has no name
+  const thread = threadFor(RULES);
 
   const by = (writer: Writer, gist: string, payload: LineDraft['payload']): LineDraft => ({ gist, writer, payload });
   const mrossi = (gist: string, payload: LineDraft['payload']) => by('user::mrossi', gist, payload);

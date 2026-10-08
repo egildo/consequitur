@@ -1,4 +1,6 @@
 {
+  "name": "sibar-activity",
+  "version": 1,
   "opening": "create",
   "authority": "system::sibardoc",
   "sets": ["assignees"],

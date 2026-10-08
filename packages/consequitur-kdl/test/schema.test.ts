@@ -28,6 +28,18 @@ describe('the cases', () => {
   }
 });
 
+describe('the name and the version', () => {
+  it('are written first, and come back as they went', () => {
+    const text = toKdl({ name: 'editorial-review', version: 3, opening: 'submit' });
+    expect(text).toBe('name editorial-review\nversion 3\nopening submit\n');
+    expect(fromKdl(text)).toEqual({ json: { name: 'editorial-review', version: 3, opening: 'submit', gists: [] }, problems: [] });
+  });
+
+  it('are left out where the object has none', () => {
+    expect(toKdl({ opening: 'submit' })).toBe('opening submit\n');
+  });
+});
+
 describe('conditions', () => {
   /** A schema of one guard holding the condition, written and read back. */
   const roundTrip = (condition: Condition) => fromKdl(toKdl({ guards: { probe: condition as unknown as Json } }));
@@ -65,6 +77,10 @@ describe('what the reader refuses', () => {
     ['text that is not KDL', 'gist {', 1],
     ['a node a schema does not take', 'colour red', 1],
     ['an opening written twice', 'opening a\nopening b', 2],
+    ['a version written twice', 'version 1\nversion 2', 2],
+    ['a version that is not a number', 'version one', 1],
+    ['a version with two numbers', 'version 1 2', 1],
+    ['a name that is not one word', 'name a b', 1],
     ['a gist with properties', 'gist a user k=1', 1],
     ['a guard with no name', 'guard {\n  has (value)a\n}', 1],
     ['a when with an argument', 'gist a user {\n  when x {\n    has (value)a\n  }\n}', 2],

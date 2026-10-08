@@ -17,6 +17,8 @@ import { canonical } from './line.ts';
 
 const GIST_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 
+const SCHEMA_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
 /** The rules the engine itself reads: they are mechanics, not kinds. */
 const MECHANICS = ['revoke', 'goal'];
 
@@ -135,8 +137,11 @@ export function readLaws(value: unknown, kit: Kit, head: SchemaHead): { laws: La
 /** The head's own faults: what it states, before it is set beside the gists. */
 function headProblems(json: Record<string, unknown>, kit: Kit): string[] {
   const problems: string[] = [];
-  const known = ['opening', 'authority', 'sets', 'records', 'judged', 'guards', 'gists', 'laws'];
+  const known = ['name', 'version', 'opening', 'authority', 'sets', 'records', 'judged', 'guards', 'gists', 'laws'];
   for (const key of Object.keys(json)) if (!known.includes(key)) problems.push(`The schema has the key "${key}", which it may not.`);
+  if ('name' in json !== 'version' in json) problems.push('name and version go together: the schema has one without the other.');
+  if ('name' in json && !(typeof json.name === 'string' && SCHEMA_NAME.test(json.name))) problems.push('name must be in lower kebab case.');
+  if ('version' in json && !(Number.isInteger(json.version) && (json.version as number) >= 1)) problems.push('version must be a whole number from 1.');
   if (typeof json.opening !== 'string' || !GIST_NAME.test(json.opening)) problems.push('opening must name a gist, in lower snake case.');
   if (!kinOf(json.authority) || !idOf(json.authority)) problems.push('authority must be a writer, as KIN::ID.');
   if ('sets' in json && !(isStrings(json.sets) && json.sets.every((s) => s !== '') && new Set(json.sets).size === json.sets.length)) {
@@ -178,8 +183,8 @@ function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
 }
 
 /**
- * Reads a schema from JSON against a kit: the head (`opening`, `authority`,
- * `sets`, `records`, `judged`, `guards`), the gist schemas and the laws. Never throws. A
+ * Reads a schema from JSON against a kit: the head (`name` and `version`, both or
+ * neither, `opening`, `authority`, `sets`, `records`, `judged`, `guards`), the gist schemas and the laws. Never throws. A
  * schema with any problem is empty, and its problems say why: a head that fails,
  * a gist schema or a law that fails, or a head that names a gist that is not
  * there or does not fit. A rule or a law that names a kind the kit lacks is a
@@ -191,6 +196,7 @@ export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems:
   if (faults.length > 0) return { schema: emptySchema(kit), problems: faults };
 
   const head: SchemaHead = {
+    ...('name' in json ? { name: json.name as string, version: json.version as number } : {}),
     opening: json.opening as string,
     authority: json.authority as Writer,
     sets: (json.sets as string[] | undefined) ?? [],

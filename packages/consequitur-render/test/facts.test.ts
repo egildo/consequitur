@@ -9,6 +9,11 @@ const factsOf = (r: PostResult) => lineFacts(r.state.lines, r.reading, SIBAR);
 const of = (facts: ReturnType<typeof factsOf>, line: EventLine) => facts.find((f) => f.line.id === line.id)!;
 
 describe('lineFacts', () => {
+  it('refuses a thread declared for another schema, as the reading does', async () => {
+    const r = await written([opening]);
+    expect(() => lineFacts(r.state.lines, r.reading, { ...SIBAR, version: 2 })).toThrow(/declared for the schema "sibar-activity" version 1, and is read by the schema "sibar-activity" version 2/);
+  });
+
   it('reads a stored line whose payload is not an object as stating nothing, and does not throw', async () => {
     // the engine never writes one: such a line comes from storage the engine did not keep
     for (const payload of [null, 'text', [1]] as unknown as Payload[]) {

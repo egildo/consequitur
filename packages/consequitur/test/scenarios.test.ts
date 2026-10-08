@@ -15,8 +15,8 @@ function host(schema = strict(SIBAR_JSON), policy: Policy = []) {
   let state: ThreadState = emptyState(schema);
   const io: Io = {
     lines: () => state.lines,
-    async send(draft: LineDraft, confirmed: boolean): Promise<Refusal | undefined> {
-      const out = await post(state, draft, schema, NOW, { confirmed, policy });
+    async send(draft: LineDraft, confirmed: boolean, nonce?: string): Promise<Refusal | undefined> {
+      const out = await post(state, draft, schema, NOW, { confirmed, policy, nonce });
       if (out.refusal) return out.refusal;
       state = out.state;
       return undefined;
@@ -127,6 +127,17 @@ describe('playing a scenario', () => {
     const played = await playScenario([steps[0], comment], h.io, { as: 'user::mrossi' });
     expect(played.failed).toBeUndefined();
     expect(h.state().lines.filter((l) => l.gist === 'create' || l.gist === 'comment').map((l) => l.writer)).toEqual(['user::mrossi', 'user::mrossi']);
+  });
+
+  it('hands the nonce it is given to every post, so a scenario played twice gives the same ids', async () => {
+    const play = async (nonce?: string) => {
+      const h = host();
+      await playScenario(steps, h.io, nonce === undefined ? {} : { nonce });
+      return h.state().lines.map((l) => l.id);
+    };
+    const nonce = 'ab'.repeat(16);
+    expect(await play(nonce)).toEqual(await play(nonce));
+    expect((await play())[0]).not.toBe((await play())[0]);
   });
 
   it('carries labels on to a later play', async () => {

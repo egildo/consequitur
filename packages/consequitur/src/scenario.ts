@@ -87,8 +87,8 @@ export function draftOf(step: Step, lines: EventLine[], labels: ReadonlyMap<stri
 /** What a scenario needs of its host: the thread as it stands, and a way to post to it. */
 export interface Io {
   lines(): EventLine[];
-  /** Posts the draft, and answers the refusal, or nothing when the line was posted. */
-  send(draft: LineDraft, confirmed: boolean): Promise<Refusal | undefined>;
+  /** Posts the draft, and answers the refusal, or nothing when the line was posted; `nonce` is the player's, for `post`. */
+  send(draft: LineDraft, confirmed: boolean, nonce?: string): Promise<Refusal | undefined>;
 }
 
 export interface Played {
@@ -104,18 +104,19 @@ export interface Played {
  * that does not go as the scenario says. `after` is told of each step once it is done, so a test
  * can look at the thread where it matters; `labels` carries the labels of an earlier play on; `as`
  * is the writer every step is posted as, in place of its own, for an application that plays a
- * scenario for the person who opens it.
+ * scenario for the person who opens it; `nonce` is handed to every `send`, so the first line, which
+ * declares the thread, and every id after it are the same each time the scenario is played.
  */
 export async function playScenario(
   steps: Step[],
   io: Io,
-  options: { after?(done: { index: number; step: Step; labels: Labels; refusal?: Refusal }): void | Promise<void>; labels?: Labels; as?: Writer } = {},
+  options: { after?(done: { index: number; step: Step; labels: Labels; refusal?: Refusal }): void | Promise<void>; labels?: Labels; as?: Writer; nonce?: string } = {},
 ): Promise<Played> {
   const played: Played = { refused: [], labels: options.labels ?? new Map() };
   for (const [index, step] of steps.entries()) {
     const before = io.lines().length;
     const draft = draftOf(step, io.lines(), played.labels);
-    const refusal = await io.send(options.as === undefined ? draft : { ...draft, writer: options.as }, step.confirmed === true);
+    const refusal = await io.send(options.as === undefined ? draft : { ...draft, writer: options.as }, step.confirmed === true, options.nonce);
     if (refusal && step.refused === undefined) {
       played.failed = { index, step, why: `The step was refused: ${refusal.code}.`, refusal };
       return played;
@@ -171,7 +172,7 @@ export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pru
   const found = new Set(reading.goals.flatMap((goal) => nodes(goal.trace).flatMap(({ node }) => (node.foundIn === undefined ? [] : [node.foundIn]))));
   const records = Object.values(schema.records);
   const pruned: Pruned = { open: [], left: [] };
-  for (const line of inOrder(lines)) {
+  for (const line of inOrder(lines, schema)) {
     const kin = kinOf(line.writer);
     const why: Pruned['left'][number]['why'] | undefined =
       kin === 'goal' || records.includes(line.gist) ? 'engine'

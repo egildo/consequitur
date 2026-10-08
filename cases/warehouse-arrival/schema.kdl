@@ -1,3 +1,5 @@
+name warehouse-arrival
+version 1
 opening open
 authority system::warehouse
 sets team
