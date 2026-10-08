@@ -139,7 +139,7 @@ The ProseMirror correspondence, which the library should feel like:
 11. **Publish 0.1.0.** The switching in `sibardoc-prototype` comes after, there.
    Before it, two decisions, the first now settled and built in round 10, to be written apart (Egildo, 2026-10-08), each with the canon it draws on; candidates, not adopted:
    - **What the hash covers.** Settled 2026-10-08 as [the id names its recipe](decisions/the-id-names-its-recipe.md): the fields and form as they are, and `sha256:` before every id. `canonical` writes JSON with keys sorted by `<`, which is RFC 8785, the JSON Canonicalization Scheme: its examples are tests, and since 2026-10-08 what it refuses (a number that is not finite, a lone surrogate) is refused when a line is stamped; the decision would name it. Hashing a digest of the payload instead of the payload, so a payload can be erased and the chain still verify (redaction; the right to erasure), parked under that name.
-   - **Whether a thread names its schema and policy.** A first line that cannot repeat across threads, by a nonce (a random value used once), as a feed's key does in Secure Scuttlebutt and Hypercore; and the name and version of the schema and policy it is read by.
+   - **Whether a thread names its schema and policy.** Proposed 2026-10-08 as [the first line declares the thread](decisions/the-first-line-declares-the-thread.md), with three open questions; the policy is left out, since its answers are written in the thread. A first line that cannot repeat across threads, by a nonce (a random value used once), as a feed's key does in Secure Scuttlebutt and Hypercore; and the name and version of the schema and policy it is read by.
 
 ## 5 · Settled
 
