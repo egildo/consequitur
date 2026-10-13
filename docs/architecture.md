@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 12, «Consolidation». What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 13, «The drill in the playground». What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -10,7 +10,7 @@ why it is built so is in the [principles](principles.md); the names are in the [
 | `packages/consequitur` | the engine: a thread, a schema, the kinds, the reading, the authority's part | built |
 | `packages/consequitur-render` | a reading made into DOM | built |
 | `packages/consequitur-kdl` | a schema written in KDL, read into the schema object and written back | built |
-| `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, built only on the three packages and the cases; private, never published | built |
+| `playground/` | the sample application, with a domain picker: the SIBAR activity bench and the editorial review, and a panel to try a consolidation, built only on the three packages and the cases; private, never published | built |
 | `cases/<domain>/` | a domain's schema, in JSON and in KDL, its scenarios and, for SIBAR, its policy; not a package. The engine's `playScenario` plays them | `sibar-activity`, `editorial-review`, `warehouse-arrival` |
 
 The engine has one runtime dependency, `kdlet-guards` (kdlet's condition language: it evaluates a
@@ -134,6 +134,7 @@ deduce.ts      the writer's offers, each line's actions, what a goal being compo
 ledger.ts      the cards, in `keyed`; cards.ts draws one, a goal's condition as a tree; dock.ts the goals; draft.ts the composer; panel.ts the inspector
 pointing.ts    the band over the ledger's column: hover, and a drag from a slot
 state.ts, main.ts   one PageState, one `update`, and `send`, which is the only place a line is posted
+consolidation.ts, consolidation-view.ts   the «Consolida» tab: a Bench of two played sources and a drill, and its drawing; its state is its own, not the page's
 ```
 
 It is plain TypeScript and DOM, with `markdown-it` for the texts, Vite for its dev server (port 5588)

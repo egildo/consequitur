@@ -52,7 +52,7 @@ export const HEAD_CHIP = '(testa)';
 export const LAWS_CHIP = '(leggi)';
 
 /** The tabs of the inspector. */
-export type InspectorTab = 'activity' | 'line' | 'schemas' | 'laws';
+export type InspectorTab = 'activity' | 'line' | 'schemas' | 'laws' | 'consolidation';
 
 export interface PageState {
   thread: ThreadState;

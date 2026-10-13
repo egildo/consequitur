@@ -208,3 +208,24 @@ describe('the composer', () => {
     await until(() => q('.draft') === null);
   });
 });
+
+describe('the «Consolida» tab', () => {
+  it('is a fifth tab, after «Leggi»', () => {
+    expect([...document.querySelectorAll('.tab')].map((b) => b.textContent)).toEqual([q('.tab')!.textContent, 'Riga', 'Schemi', 'Leggi', 'Consolida']);
+  });
+
+  it('is selected on click, and draws its two source pickers in the panel', () => {
+    click(button('Consolida', q('.tabs')));
+    expect(button('Consolida', q('.tabs'))!.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelectorAll('.panel-body select[data-role="domain"]')).toHaveLength(2);
+  });
+
+  it('keeps the same panel element when the tab is left and come back', () => {
+    click(button('Consolida', q('.tabs')));
+    const panel = q('.consolidation');
+    click(button('Riga', q('.tabs')));
+    expect(q('.consolidation')).toBeNull();
+    click(button('Consolida', q('.tabs')));
+    expect(q('.consolidation')).toBe(panel);
+  });
+});

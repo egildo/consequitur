@@ -98,3 +98,16 @@ that awaits every one of its checks, as the composer builds it, is the one list 
 Switching resets the thread, the draft, the selection and the inspector's chip, and keeps the toggles.
 The examples of a domain are buttons made from it, so an example that ends on a refusal its scenario
 expects (the review's «un revisore se ne va») leaves that refusal on screen.
+
+
+## 7 · The consolidation panel (round 13)
+
+Built in the round «The drill in the playground» ([plan](../plan.md) §4), on [consolidation](consolidation.md): a fifth tab of the inspector, «Consolida», to try the package's consolidation by hand. It gives nothing the package does not.
+
+- **Sources.** Two rows, «Prima fonte» and «Seconda fonte», each a domain and one of its examples. The example is played on an empty thread of its domain (`playSource`, which uses `post` and does not touch the page's domain state), and the two threads are the sources. Any two domains may be picked: the same domain twice shows the replay, two domains show schema conflicts.
+- **Derived schema.** «Lo stesso schema» when the two are one, else the schema conflicts, each with both parts as code, and a name for the new schema, suggested as the two names joined by a dash.
+- **The drill.** «Avvia» starts it. The steps are listed with a mark each (played, skipped, edited, next, stopped) and the source they come from. «Avanti» plays one step and «Fino al prossimo arresto» plays on to a stop. A stop shows its sentence, the refusal's code and detail or the placeholder's `why`, and offers the package's choices: «Prima», «Seconda», «A mano» at a schema conflict; «Riprova», «Modifica», «Salta» at a step; «Interrompi» at either. «A mano» and «Modifica» take JSON in a text area, and JSON that does not parse says so and changes nothing.
+- **The result.** «Nuovo filo»: whether the thread is in agreement with its lines, how many steps were skipped and edited, its lines, and the first line's declaration as code, where `from` names the sources.
+
+The panel's state is its own (`consolidation.ts`, a `Bench` value that every function returns anew, and `consolidation-view.ts`, which draws it); it is not in `PageState`, because a drill is a value of its own and the panel reads nothing of the page's thread. Its element is built once and kept when the tab is left. It names no gist, so `test/fence.test.ts` holds. «Riprova» will usually be refused the same way: answering the cause needs a line posted to the new thread, which the package allows a host and this panel does not offer.
+

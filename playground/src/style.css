@@ -1583,3 +1583,124 @@ body.is-linking * {
 .action-await:hover {
   background: var(--indigo-100);
 }
+
+/* ── the consolidation panel ── */
+
+.consolidation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-roomy);
+}
+
+.consolidation-row,
+.consolidation-field,
+.consolidation-conflicts,
+.consolidation-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-base);
+}
+
+.consolidation-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-base);
+}
+
+.consolidation-pick select,
+.consolidation-name {
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0 var(--space-base);
+  border: 1px solid var(--neutral-300);
+  border-radius: 8px;
+  background: var(--white);
+  font-size: 13px;
+}
+
+.consolidation-name {
+  width: 100%;
+}
+
+.consolidation-pair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-tight);
+}
+
+.consolidation-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-base);
+  padding-top: var(--space-base);
+  border-top: 1px solid var(--hairline);
+}
+
+.consolidation-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-base);
+}
+
+.consolidation-steps,
+.consolidation-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-tight);
+  font-size: 13px;
+  color: var(--neutral-700);
+}
+
+.consolidation-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-base);
+}
+
+/* which source a step came from: a tag, as a chip shows a user */
+.consolidation-source {
+  padding: 0 var(--space-base);
+  border-radius: 999px;
+  background: var(--azure-100);
+  color: var(--azure-800);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.consolidation-mark {
+  font-weight: 600;
+  color: var(--neutral-600);
+}
+
+/* where the drill waits: set off from the steps by a rule in the warning colour */
+.consolidation-stop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-base);
+  padding-left: var(--space-mid);
+  border-left: 2px solid var(--orange-500);
+}
+
+.consolidation-hand {
+  width: 100%;
+  min-height: 120px;
+  padding: var(--space-base);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--white);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  resize: vertical;
+}
+
+.consolidation-error {
+  font-size: 13px;
+  color: var(--red-700);
+}
+
+/* an error paragraph takes no room until it has a sentence */
+.consolidation-error:empty {
+  display: none;
+}

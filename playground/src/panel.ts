@@ -1,13 +1,14 @@
-// The inspector: four tabs. «Attività» is the activity as the thread explains it
+// The inspector: five tabs. «Attività» is the activity as the thread explains it
 // and its denunciations; «Riga» is the line selected in the ledger; «Schemi» and
-// «Leggi» show the gist schemas and the laws as the code they are. It is drawn
-// from the page's state alone. The selected line and the schemas are the places a
-// person reads an id.
+// «Leggi» show the gist schemas and the laws as the code they are; «Consolida» is
+// the consolidation panel. It is drawn from the page's state alone. The selected
+// line and the schemas are the places a person reads an id.
 
 import { answer, verify, type Denunciation, type EventLine, type Json, type LineId } from 'consequitur';
 import { toKdl } from 'consequitur-kdl';
 import { goalFacts, goalRows } from './cards.ts';
 import { codeView } from './code.ts';
+import { createConsolidation } from './consolidation-view.ts';
 import type { Derived } from './deduce.ts';
 import { domain, membersIn, valueIn } from './domain.ts';
 import { chip, h } from './dom.ts';
@@ -69,12 +70,15 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
   let current: LineId | null = null;
   // the «Interfaccia» block stays as the person left it
   let interfaceOpen = false;
+  // made once, not on each draw: its sources, drill and name survive leaving the tab
+  const consolidation = createConsolidation();
 
   const tabs: Array<{ tab: InspectorTab; label: string }> = [
     { tab: 'activity', label: domain().words.tab },
     { tab: 'line', label: 'Riga' },
     { tab: 'schemas', label: 'Schemi' },
     { tab: 'laws', label: 'Leggi' },
+    { tab: 'consolidation', label: 'Consolida' },
   ];
   const buttons = tabs.map(({ tab, label }) => {
     const button = h('button', { class: 'tab', type: 'button', role: 'tab', 'data-tab': tab }, label);
@@ -220,7 +224,7 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
       // the first tab is named for what the domain is about
       buttons[0].textContent = domain().words.tab;
       for (const button of buttons) button.setAttribute('aria-selected', String(button.dataset.tab === state.tab));
-      const content = state.tab === 'activity' ? activity(state) : state.tab === 'line' ? selected(state) : state.tab === 'schemas' ? schemas(state, derived) : laws(state);
+      const content = state.tab === 'activity' ? activity(state) : state.tab === 'line' ? selected(state) : state.tab === 'schemas' ? schemas(state, derived) : state.tab === 'consolidation' ? [consolidation.el] : laws(state);
       body.replaceChildren(...content);
     },
   };
