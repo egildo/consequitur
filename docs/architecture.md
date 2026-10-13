@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 13, «The drill in the playground». What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 14, «Publish 0.1.0». What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -19,6 +19,10 @@ gives the trace; consequitur registers its two words on it and resolves the refe
 `condition.ts` alone; every other import stays inside `src/`. `test/thread.test.ts` reads every import and
 fails on one that leaves, but that one. Tests read the cases from `cases/`, never a
 fixture of their own, except a toy that isolates one rule.
+
+## Publishing
+
+The three packages are built to a git-ignored `dist` by `tsc` alone (`pnpm run build:packages`; each package's `build` runs `scripts/build-package.mjs`, and `prepack` runs `build`): `tsconfig.build.json` at the root and one in each package emit per-file ESM and declarations with `rewriteRelativeImportExtensions`, and the script rewrites the `./x.ts` specifiers that remain in the `.d.ts` files. Development reads the sources: each `package.json` keeps `exports` at `./src/index.ts`, the playground and the tests resolve the workspace through it, and `pnpm typecheck` and `pnpm test` build nothing. `publishConfig` carries `exports`, `main` and `types` to `dist`, applied when the package is packed or published with `pnpm` (kdlet's way: `pnpm -r publish`); `files` is `["dist"]`, so a tarball holds the built files, the README, the licence and the manifest. The three versions move together.
 
 ## The cases and their scenarios
 

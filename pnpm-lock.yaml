@@ -33,7 +33,7 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0
       consequitur:
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../consequitur
       kdlet-guards:
         specifier: ^0.2.1
@@ -42,7 +42,7 @@ importers:
   packages/consequitur-render:
     dependencies:
       consequitur:
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../consequitur
 
   playground:

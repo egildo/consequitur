@@ -2,10 +2,11 @@
 
 A ledger of what was said, and what follows from it.
 
-> Status: the engine is built (`packages/consequitur`), and so are `consequitur-render` and the
-> playground, a sample application on two domains, SIBAR's activities and an editorial review; what
-> the second showed that the engine cannot say is in [docs/misfits.md](docs/misfits.md), and the next
-> round is in [docs/plan.md](docs/plan.md). The example below is the API as it is.
+> Status: the engine is built (`packages/consequitur`), and so are `consequitur-render`,
+> `consequitur-kdl` and the playground, a sample application on two domains, SIBAR's activities and
+> an editorial review; what the second showed that the engine cannot say is in
+> [docs/misfits.md](docs/misfits.md). Version 0.1.0 of the three packages is prepared and not yet
+> published; the plan is in [docs/plan.md](docs/plan.md). The example below is the API as it is.
 
 A **thread** is an append-only list of **lines**. Each line has a **gist** — what happened — a
 **writer**, a timestamp and a free JSON payload, and its id is the hash of its content and the

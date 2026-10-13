@@ -3,9 +3,15 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "author": "Egildo Tagliareni <egildo@tagliareni.it>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://codeberg.org/egildo/consequitur.git"
+  },
   "scripts": {
     "dev": "pnpm --filter consequitur-playground dev",
     "build": "pnpm --filter consequitur-playground build",
+    "build:packages": "pnpm -r --filter \"./packages/*\" build",
     "typecheck": "tsc",
     "test": "pnpm -r --if-present test"
   },

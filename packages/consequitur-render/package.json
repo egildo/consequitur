@@ -1,16 +1,52 @@
 {
   "name": "consequitur-render",
-  "version": "0.0.0",
-  "type": "module",
-  "license": "MIT",
+  "version": "0.1.0",
   "description": "A consequitur reading made into DOM.",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "build": "node ../../scripts/build-package.mjs",
+    "prepack": "pnpm run build"
   },
   "dependencies": {
-    "consequitur": "workspace:*"
+    "consequitur": "workspace:^"
+  },
+  "keywords": [
+    "consequitur",
+    "dom",
+    "ledger",
+    "reading"
+  ],
+  "author": "Egildo Tagliareni <egildo@tagliareni.it>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://codeberg.org/egildo/consequitur.git",
+    "directory": "packages/consequitur-render"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "homepage": "https://codeberg.org/egildo/consequitur",
+  "bugs": {
+    "url": "https://codeberg.org/egildo/consequitur/issues"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts"
   }
 }
