@@ -69,7 +69,7 @@ async function warehouse(): Promise<{ tuesday: ThreadState; saved: ThreadState; 
   return { tuesday, saved, c: consolidate(sourceOf(tuesday, WAREHOUSE), sourceOf(saved, WAREHOUSE)) };
 }
 
-/** SIBAR's «first» and the editorial «published»: two schemas, eight schema conflicts. */
+/** SIBAR's «first» and the editorial «published»: two schemas, eleven schema conflicts, the last three laws only one has. */
 async function crossDomain(): Promise<Consolidation> {
   const first = await finished(scenario('sibar-activity', 'first'), SIBAR, sibarPolicy());
   const published = await finished(scenario('editorial-review', 'published'), EDITORIAL, [], NONCE_SECOND);
@@ -111,7 +111,7 @@ async function run(drill: Drill, answer?: Choice): Promise<Drill> {
   throw new Error('The drill did not end.');
 }
 
-/** The eight answers that resolve the conflicts of SIBAR and the editorial case: first, second, a part by hand. */
+/** The eleven answers that resolve the conflicts of SIBAR and the editorial case: first, second, a part by hand, and keep for the three laws. */
 function schemaAnswers(c: Consolidation): Choice[] {
   return [
     { do: 'first' },
@@ -122,6 +122,9 @@ function schemaAnswers(c: Consolidation): Choice[] {
     { do: 'first' },
     { do: 'second' },
     { do: 'first' },
+    { do: 'keep' },
+    { do: 'keep' },
+    { do: 'keep' },
   ];
 }
 
@@ -134,6 +137,11 @@ describe('starting a drill', () => {
   it('startDrill throws when the name is not lower kebab case', async () => {
     const c = await crossDomain();
     expect(() => startDrill(c, { name: 'Both Cases' })).toThrow('name must be in lower kebab case');
+  });
+
+  it('startDrill with a valid name does not throw on the cross-domain pair, whose probe answers each conflict as it fits', async () => {
+    const c = await crossDomain();
+    expect(() => startDrill(c, { name: 'both-cases' })).not.toThrow();
   });
 
   it('startDrill needs no name when both sources are read by one schema, and begins with an empty thread of it', async () => {
@@ -169,7 +177,7 @@ describe('starting a drill', () => {
 });
 
 describe('answering schema conflicts', () => {
-  it('first, second and by-hand each record their answer and move the stop to the next conflict, 0 to 7', async () => {
+  it('first, second, by-hand and keep each record their answer and move the stop to the next conflict, 0 to 10', async () => {
     const c = await crossDomain();
     let drill = startDrill(c, { name: 'both-cases', nonce: NONCE_DRILL });
     const stops: number[] = [];
@@ -177,8 +185,43 @@ describe('answering schema conflicts', () => {
       stops.push(stopOf(drill).index);
       drill = await stepDrill(drill, NOW, answer);
     }
-    expect(stops).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-    expect(drill.answers).toEqual(['first', 'second', { by: c.derived.conflicts[2].second }, 'first', 'second', 'first', 'second', 'first']);
+    expect(stops).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(drill.answers).toEqual(['first', 'second', { by: c.derived.conflicts[2].second }, 'first', 'second', 'first', 'second', 'first', 'keep', 'keep', 'keep']);
+  });
+
+  it('keep and drop at a law only one source has are recorded and move the stop on, and the schema is derived after the last', async () => {
+    const c = await crossDomain();
+    let drill = startDrill(c, { name: 'both-cases', nonce: NONCE_DRILL });
+    for (let i = 0; i < 8; i++) drill = await stepDrill(drill, NOW, { do: 'first' });
+    expect(stopOf(drill)).toMatchObject({ at: 'schema', index: 8, conflict: c.derived.conflicts[8] });
+    drill = await stepDrill(drill, NOW, { do: 'keep' });
+    expect(stopOf(drill)).toMatchObject({ at: 'schema', index: 9 });
+    drill = await stepDrill(drill, NOW, { do: 'drop' });
+    expect(stopOf(drill)).toMatchObject({ at: 'schema', index: 10 });
+    drill = await stepDrill(drill, NOW, { do: 'keep' });
+    expect(drill.stop).toBeUndefined();
+    expect(drill.answers.slice(8)).toEqual(['keep', 'drop', 'keep']);
+    expect(schemaOf(drill)).toMatchObject({ name: 'both-cases', version: 1 });
+  });
+
+  it('first, second and by-hand do not fit a law only one source has, and throw; abort there ends the drill', async () => {
+    const c = await crossDomain();
+    let drill = startDrill(c, { name: 'both-cases', nonce: NONCE_DRILL });
+    for (let i = 0; i < 8; i++) drill = await stepDrill(drill, NOW, { do: 'first' });
+    await expect(stepDrill(drill, NOW, { do: 'first' })).rejects.toThrow('where it takes keep, drop or abort: the choice "first" does not fit');
+    await expect(stepDrill(drill, NOW, { do: 'second' })).rejects.toThrow('does not fit');
+    await expect(stepDrill(drill, NOW, { do: 'by-hand', part: 'x' })).rejects.toThrow('does not fit');
+    expect(stopOf(drill)).toMatchObject({ at: 'schema', index: 8 });
+    const aborted = await stepDrill(drill, NOW, { do: 'abort' });
+    expect(aborted.status).toBe('aborted');
+    expect(aborted.stop).toBeUndefined();
+  });
+
+  it('keep and drop do not fit a conflict that is not a law only one source has, and throw', async () => {
+    const c = await crossDomain();
+    const drill = startDrill(c, { name: 'both-cases', nonce: NONCE_DRILL });
+    await expect(stepDrill(drill, NOW, { do: 'keep' })).rejects.toThrow('where it takes first, second, by-hand or abort: the choice "keep" does not fit');
+    await expect(stepDrill(drill, NOW, { do: 'drop' })).rejects.toThrow('the choice "drop" does not fit');
   });
 
   it('a by-hand part that does not read stops again at the same index, with problems, and the answer is not kept', async () => {
@@ -426,10 +469,11 @@ describe('the warehouse walked to the end', () => {
 });
 
 describe('the cross-domain drill', () => {
-  it('answering every conflict first and skipping every step stop ends done, and posts nothing', async () => {
+  it('keeping all three laws, with the old conflicts answered first, every step stops and is skipped, and the thread stays empty', async () => {
     const c = await crossDomain();
     let drill = startDrill(c, { name: 'both-cases', nonce: NONCE_DRILL, policy: sibarPolicy() });
     for (let i = 0; i < 8; i++) drill = await stepDrill(drill, NOW, { do: 'first' });
+    for (let i = 0; i < 3; i++) drill = await stepDrill(drill, NOW, { do: 'keep' });
     const stops: Array<{ index: number; code?: string }> = [];
     for (let calls = 0; drill.status === 'going' && calls < 500; calls++) {
       const stop = drill.stop;
@@ -449,5 +493,21 @@ describe('the cross-domain drill', () => {
     expect(drill.skipped).toEqual(c.steps.map((_, i) => i));
     expect(threadOf(drill).lines).toEqual([]);
     expect(() => consequitur(threadOf(drill).lines, threadOf(drill).handles, schemaOf(drill))).not.toThrow();
+  });
+
+  it('keeping the SIBAR assignees law and dropping both editorial laws admits SIBAR\'s first step, which opens the new thread', async () => {
+    const c = await crossDomain();
+    let drill = startDrill(c, { name: 'both-cases', nonce: NONCE_DRILL, policy: sibarPolicy() });
+    for (let i = 0; i < 8; i++) drill = await stepDrill(drill, NOW, { do: 'first' });
+    drill = await stepDrill(drill, NOW, { do: 'keep' });
+    drill = await stepDrill(drill, NOW, { do: 'drop' });
+    drill = await stepDrill(drill, NOW, { do: 'drop' });
+    expect(drill.stop).toBeUndefined();
+    drill = await stepDrill(drill, NOW);
+    expect(drill.stop).toBeUndefined();
+    expect(drill.next).toBe(1);
+    expect(threadOf(drill).lines.length).toBeGreaterThan(0);
+    const first = inOrder(threadOf(drill).lines, schemaOf(drill))[0];
+    expect(first.thread).toEqual({ nonce: NONCE_DRILL, schema: 'both-cases', version: 1, from: c.from });
   });
 });

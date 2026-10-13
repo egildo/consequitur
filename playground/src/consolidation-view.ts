@@ -212,12 +212,13 @@ export function createConsolidation(): { el: HTMLElement } {
         h('p', null, conflictName(conflict.part, conflict.name)),
         pair(conflict.first, conflict.second),
         problems.length > 0 ? h('p', { class: 'consolidation-error' }, problems.join(' ')) : null,
+        // a law is kept or dropped whole, so it has no part to pick or write by hand
         h(
           'div',
           { class: 'consolidation-choices' },
-          button('Prima', () => choose({ do: 'first' })),
-          button('Seconda', () => choose({ do: 'second' })),
-          button('A mano', () => revealed('hand')),
+          ...(conflict.part === 'one-sided-law'
+            ? [button('Tieni', () => choose({ do: 'keep' })), button('Togli', () => choose({ do: 'drop' }))]
+            : [button('Prima', () => choose({ do: 'first' })), button('Seconda', () => choose({ do: 'second' })), button('A mano', () => revealed('hand'))]),
           button('Interrompi', () => choose({ do: 'abort' })),
         ),
         reveal === 'hand' ? handEditor<Json>('', (part) => choose({ do: 'by-hand', part })) : null,
@@ -284,7 +285,7 @@ export function createConsolidation(): { el: HTMLElement } {
     const settled = consequitur(state.lines, state.handles, schema).settled;
     const [first] = state.lines;
     return section(
-      'Nuovo filo',
+      'Nuovo thread',
       h('p', { class: settled ? 'settled is-ok' : 'settled is-bad' }, `${state.lines.length} righe, ${settled ? 'in accordo con le righe' : 'non in accordo'}`),
       h('p', { class: 'panel-label' }, `saltati: ${drill.skipped.length}, modificati: ${drill.edited.length}`),
       h('ol', { class: 'consolidation-lines' }, ...state.lines.map((line) => h('li', null, `${line.gist} · ${line.writer} · ${shortId(line.id)}`))),

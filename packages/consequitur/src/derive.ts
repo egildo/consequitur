@@ -1,25 +1,32 @@
 // The schema of a consolidated thread, derived from the schemas of its two sources:
 // the pushout. What both share is kept once, what only one has is added, and two parts
 // with the same name and other content are a schema conflict, which a person answers.
-// A pure function of two schemas: it reads no thread and no clock.
+// A law only one source has is asked too: the new thread applies one set of laws, chosen
+// by the person. A pure function of two schemas: it reads no thread and no clock.
 
 import type { Json, Schema } from './types.ts';
 import { canonical } from './line.ts';
 import { readSchema, schemaJson } from './schema.ts';
 
-/** One part two sources state differently: what a person must answer before the derived schema exists. */
+/**
+ * One part two sources state differently, or a law only one of them has: what a person must answer before the
+ * derived schema exists.
+ */
 export interface SchemaConflict {
-  part: 'opening' | 'authority' | 'record' | 'guard' | 'gist' | 'law';
+  part: 'opening' | 'authority' | 'record' | 'guard' | 'gist' | 'law' | 'one-sided-law';
   /** The record's role, the guard's or the gist's name, the law's identity; empty for opening and authority. */
   name: string;
-  /** The first source's part. */
+  /** The first source's part, null when the first source has none. */
   first: Json;
-  /** The second source's part. */
+  /** The second source's part, null when the second source has none. */
   second: Json;
 }
 
-/** The answer to one schema conflict: one source's part, or a part written by hand. */
-export type Answer = 'first' | 'second' | { by: Json };
+/**
+ * The answer to one schema conflict. `keep` and `drop` answer a law only one source has (a `one-sided-law`);
+ * `first`, `second` and `{ by }` answer every other conflict.
+ */
+export type Answer = 'first' | 'second' | 'keep' | 'drop' | { by: Json };
 
 /** The result of deriving a schema from two. */
 export interface DerivedSchema {
@@ -27,9 +34,9 @@ export interface DerivedSchema {
   same: boolean;
   /** Every conflict, in a fixed order that does not depend on the answers; an index is a stable key. */
   conflicts: SchemaConflict[];
-  /** Present once every conflict is answered, a name is given when the schemas differ, and the result reads. */
+  /** Present once every conflict is answered, every answer fits its conflict, a name is given when the schemas differ, and the result reads. */
   schema?: Schema;
-  /** Why there is no schema although every conflict is answered: the reader's problems, or that it needs a name. Empty while conflicts are only unanswered. */
+  /** Why there is no schema although every conflict is answered: the answers that do not fit, the reader's problems, or that it needs a name. Empty while conflicts are only unanswered. */
   problems: string[];
 }
 
@@ -61,16 +68,28 @@ const identityOf = (law: Json): string => {
 /** The first's names, then the second's names not among them. */
 const union = (a: string[], b: string[]): string[] => [...a, ...b.filter((name) => !a.includes(name))];
 
-/** The part a chosen answer gives: an unanswered conflict is never asked, so undefined counts as the first. */
+/**
+ * The part a chosen answer gives. An unanswered conflict is never asked, so undefined counts as the first; `keep`
+ * and `drop` never get here, since `fits` refuses them for every conflict but a one-sided law.
+ */
 const chosen = (conflict: SchemaConflict, answer: Answer | undefined): Json => {
   if (answer === 'second') return conflict.second;
-  if (answer === undefined || answer === 'first') return conflict.first;
-  return answer.by;
+  if (typeof answer === 'object') return answer.by;
+  return conflict.first;
 };
+
+/** Whether an answer fits its conflict: `keep` and `drop` for a law only one source has, the others for every other conflict. */
+const fits = (conflict: SchemaConflict, answer: Answer | undefined): boolean =>
+  conflict.part === 'one-sided-law' ? answer === 'keep' || answer === 'drop' : answer !== 'keep' && answer !== 'drop';
+
+/** What a conflict takes as its answer, in words, for the problem an answer that does not fit gives. */
+const takes = (conflict: SchemaConflict): string =>
+  conflict.part === 'one-sided-law' ? "a law only one source has takes 'keep' or 'drop'" : "this conflict takes 'first', 'second' or a part written by hand";
 
 /**
  * Derives the schema of a thread from the schemas of its two sources. The derived
- * schema keeps the first source's kit. Never throws.
+ * schema keeps the first source's kit. Never throws: an answer that does not fit its
+ * conflict is a problem, like a part that does not read.
  */
 export function deriveSchema(first: Schema, second: Schema, options: { answers?: Array<Answer | undefined>; name?: string } = {}): DerivedSchema {
   const fj = schemaJson(first);
@@ -83,12 +102,13 @@ export function deriveSchema(first: Schema, second: Schema, options: { answers?:
   delete merged.name;
   delete merged.version;
   const conflicts: SchemaConflict[] = [];
-  // parallel to conflicts: how a chosen value goes into merged
-  const setters: Array<(value: Json) => void> = [];
+  // parallel to conflicts: how an answer goes into merged
+  const setters: Array<(answer: Answer | undefined) => void> = [];
   const differ = (part: SchemaConflict['part'], name: string, a: Json, b: Json, set: (value: Json) => void): void => {
     if (same(a, b)) return;
-    conflicts.push({ part, name, first: a, second: b });
-    setters.push(set);
+    const conflict: SchemaConflict = { part, name, first: a, second: b };
+    conflicts.push(conflict);
+    setters.push((answer) => set(chosen(conflict, answer)));
   };
 
   differ('opening', '', fj.opening, sj.opening, (v) => {
@@ -136,20 +156,45 @@ export function deriveSchema(first: Schema, second: Schema, options: { answers?:
     });
   }
 
+  // the first's laws in its order, then the second's the first lacks in its order. A law is found by its identity,
+  // not its place, since a dropped law moves the ones after it.
   const laws = listOf(merged.laws);
   const firstLaws = listOf(fj.laws);
-  for (const law of listOf(sj.laws)) {
+  const secondLaws = listOf(sj.laws);
+  const indexOfLaw = (identity: string): number => laws.findIndex((l) => identityOf(l) === identity);
+  for (const law of firstLaws) {
     const identity = identityOf(law);
-    const at = firstLaws.findIndex((l) => identityOf(l) === identity);
-    if (at < 0) laws.push(law);
-    else differ('law', identity, firstLaws[at], law, (v) => {
-      laws[at] = v;
+    const other = secondLaws.find((l) => identityOf(l) === identity);
+    if (other !== undefined) {
+      differ('law', identity, law, other, (v) => {
+        laws[indexOfLaw(identity)] = v;
+      });
+      continue;
+    }
+    // the first's law stands in the merged laws until it is dropped
+    conflicts.push({ part: 'one-sided-law', name: identity, first: law, second: null });
+    setters.push((answer) => {
+      const at = indexOfLaw(identity);
+      if (answer === 'drop' && at >= 0) laws.splice(at, 1);
+    });
+  }
+  for (const law of secondLaws) {
+    const identity = identityOf(law);
+    if (firstLaws.some((l) => identityOf(l) === identity)) continue;
+    // the second's law is not in the merged laws until it is kept
+    conflicts.push({ part: 'one-sided-law', name: identity, first: null, second: law });
+    setters.push((answer) => {
+      if (answer === 'keep') laws.push(law);
     });
   }
 
   const answers = options.answers ?? [];
   if (conflicts.some((_, i) => answers[i] === undefined)) return { same: false, conflicts, problems: [] };
-  conflicts.forEach((conflict, i) => setters[i](chosen(conflict, answers[i])));
+  const misfits = conflicts.flatMap((conflict, i) =>
+    fits(conflict, answers[i]) ? [] : [`The answer to conflict ${i} (${conflict.part} ${conflict.name}) does not fit it: ${takes(conflict)}.`],
+  );
+  if (misfits.length > 0) return { same: false, conflicts, problems: misfits };
+  conflicts.forEach((_, i) => setters[i](answers[i]));
 
   if (options.name === undefined) {
     return { same: false, conflicts, problems: ['The derived schema needs a name: the sources are read by different schemas.'] };

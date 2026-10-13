@@ -23,6 +23,10 @@ export type Stop =
 export type Choice =
   | { do: 'first' }
   | { do: 'second' }
+  /** Answers a law only one source has: the law goes into the new thread. */
+  | { do: 'keep' }
+  /** Answers a law only one source has: the law is left out of the new thread. */
+  | { do: 'drop' }
   | { do: 'by-hand'; part: Json }
   | { do: 'again' }
   /** A whole replacement for the step; it keeps the old step's label when it has none. */
@@ -72,8 +76,8 @@ export function startDrill(c: Consolidation, options: { name?: string; nonce?: s
   };
   const known = c.derived.same ? c.derived.schema : undefined;
   if (known !== undefined) return withSchema(base, known);
-  // a probe with every conflict answered by the first source: it finds a missing or bad name before any step
-  const probe = deriveSchema(c.schemas[0], c.schemas[1], { answers: c.derived.conflicts.map((): Answer => 'first'), name: options.name });
+  // a probe with every conflict answered as it fits: it finds a missing or bad name before any step
+  const probe = deriveSchema(c.schemas[0], c.schemas[1], { answers: c.derived.conflicts.map(fitting), name: options.name });
   if (probe.schema === undefined) throw new Error(probe.problems.join(' '));
   if (c.derived.conflicts.length === 0) return withSchema(base, probe.schema);
   return { ...base, stop: { at: 'schema', index: 0, conflict: c.derived.conflicts[0], problems: [] } };
@@ -109,9 +113,20 @@ function misfit(where: string, choice: Choice | undefined, takes: string): Error
   return new Error(`The drill waits at ${where}, where it takes ${takes}: ${choice === undefined ? 'no choice was given' : `the choice "${choice.do}" does not fit`}.`);
 }
 
-/** A schema conflict's choice: the part is recorded, and the drill stops at the next conflict, or the schema is derived. */
+/** The answer that fits a conflict, for the conflicts a probe fills: `keep` for a law only one source has, `first` for the rest. */
+const fitting = (conflict: SchemaConflict): Answer => (conflict.part === 'one-sided-law' ? 'keep' : 'first');
+
+/**
+ * A schema conflict's choice: the part is recorded, and the drill stops at the next conflict, or the schema is
+ * derived. A law only one source has takes keep or drop; every other conflict takes first, second or a part by hand.
+ */
 function answerSchema(drill: Drill, stop: SchemaStop, choice: Choice | undefined): Drill {
   if (choice?.do === 'abort') return { ...unstopped(drill), status: 'aborted' };
+  if (stop.conflict.part === 'one-sided-law') {
+    if (choice?.do === 'keep') return answered(drill, stop, 'keep');
+    if (choice?.do === 'drop') return answered(drill, stop, 'drop');
+    throw misfit(`schema conflict ${stop.index}`, choice, 'keep, drop or abort');
+  }
   if (choice?.do === 'first') return answered(drill, stop, 'first');
   if (choice?.do === 'second') return answered(drill, stop, 'second');
   if (choice?.do === 'by-hand') return answered(drill, stop, { by: choice.part });
@@ -120,14 +135,14 @@ function answerSchema(drill: Drill, stop: SchemaStop, choice: Choice | undefined
 
 /**
  * Records the answer to the conflict the drill waits at, and derives the schema once every conflict is answered.
- * An answer that does not read is refused at once: the schema is tried with the conflicts still open answered by
- * the first source, so the conflict that was answered badly is the one asked again, with why.
+ * An answer that does not read is refused at once: the schema is tried with the conflicts still open answered as
+ * they fit, so the conflict that was answered badly is the one asked again, with why.
  */
 function answered(drill: Drill, stop: SchemaStop, answer: Answer): Drill {
   const answers = [...drill.answers];
   answers[stop.index] = answer;
-  const { schemas } = drill.consolidation;
-  const tried = deriveSchema(schemas[0], schemas[1], { answers: answers.map((a): Answer => a ?? 'first'), name: drill.name });
+  const { schemas, derived } = drill.consolidation;
+  const tried = deriveSchema(schemas[0], schemas[1], { answers: answers.map((a, i) => a ?? fitting(derived.conflicts[i])), name: drill.name });
   if (tried.schema === undefined) {
     // a part that does not read is not kept
     answers[stop.index] = undefined;

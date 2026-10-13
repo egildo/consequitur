@@ -48,9 +48,12 @@ The parts, compared by canonical form (key order does not count, array order doe
 | `records` | per role; a role only one names is added | both name a role, and a different gist |
 | `guards` | per name; a guard only one has is added | the conditions differ |
 | gists | per gist name; a gist only one has is added | the whole gist schemas differ |
-| laws | a law is identified by its binding without its `strength`, as `readLaws` does; a law only one has is added | the same law, another strength |
+| laws | a law is identified by its binding without its `strength`, as `readLaws` does; a law both have stays | the same law, another strength |
+| a law only one source has | asked: `one-sided-law`, `first` or `second` the law and the other `null` | always |
 
-`conflicts` lists every conflict in this order, the second's order within a kind, and does not depend on the answers: an index is a key. A conflicting part stands as the first's until it is answered. An answer is `'first'`, `'second'` or `{ by }`, a part written by hand. Once all are answered, and a name is given when the schemas differ, the result is read with `readSchema`; what does not read comes back as `problems`, and there is no `schema`. Whether the parts fit together is the reader's to say, not the derivation's: an answer `'second'` for a record role leaves the first's record gist in the schema as an ordinary gist nobody writes.
+`conflicts` lists every conflict in this order: opening, authority, the records and guards and gists in the second's order, then the laws, the first's in its order and after them the second's the first lacks. It does not depend on the answers: an index is a key. A conflicting part stands as the first's until it is answered. An answer is `'first'`, `'second'` or `{ by }`, a part written by hand; for a one-sided law it is `'keep'` or `'drop'`, and no other fits it, as `'keep'` and `'drop'` fit no other conflict. An answer that does not fit its conflict is a problem, as a part that does not read is.
+
+The new thread applies one set of laws, chosen by the person, and not each source's: a law only one source has is asked, because a law forbids, and one source's laws would otherwise judge the other's lines without a word. Gists, guards, records and sets only allow more and are added unasked. Once all are answered, and a name is given when the schemas differ, the result is read with `readSchema`; what does not read comes back as `problems`, and there is no `schema`. Whether the parts fit together is the reader's to say, not the derivation's: an answer `'second'` for a record role leaves the first's record gist in the schema as an ordinary gist nobody writes.
 
 ## 4 · The preparing function
 
@@ -74,7 +77,7 @@ A `Drill` is a plain value, never changed: `stepDrill` gives the next. It holds 
 
 **A stop** is one of two:
 
-- `{ at: 'schema', index, conflict, problems }`: a schema conflict. The choices are `first`, `second`, `by-hand` (with the `part`) and `abort`. A by-hand part that does not read stops again at the same conflict, with `problems`.
+- `{ at: 'schema', index, conflict, problems }`: a schema conflict. The choices are `first`, `second`, `by-hand` (with the `part`) and `abort`; at a law only one source has, `keep`, `drop` and `abort`, and no other fits. A by-hand part that does not read stops again at the same conflict, with `problems`.
 - `{ at: 'step', index, step, why, refusal? }`: a step that was refused, with the refusal, or whose placeholder found no line (a step it points at was skipped), with `why` and no refusal. The choices are `again`, `edit` (with a whole replacement `step`, which keeps the old label when it has none), `skip` and `abort`.
 
 A choice that does not fit the stop throws. `again` plays the step against the thread as it stands; the cause is answered by the host, which posts a line to `drill.state` itself and hands the drill back as `{ ...drill, state }`. The replay writes each step as its own writer at the `now` given, so every line is new, and a placeholder carries each reference to an old id over to the new one. A step is played with `playScenario`, one at a time, with the labels so far, the nonce and the seals; `post` writes the declaration on the first line that is posted.
@@ -85,5 +88,5 @@ Recorded, not solved:
 
 - **A reference to an engine line is a `$find` of its gist and payload,** the first such line in the new thread. If both sources have an identical engine-written line and the second source's step points at its own, the reference lands on the first source's. A fix would let a check name its writer by placeholder, which changes templates too.
 - **The two kits are not merged:** the derived schema is read against the first source's kit, and a rule of the second's kit the first lacks is a problem of the derived schema.
-- **The laws of both sources judge the whole new thread,** since the derived schema is their union. Two sources of different domains stop at nearly every step: replaying SIBAR's «first» under the union with the editorial review's schema, the first `create` is refused by the review's `keeps-set` on `editors`, which would be empty. The drill says so and waits; it does not decide.
+- **Dropping a law is the person's judgement.** Keeping the other domain's law makes it judge the first source's lines: replaying SIBAR's «first» under SIBAR plus the editorial review, with the review's `keeps-set` on `editors` kept, refuses the first `create` (the editors would be empty), and every step stops. Dropping it lets that `create` in. The drill says what is refused and waits; it does not decide.
 - **A name already taken** by a source's schema is the host's to avoid.

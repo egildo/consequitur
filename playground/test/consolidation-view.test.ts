@@ -56,6 +56,20 @@ async function pickExample(side: 'first' | 'second', domainId: string, exampleId
   await settled();
 }
 
+/** Answers the eight ordinary conflicts of the SIBAR and editorial pair with «Prima», so the next stop is a law only one source has. */
+async function answerOrdinary(): Promise<void> {
+  for (let i = 0; i < 8; i++) {
+    click('Prima');
+    await settled();
+  }
+}
+
+/** The name of the conflict the drill waits at: the line under its label. */
+const stopName = (): string | null | undefined => q('.consolidation-stop p:not([class])')?.textContent;
+
+/** The name of every conflict in «Schema derivato», in order. */
+const conflictNames = (): Array<string | null> => [...document.querySelectorAll('.consolidation-conflict > p')].map((p) => p.textContent);
+
 beforeEach(() => {
   document.body.replaceChildren(createConsolidation().el);
 });
@@ -91,10 +105,10 @@ describe('the consolidation panel', () => {
     expect(document.querySelectorAll('.consolidation-row')[1].textContent).toContain('righe');
   });
 
-  it('lists 8 conflicts, names the schema with the two names joined by a dash, and «Avvia» starts a schema stop', async () => {
+  it('lists 11 conflicts, names the schema with the two names joined by a dash, and «Avvia» starts a schema stop', async () => {
     await pickExample('first', sibar.id, 'first');
     await pickExample('second', editorial.id, 'published');
-    expect(document.querySelectorAll('.consolidation-conflict')).toHaveLength(8);
+    expect(document.querySelectorAll('.consolidation-conflict')).toHaveLength(11);
     expect(q<HTMLInputElement>('.consolidation-name')?.value).toBe(`${sibar.schema.name}-${editorial.schema.name}`);
 
     click('Avvia');
@@ -104,19 +118,60 @@ describe('the consolidation panel', () => {
     expect([...(stop?.querySelectorAll('button') ?? [])].map((b) => b.textContent?.trim())).toEqual(['Prima', 'Seconda', 'A mano', 'Interrompi']);
   });
 
-  it('answering every schema conflict with «Prima» ends at the steps list, with «Avanti» and «Fino al prossimo arresto»', async () => {
+  it('answering the eight ordinary conflicts with «Prima» and the three laws with «Tieni» ends at the steps list, with «Avanti» and «Fino al prossimo arresto»', async () => {
     await pickExample('first', sibar.id, 'first');
     await pickExample('second', editorial.id, 'published');
-    const conflicts = document.querySelectorAll('.consolidation-conflict').length;
     click('Avvia');
     await settled();
-    for (let i = 0; i < conflicts; i++) {
-      click('Prima');
+    for (const answer of [...Array<string>(8).fill('Prima'), 'Tieni', 'Tieni', 'Tieni']) {
+      click(answer);
       await settled();
     }
     expect(q('.consolidation-stop')).toBeNull();
     expect(button('Avanti')).toBeDefined();
     expect(button('Fino al prossimo arresto')).toBeDefined();
+  });
+
+  it('at a law only one source has, the buttons are «Tieni», «Togli» and «Interrompi», and there is no «A mano»', async () => {
+    await pickExample('first', sibar.id, 'first');
+    await pickExample('second', editorial.id, 'published');
+    click('Avvia');
+    await settled();
+    await answerOrdinary();
+    const stop = q('.consolidation-stop');
+    expect(stop?.textContent).toContain('Conflitto di schema');
+    expect([...(stop?.querySelectorAll('button') ?? [])].map((b) => b.textContent?.trim())).toEqual(['Tieni', 'Togli', 'Interrompi']);
+    expect(button('A mano')).toBeUndefined();
+    expect(q('.consolidation-hand')).toBeNull();
+  });
+
+  it('«Togli» and «Tieni» each take the drill to the next law only one source has, and the last answer to the steps list', async () => {
+    await pickExample('first', sibar.id, 'first');
+    await pickExample('second', editorial.id, 'published');
+    click('Avvia');
+    await settled();
+    await answerOrdinary();
+    expect(stopName()).toBe(conflictNames()[8]);
+    click('Togli');
+    await settled();
+    expect(stopName()).toBe(conflictNames()[9]);
+    click('Tieni');
+    await settled();
+    expect(stopName()).toBe(conflictNames()[10]);
+    click('Togli');
+    await settled();
+    expect(q('.consolidation-stop')).toBeNull();
+    expect(button('Avanti')).toBeDefined();
+  });
+
+  it('at an ordinary schema conflict there is no «Tieni» and no «Togli»', async () => {
+    await pickExample('first', sibar.id, 'first');
+    await pickExample('second', editorial.id, 'published');
+    click('Avvia');
+    await settled();
+    expect(q('.consolidation-stop')?.textContent).toContain('Conflitto di schema');
+    expect(button('Tieni')).toBeUndefined();
+    expect(button('Togli')).toBeUndefined();
   });
 
   it('stops at a step refused with «unreconcilable», and «Salta» then «Fino al prossimo arresto» ends with the new thread', async () => {
@@ -133,9 +188,26 @@ describe('the consolidation panel', () => {
     click('Fino al prossimo arresto');
     await settled();
     expect(document.querySelector('.consolidation-stop')).toBeNull();
-    expect([...document.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Nuovo filo');
+    expect([...document.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Nuovo thread');
     expect(q('pre[aria-label="Dichiarazione"]')?.textContent).toContain('"from"');
     expect(document.querySelectorAll('.consolidation-lines li').length).toBeGreaterThan(0);
+  });
+
+  it('a finished same-domain drill ends with «Nuovo thread», and the retired word is in no text of the panel', async () => {
+    await pickExample('first', editorial.id, 'late');
+    await pickExample('second', editorial.id, 'late');
+    click('Avvia');
+    await settled();
+    click('Fino al prossimo arresto');
+    await settled();
+    click('Salta');
+    await settled();
+    click('Fino al prossimo arresto');
+    await settled();
+    const headings = [...document.querySelectorAll('h2')].map((h) => h.textContent);
+    expect(headings[headings.length - 1]).toBe('Nuovo thread');
+    // the retired word is split in two, so that no source file contains it whole
+    expect(document.body.textContent).not.toMatch(new RegExp('f' + 'ilo', 'i'));
   });
 
   it('«A mano» with JSON that does not read says so, and the drill does not move', async () => {

@@ -33,7 +33,7 @@ describe('the consolidation panel', () => {
 
   it('gives a consolidation with conflicts, and suggests the name of the two schemas, for examples of two domains', async () => {
     const bench = await picked([sibar, sibarFirst], [editorial, editorialPublished]);
-    expect(bench.consolidation?.derived.conflicts).toHaveLength(8);
+    expect(bench.consolidation?.derived.conflicts).toHaveLength(11);
     expect(bench.error).toBeUndefined();
     expect(bench.name).toBe(`${sibar.schema.name}-${editorial.schema.name}`);
     expect(suggestName(bench)).toBe(bench.name);
