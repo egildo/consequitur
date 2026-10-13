@@ -4,7 +4,7 @@
 // Strings are compared with `<` everywhere, never `localeCompare`: two readers
 // must agree on an order whatever their locale.
 
-import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload, SchemaHead } from './types.ts';
+import type { EventLine, GistSchema, Json, LineDraft, LineId, Payload, Seal, SchemaHead } from './types.ts';
 import { compare, idOf, isRecord, kinOf } from './util.ts';
 
 /**
@@ -65,9 +65,12 @@ export const asStored = (payload: unknown): unknown =>
  * clock. The payload is stored as JSON holds it, so what is hashed is what a
  * stored line gives back: a key that holds `undefined` or a function is left out,
  * a date is its string. On an empty thread the line declares it: the nonce given,
- * or 16 random bytes drawn here, and the schema's name and version when it has them.
+ * or 16 random bytes drawn here, the schema's name and version when it has them, and
+ * the sources `from` names when there are any. An empty `from` is left out, so a
+ * thread that names none keeps the ids it had.
  */
-export async function stamp(draft: LineDraft, lines: EventLine[], now: string, schema?: SchemaHead, nonce?: string): Promise<EventLine> {
+export async function stamp(draft: LineDraft, lines: EventLine[], now: string, opening?: { schema?: SchemaHead; nonce?: string; from?: Seal[] }): Promise<EventLine> {
+  const schema = opening?.schema;
   // the thread's last line is the chain's last: the array's own order is never read
   const last = inOrder(lines).at(-1);
   const body: Omit<EventLine, 'id'> = {
@@ -79,7 +82,8 @@ export async function stamp(draft: LineDraft, lines: EventLine[], now: string, s
   };
   if (lines.length === 0) {
     const declared = schema?.name !== undefined && schema.version !== undefined ? { schema: schema.name, version: schema.version } : {};
-    body.thread = { nonce: nonce ?? hex(crypto.getRandomValues(new Uint8Array(16))), ...declared };
+    const from = opening?.from !== undefined && opening.from.length > 0 ? { from: opening.from.map(({ first, last }) => ({ first, last })) } : {};
+    body.thread = { nonce: opening?.nonce ?? hex(crypto.getRandomValues(new Uint8Array(16))), ...declared, ...from };
   }
   return { id: `${RECIPE}:${await hashOf(body)}`, ...body };
 }

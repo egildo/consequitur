@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as built after round 8, «Holes». What the engine does is in [specs/engine.md](specs/engine.md);
+Status: as built after round 12, «Consolidation». What the engine does is in [specs/engine.md](specs/engine.md);
 why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
 
 ## The packages
@@ -54,6 +54,19 @@ test each, that the five misfits of [misfits.md](misfits.md) now fit. `test/cond
 condition module on its own: the reader's rules, the translation both ways, the evaluation with the draft
 unknown, and what can no longer hold.
 
+## Consolidation
+
+Two threads are made one by replay, never by merge ([threads are consolidated, never
+merged](decisions/threads-are-consolidated-never-merged.md), [spec](specs/consolidation.md)).
+`consolidate(first, second)` is the pure preparing function: it refuses a source that is not one chain
+declared for its schema, takes each source's `replayed` lines as steps (labels prefixed `1:` and `2:`),
+derives the schema with `deriveSchema` and gives the two seals. `startDrill` and `stepDrill` then play the
+steps into a new thread, one per call, through `playScenario` and `post`, and stop where a schema conflict
+or a refused step needs a choice. The new thread's first line names the sources in its declaration, `from`.
+`test/derive.test.ts`, `test/consolidate.test.ts` and `test/drill.test.ts` test the three modules, the last
+with the end-to-end consolidation of two of the warehouse's scenarios and the seal;
+`test/declaration-from.test.ts` the declaration, with the ids a thread that names no source has always had.
+
 ## The modules of `consequitur`
 
 ```
@@ -62,11 +75,14 @@ util.ts        small guards, `compare` (never localeCompare), `keysAre`, `kinOf`
 line.ts        canonical, asStored, stamp, verify, inOrder, inForce, lockedBy, revokeOf
 check.ts       validCheck, isValueReference, referencesOf, resolvePayload, matches, whereMatches: and the one place a payload's references are replaced
 condition.ts   conditionProblem, guardsProblems, toModuleForm, fromModuleForm, resolveCheck, conditionHolds, evaluateCondition, nodes, markLost, lostAt: consequitur's form of a condition, read through kdlet-guards
-schema.ts      readSchema, readGists, readLaws, readPolicy
+schema.ts      readSchema, schemaJson, readGists, readLaws, readPolicy
 reading.ts     expectations, holds, whenHolds, consequitur: the two passes over the lines in force, and the holes
 settle.ts      admit, reconcile, answer, settle, dryRun, post, diff, emptyState
 offers.ts      offers
-scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, stepsOf, holed: the one resolver of scenarios, and saving one from a thread
+scenario.ts    Step, resolve, draftOf, playScenario, readScenarios, prune, replayed, stepsOf, holed: the one resolver of scenarios, and saving one from a thread or replaying one
+derive.ts      deriveSchema: the schema of a consolidation, from its sources' two, with its conflicts
+consolidate.ts consolidate: two sources made the steps, the seals and the derived schema of one new thread
+drill.ts       startDrill, stepDrill: the replay walked one step at a time, stopping at a schema conflict or a refused step
 kit.ts         BASE_KIT
 handles/       value, set
 rules/         value (four forms: from, value, collect, and the fill, keyFrom), collect-writer, join, leave

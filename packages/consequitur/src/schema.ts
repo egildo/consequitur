@@ -11,13 +11,13 @@
 // their lists alone, and there one bad element does not stop the others.
 
 import { conditionProblem, guardsProblems } from './condition.ts';
-import type { Condition, GistSchema, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
+import type { Condition, GistSchema, Json, Kit, LawBinding, Policy, Schema, SchemaHead, Writer } from './types.ts';
 import { idOf, isJson, isObject, isStrings, keysAre, kinOf } from './util.ts';
 import { canonical } from './line.ts';
 
 const GIST_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 
-const SCHEMA_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+export const SCHEMA_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 /** The rules the engine itself reads: they are mechanics, not kinds. */
 const MECHANICS = ['revoke', 'goal'];
@@ -210,6 +210,27 @@ export function readSchema(json: unknown, kit: Kit): { schema: Schema; problems:
   const all = [...fitProblems(head, gists), ...problems];
   if (all.length > 0) return { schema: emptySchema(kit), problems: all };
   return { schema: { ...head, gists, laws, kit }, problems: [] };
+}
+
+/**
+ * The inverse of `readSchema`, the form a host keeps: the schema as the case files
+ * write it, without its kit, since the kit is code and not data.
+ */
+export function schemaJson(schema: Schema): { [key: string]: Json } {
+  const { kit: _kit, name, version, opening, authority, sets, records, judged, guards, gists, laws } = schema;
+  const json = {
+    ...(name === undefined ? {} : { name, version }),
+    opening,
+    authority,
+    sets,
+    records,
+    judged,
+    guards,
+    gists,
+    laws,
+  };
+  // Conditions are data but not assignable to Json, so the cast is the one place that says so.
+  return json as unknown as { [key: string]: Json };
 }
 
 /** Whether an object holds only the keys given. */

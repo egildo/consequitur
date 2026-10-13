@@ -1,6 +1,6 @@
 # Threads are consolidated, never merged
 
-Status: settled 2026-10-13 by Egildo: everything comes over, by replay; conflicts are resolved in a drill; the new thread's schema is derived from the sources'; built before publishing 0.1.0. The order of play, one source after the other, is Claude's lean, which Egildo's «it matches» took.
+Status: settled 2026-10-13 by Egildo: everything comes over, by replay; conflicts are resolved in a drill; the new thread's schema is derived from the sources'; built before publishing 0.1.0. The order of play, one source after the other, is Claude's lean, which Egildo's «it matches» took. Built in the round «Consolidation» ([plan](../plan.md) §4); the playground's panel in the round «The drill in the playground». Amended in the build: a seal's `last` is the source's head, its last line in reading order, whether or not the replay took it, since a source usually ends on a line the engine wrote and a seal that skipped it could never be compared with the head.
 
 ## Context
 
@@ -25,7 +25,7 @@ The parts already here: `prune` says which lines of a thread the engine will bri
 
 **One source after the other.** All of the first source's steps, then all of the second's, in each source's own order. The person chooses which source goes first. Interleaving by timestamp would read the clock as the order, which [the chain is the order](the-chain-is-the-order.md) demoted to a statement.
 
-**The new thread's first line names its sources.** The declaration gains `from`: a list, each `{ first, last }`, the id of a source's first line (which thread) and of the last line taken from it (where it was closed). It is in the hash, as the rest of the declaration is. A thread with no `from` consolidates nothing, so no thread written so far changes. The first source's first step becomes the new thread's first line.
+**The new thread's first line names its sources.** The declaration gains `from`: a list, each `{ first, last }`, the id of a source's first line (which thread) and of the source's last line, its head (where it was closed), whether or not the replay took it. It is in the hash, as the rest of the declaration is. A thread with no `from` consolidates nothing, so no thread written so far changes. The first source's first step becomes the new thread's first line.
 
 **A source is sealed by being named.** The `last` id is the head the chain decision said a thread cannot keep for itself: whoever holds the new thread holds the sources' heads. A line written to a source after its `last` is visibly after the seal. Whether a host refuses it is the host's business, as storage is.
 

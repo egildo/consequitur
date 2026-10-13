@@ -26,7 +26,7 @@
 import { matches, validCheck } from './check.ts';
 import { nodes } from './condition.ts';
 import { canonical, inOrder } from './line.ts';
-import type { Check, EventLine, Json, LineDraft, LineId, Payload, Reading, Refusal, Schema, Writer } from './types.ts';
+import type { Check, EventLine, Json, LineDraft, LineId, Payload, Reading, Refusal, Schema, Seal, Writer } from './types.ts';
 import { isObject, kinOf } from './util.ts';
 
 export interface Step {
@@ -87,8 +87,8 @@ export function draftOf(step: Step, lines: EventLine[], labels: ReadonlyMap<stri
 /** What a scenario needs of its host: the thread as it stands, and a way to post to it. */
 export interface Io {
   lines(): EventLine[];
-  /** Posts the draft, and answers the refusal, or nothing when the line was posted; `nonce` is the player's, for `post`. */
-  send(draft: LineDraft, confirmed: boolean, nonce?: string): Promise<Refusal | undefined>;
+  /** Posts the draft, and answers the refusal, or nothing when the line was posted; `opening` is the player's, for `post`: the nonce, and the sources a consolidation names. */
+  send(draft: LineDraft, confirmed: boolean, opening?: { nonce?: string; from?: Seal[] }): Promise<Refusal | undefined>;
 }
 
 export interface Played {
@@ -105,18 +105,20 @@ export interface Played {
  * can look at the thread where it matters; `labels` carries the labels of an earlier play on; `as`
  * is the writer every step is posted as, in place of its own, for an application that plays a
  * scenario for the person who opens it; `nonce` is handed to every `send`, so the first line, which
- * declares the thread, and every id after it are the same each time the scenario is played.
+ * declares the thread, and every id after it are the same each time the scenario is played; `from` is
+ * the sources a consolidation names, handed to every `send` like the nonce, so `post` writes them on the
+ * first line.
  */
 export async function playScenario(
   steps: Step[],
   io: Io,
-  options: { after?(done: { index: number; step: Step; labels: Labels; refusal?: Refusal }): void | Promise<void>; labels?: Labels; as?: Writer; nonce?: string } = {},
+  options: { after?(done: { index: number; step: Step; labels: Labels; refusal?: Refusal }): void | Promise<void>; labels?: Labels; as?: Writer; nonce?: string; from?: Seal[] } = {},
 ): Promise<Played> {
   const played: Played = { refused: [], labels: options.labels ?? new Map() };
   for (const [index, step] of steps.entries()) {
     const before = io.lines().length;
     const draft = draftOf(step, io.lines(), played.labels);
-    const refusal = await io.send(options.as === undefined ? draft : { ...draft, writer: options.as }, step.confirmed === true, options.nonce);
+    const refusal = await io.send(options.as === undefined ? draft : { ...draft, writer: options.as }, step.confirmed === true, { nonce: options.nonce, from: options.from });
     if (refusal && step.refused === undefined) {
       played.failed = { index, step, why: `The step was refused: ${refusal.code}.`, refusal };
       return played;
@@ -161,6 +163,11 @@ export interface Pruned {
   left: Array<{ line: EventLine; why: 'engine' | 'revoked' | 'outside' | 'found' }>;
 }
 
+/** Whether the engine writes the line again: a goal's line, or a record the schema names. */
+function writtenByEngine(line: EventLine, schema: Schema): boolean {
+  return kinOf(line.writer) === 'goal' || Object.values(schema.records).includes(line.gist);
+}
+
 /**
  * What of a thread a scenario need not say, line by line, the first answer that applies: the engine writes
  * it again (a goal's line, a record), it is a mistake and its undoing (out of force, or a revoke), the
@@ -170,12 +177,11 @@ export interface Pruned {
 export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pruned {
   const standing = new Set(reading.inForce);
   const found = new Set(reading.goals.flatMap((goal) => nodes(goal.trace).flatMap(({ node }) => (node.foundIn === undefined ? [] : [node.foundIn]))));
-  const records = Object.values(schema.records);
   const pruned: Pruned = { open: [], left: [] };
   for (const line of inOrder(lines, schema)) {
     const kin = kinOf(line.writer);
     const why: Pruned['left'][number]['why'] | undefined =
-      kin === 'goal' || records.includes(line.gist) ? 'engine'
+      writtenByEngine(line, schema) ? 'engine'
       : !standing.has(line.id) || schema.gists.find((g) => g.gist === line.gist)?.rules.some((r) => r.rule === 'revoke') ? 'revoked'
       : kin === undefined || !schema.judged.includes(kin) ? 'outside'
       : found.has(line.id) ? 'found'
@@ -187,18 +193,29 @@ export function prune(lines: EventLine[], reading: Reading, schema: Schema): Pru
 }
 
 /**
+ * The lines a replay takes from a thread, in reading order: every line the engine would not write again.
+ * Unlike `prune`, which for a template also leaves out the revoked, the outside and the found lines, a
+ * replay takes them: a revoke and the lines it revokes come over, and the world's lines and the goals'
+ * finds are replayed too, since nobody awaits them in a new thread. `lines` is read under `schema`.
+ */
+export function replayed(lines: EventLine[], schema: Schema): EventLine[] {
+  return inOrder(lines, schema).filter((line) => !writtenByEngine(line, schema));
+}
+
+/**
  * The steps of the lines a person kept, in reading order, with every id in a payload made a placeholder:
  * the id of an earlier kept line, a `$line` of that step's label, and `goal::` and such an id a `$goal`;
  * the id of a line of `all` that was not kept, a `$find` of the check the line states (its gist and its
  * payload), since that line will be awaited and not replayed. A step is labelled, by its position among
- * the kept lines from "1", when a later step points at it. A step carries no `confirmed` and no
+ * the kept lines from "1", when a later step points at it. `prefix` goes in front of every label, so the
+ * labels of two sources stay apart when a consolidation plays both. A step carries no `confirmed` and no
  * `refused`: the application adds `confirmed` where its person says so.
  */
-export function stepsOf(kept: EventLine[], all: EventLine[]): Step[] {
+export function stepsOf(kept: EventLine[], all: EventLine[], prefix = ''): Step[] {
   // the kept lines are no chain by themselves: they are read in the order of the whole thread
   const place = new Map(inOrder(all).map((line, i) => [line.id, i] as const));
   const ordered = [...kept].sort((a, b) => place.get(a.id)! - place.get(b.id)!);
-  const labelOf = new Map(ordered.map((line, i) => [line.id, String(i + 1)] as const));
+  const labelOf = new Map(ordered.map((line, i) => [line.id, `${prefix}${i + 1}`] as const));
   const pointed = new Set<LineId>();
   const awaited = new Map(all.filter((line) => !labelOf.has(line.id)).map((line) => [line.id, line] as const));
 
@@ -224,7 +241,7 @@ export function stepsOf(kept: EventLine[], all: EventLine[]): Step[] {
     before.add(line.id);
     return step;
   });
-  return steps.map((step, i) => (pointed.has(ordered[i].id) ? { label: String(i + 1), ...step } : step));
+  return steps.map((step, i) => (pointed.has(ordered[i].id) ? { label: `${prefix}${i + 1}`, ...step } : step));
 }
 
 /**

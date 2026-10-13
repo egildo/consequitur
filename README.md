@@ -39,4 +39,5 @@ offers(state.lines, 'user::mrossi', schema); // memo, doc_ref, set_goal, close, 
 - [docs/principles.md](docs/principles.md) — how it is built
 - [docs/glossary.md](docs/glossary.md) — every name
 - [docs/misfits.md](docs/misfits.md) — what the second domain could not say, and the smallest change for each
+- [docs/specs/consolidation.md](docs/specs/consolidation.md) — two threads made one by replay, with the derived schema and the drill
 - [docs/plan.md](docs/plan.md) — the extraction, and the open questions

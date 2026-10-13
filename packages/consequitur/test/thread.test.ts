@@ -80,7 +80,7 @@ const threadFor =
   (schema: SchemaHead) =>
   async (drafts: LineDraft[], now = NOW): Promise<EventLine[]> => {
     const lines: EventLine[] = [];
-    for (const draft of drafts) lines.push(await stamp(draft, lines, now, schema, NONCE));
+    for (const draft of drafts) lines.push(await stamp(draft, lines, now, { schema, nonce: NONCE }));
     return lines;
   };
 
@@ -273,8 +273,8 @@ describe('the declaration', () => {
   });
 
   it('a nonce handed gives the same first id twice; one drawn gives two ids for one first draft', async () => {
-    expect((await stamp(note, [], NOW, PLAIN, NONCE)).id).toBe((await stamp(note, [], NOW, PLAIN, NONCE)).id);
-    const [a, b] = [await stamp(note, [], NOW, PLAIN), await stamp(note, [], NOW, PLAIN)];
+    expect((await stamp(note, [], NOW, { schema: PLAIN, nonce: NONCE })).id).toBe((await stamp(note, [], NOW, { schema: PLAIN, nonce: NONCE })).id);
+    const [a, b] = [await stamp(note, [], NOW, { schema: PLAIN }), await stamp(note, [], NOW, { schema: PLAIN })];
     expect(a.thread?.nonce).not.toBe(b.thread?.nonce);
     expect(a.id).not.toBe(b.id);
   });
@@ -2935,6 +2935,9 @@ describe('the package', () => {
     expect(files).toEqual([
       'check.ts',
       'condition.ts',
+      'consolidate.ts',
+      'derive.ts',
+      'drill.ts',
       'handles/set.ts',
       'handles/value.ts',
       'index.ts',

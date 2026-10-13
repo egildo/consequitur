@@ -4,7 +4,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, consequitur, diff, draftOf, dryRun, emptyState, holed, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Step, type ThreadState, type Writer } from '../src/index.ts';
+import { admit, consequitur, diff, draftOf, dryRun, emptyState, holed, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Seal, type Step, type ThreadState, type Writer } from '../src/index.ts';
+import { replayed } from '../src/scenario.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
 const NOW = '2026-10-03T10:00:00.000Z';
@@ -15,8 +16,8 @@ function host(schema = strict(SIBAR_JSON), policy: Policy = []) {
   let state: ThreadState = emptyState(schema);
   const io: Io = {
     lines: () => state.lines,
-    async send(draft: LineDraft, confirmed: boolean, nonce?: string): Promise<Refusal | undefined> {
-      const out = await post(state, draft, schema, NOW, { confirmed, policy, nonce });
+    async send(draft: LineDraft, confirmed: boolean, opening?: { nonce?: string; from?: Seal[] }): Promise<Refusal | undefined> {
+      const out = await post(state, draft, schema, NOW, { confirmed, policy, nonce: opening?.nonce, from: opening?.from });
       if (out.refusal) return out.refusal;
       state = out.state;
       return undefined;
@@ -495,5 +496,95 @@ describe('the warehouse arrival', () => {
     expect(consequitur(after.lines, after.handles, schema)).toMatchObject({ holes: [], settled: true });
     // the memo itself still holds its reference
     expect(after.lines.find((l) => l.id === memo.id)?.payload).toEqual({ assignTo: ['lbianchi', { $value: 'legal' }], text: 'Check the contract with legal' });
+  });
+});
+
+describe('replaying a thread', () => {
+  const schema = strict(JSON.parse(readFileSync(casePath('warehouse-arrival', 'schema.json'), 'utf8')));
+  const scenarios = new Map(readScenarios(readFileSync(casePath('warehouse-arrival', 'scenarios.json'), 'utf8')).map((s) => [s.id, s]));
+  const records = Object.values(schema.records);
+  /** The lines the engine writes again: a goal's, and a record. */
+  const engine = (line: EventLine) => line.writer.startsWith('goal::') || records.includes(line.gist);
+
+  /** «Tuesday» played to its end. */
+  async function tuesday() {
+    const h = host(schema);
+    const played = await playScenario(scenarios.get('tuesday')!.steps, h.io);
+    expect(played.failed).toBeUndefined();
+    const { lines, handles } = h.state();
+    return { lines, handles, played };
+  }
+
+  it('replayed «Tuesday» leaves out exactly the engine\'s lines and takes every other line in reading order', async () => {
+    const { lines, handles } = await tuesday();
+    const kept = replayed(lines, schema);
+    expect(kept).toEqual(inOrder(lines, schema).filter((line) => !engine(line)));
+    expect(kept.length).toBe(lines.length - lines.filter(engine).length);
+    expect(kept.map((l) => l.gist)).toEqual(['open', 'memo', 'set_goal', 'set_goal', 'set_goal', 'set_goal', 'set_goal_revoke', 'arrival_scanned', 'comment', 'done', 'done', 'memo', 'done']);
+    // what prune leaves out for a template comes over: the revoked set_goal and its revoke, the world's line and the goals' finds
+    const pruned = prune(lines, consequitur(lines, handles, schema), schema);
+    const keptIds = new Set(kept.map((l) => l.id));
+    for (const { line, why } of pruned.left.filter((l) => l.why !== 'engine')) expect(keptIds.has(line.id), `${why} ${line.gist}`).toBe(true);
+    expect(pruned.left.filter((l) => l.why === 'revoked').map((l) => l.line.gist)).toEqual(['set_goal', 'set_goal_revoke']);
+    expect(pruned.left.filter((l) => l.why === 'found').map((l) => l.line.gist)).toEqual(['done', 'done']);
+    expect(kept.filter((l) => l.gist === 'arrival_scanned').map((l) => l.writer)).toEqual(['system::dock']);
+  });
+
+  it('replayed refuses a thread that is not one chain', async () => {
+    const { lines } = await tuesday();
+    const second = inOrder(lines)[1];
+    expect(() => replayed(lines.filter((l) => l.id !== second.id), schema)).toThrow(/gap|cut/);
+  });
+
+  it('replayed refuses a thread read against another schema', async () => {
+    const { lines } = await tuesday();
+    expect(() => replayed(lines, strict(SIBAR_JSON))).toThrow(/declared for the schema/);
+  });
+
+  it('stepsOf with a prefix puts it in front of every label, and of every $line and $goal the steps point at', async () => {
+    const { lines } = await tuesday();
+    const kept = replayed(lines, schema);
+    const plain = stepsOf(kept, lines);
+    const prefixed = stepsOf(kept, lines, '1:');
+    const labels = (steps: Step[]) => steps.flatMap((step) => (step.label === undefined ? [] : [step.label]));
+    expect(labels(plain).length).toBeGreaterThan(0);
+    expect(labels(prefixed)).toEqual(labels(plain).map((label) => `1:${label}`));
+    const points = JSON.stringify(prefixed).match(/"\$(?:line|goal)":"[^"]*"/g) ?? [];
+    expect(points.length).toBeGreaterThan(0);
+    for (const point of points) expect(point).toMatch(/:"1:/);
+    expect(labels(prefixed).filter((label) => labels(stepsOf(kept, lines, '2:')).includes(label))).toEqual([]);
+  });
+
+  it('stepsOf with no prefix gives the same steps as with the empty prefix', async () => {
+    const { lines } = await tuesday();
+    const kept = replayed(lines, schema);
+    expect(stepsOf(kept, lines)).toEqual(stepsOf(kept, lines, ''));
+  });
+
+  it('the steps of a replay of «Tuesday», played into an empty thread, post nothing refused and end with the handles of «Tuesday»', async () => {
+    const { lines, handles } = await tuesday();
+    const h = host(schema);
+    const played = await playScenario(stepsOf(replayed(lines, schema), lines), h.io);
+    expect(played.failed).toBeUndefined();
+    expect(h.state().handles).toEqual(handles);
+  });
+
+  it('playScenario hands its nonce and its from to every send, as the opening of the thread', async () => {
+    const h = host(undefined, sibarPolicy());
+    const openings: Array<{ nonce?: string; from?: Seal[] } | undefined> = [];
+    const io: Io = {
+      lines: () => h.io.lines(),
+      send(draft, confirmed, opening) {
+        openings.push(opening);
+        return h.io.send(draft, confirmed, opening);
+      },
+    };
+    const nonce = '00'.repeat(16);
+    const from: Seal[] = [{ first: 'a', last: 'b' }];
+    const first = readScenarios(readFileSync(casePath('sibar-activity', 'scenarios.json'), 'utf8')).find((s) => s.id === 'first')!;
+    const played = await playScenario(first.steps.slice(0, 3), io, { nonce, from });
+    expect(played.failed).toBeUndefined();
+    expect(openings).toHaveLength(3);
+    for (const opening of openings) expect(opening).toEqual({ nonce, from });
   });
 });

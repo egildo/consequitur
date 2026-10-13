@@ -11,6 +11,9 @@ export type Json = string | number | boolean | null | Json[] | { [key: string]: 
 
 export type Payload = { [key: string]: Json };
 
+/** A source a consolidation names in its first line's declaration: the id of the source's first line (which thread) and of its last, its head (where it was closed). */
+export type Seal = { first: LineId; last: LineId };
+
 export interface EventLine {
   id: LineId;
   /** The thread's last line in reading order when this one was written; null on the first. */
@@ -20,8 +23,8 @@ export interface EventLine {
   /** The authority's time, as `Date.prototype.toISOString` writes it. */
   timestamp: string;
   payload: Payload;
-  /** The declaration, on a thread's first line only: a nonce, and the name and version of the schema it is read by, when the schema has them. */
-  thread?: { nonce: string; schema?: string; version?: number };
+  /** The declaration, on a thread's first line only: a nonce, the name and version of the schema it is read by when the schema has them, and `from`, the sources a consolidation names, when it names any. */
+  thread?: { nonce: string; schema?: string; version?: number; from?: Seal[] };
 }
 
 /** What a writer hands over. The host states `writer` from the identity it authenticated. */

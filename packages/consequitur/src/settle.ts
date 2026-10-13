@@ -23,6 +23,7 @@ import type {
   Reading,
   Refusal,
   Schema,
+  Seal,
   ThreadState,
   Verdict,
 } from './types.ts';
@@ -249,7 +250,7 @@ export async function settle(
     const out = reconcile({ ...reading, denunciations: answered }, handles, schema);
     handles = out.handles;
     const next = [...lines];
-    for (const draft of out.drafts) next.push(await stamp(draft, next, now, schema));
+    for (const draft of out.drafts) next.push(await stamp(draft, next, now, { schema }));
     lines = next;
     reading = consequitur(lines, handles, schema);
   }
@@ -276,16 +277,17 @@ function judge(schema: Schema, before: { reading: Reading; handles: Handles; lin
  * line leaves behind, what goals write in answer to it included; a fact from
  * outside has already happened, so it is never judged. On an empty thread the draft's
  * line declares the thread, with `nonce` when one is given, so a dry run and a post, or
- * two plays, give the same ids; without one, `stamp` draws it.
+ * two plays, give the same ids; without one, `stamp` draws it. `from` is the sources a
+ * consolidation names, written on that first line like the nonce; a later line never has it.
  */
-export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schema, now: string, options: { policy?: Policy; nonce?: string } = {}): Promise<DryRun> {
+export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schema, now: string, options: { policy?: Policy; nonce?: string; from?: Seal[] } = {}): Promise<DryRun> {
   const policy = options.policy ?? [];
   const before = counted(consequitur(state.lines, state.handles, schema), state.handles, policy);
   const refused = (refusal: Refusal): DryRun => ({ state, reading: before, refusal, added: [], rounds: [], verdicts: [] });
   const refusal = admit(state.lines, draft, schema);
   if (refusal) return refused(refusal);
 
-  const lines = [...state.lines, await stamp(draft, state.lines, now, schema, options.nonce)];
+  const lines = [...state.lines, await stamp(draft, state.lines, now, { schema, nonce: options.nonce, from: options.from })];
   const broken = consequitur(lines, state.handles, schema).denunciations.find((d) => d.sort === 'thread');
   if (broken?.sort === 'thread') {
     return refused(refuse('unreconcilable', `The thread would hold ${broken.found} "${schema.opening}" lines in force; it must hold exactly one.`));
@@ -300,15 +302,15 @@ export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schem
  * Posts a draft: a dry run, then the decision. A `refuse` verdict refuses the line
  * as `law`; a `confirm` verdict refuses it as `unconfirmed` unless `confirmed` is
  * true; both carry every verdict found. Otherwise the dry run's state is the
- * result. A refusal returns the state as it was, read but not settled. `nonce` is
- * the dry run's.
+ * result. A refusal returns the state as it was, read but not settled. `nonce` and
+ * `from` are the dry run's: `from` is written on an empty thread's first line, as the nonce is.
  */
 export async function post(
   state: ThreadState,
   draft: LineDraft,
   schema: Schema,
   now: string,
-  options: { confirmed?: boolean; policy?: Policy; nonce?: string } = {},
+  options: { confirmed?: boolean; policy?: Policy; nonce?: string; from?: Seal[] } = {},
 ): Promise<PostResult> {
   const run = await dryRun(state, draft, schema, now, options);
   // a refusal leaves the state as it was, so it reads that state, not the one the dry run settled

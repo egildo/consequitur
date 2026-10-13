@@ -24,7 +24,8 @@ The module is `packages/consequitur/src/scenario.ts`, exported from the package:
 `playScenario(steps, io, options)` has, besides `after` and `labels`, two options:
 
 - `as?: Writer`: the writer every step is posted as. An application playing a template passes the person who opens; a test replaying a story passes nothing, and each step keeps its own writer.
-- `nonce?: string`: handed to every `io.send` as its third argument, for `post`, so the first line, which declares the thread, and every id after it are the same each time the scenario is played; without one, each play is a thread of its own. *(Round «The first line declares the thread».)*
+- `nonce?: string`: handed to every `io.send` in its third argument, `opening`, for `post`, so the first line, which declares the thread, and every id after it are the same each time the scenario is played; without one, each play is a thread of its own. *(Round «The first line declares the thread».)*
+- `from?: Seal[]`: the sources a consolidation names, handed in `opening` beside the nonce, so `post` writes them on the first line. *(Round «Consolidation».)* `Io.send` is `send(draft, confirmed, opening?: { nonce?; from? })`.
 
 Everything else is as today: a step may be `confirmed`, a step may be expected `refused` with a code, the first step that does not go as the scenario says stops the play, and `after` is told of each step.
 
@@ -72,6 +73,8 @@ export function holed(steps: Step[], holes: Record<string, Json>): Step[];
 `holed` replaces, in every step's payload, each value equal to one of the given values by the reference `{ "$value": key }` of its key. One value in several lines becomes one hole, and a value two holes share goes to the first of them. Values are compared as JSON, so a list or an object may be a hole; a placeholder or a reference already in a payload is left as it is, and so is everything outside the payloads (the writer, the gist, the label). The application decides which values become holes; a text with a piece missing is not a hole and is the application's to complete before posting.
 
 The third act, turning a line a person wrote by hand into what a goal writes, is composing a goal, which the application already does.
+
+*Round «Consolidation», built.* `stepsOf(kept, all, prefix = '')` puts `prefix` in front of every label, so the steps of two sources never share one; and `replayed(lines, schema)` gives the lines a replay takes, which is every line the engine would not write again, revoked, outside and found lines included. A consolidation plays them with `playScenario`; see [consolidation](consolidation.md).
 
 ## 4 · The check: a dry run of a scenario
 
