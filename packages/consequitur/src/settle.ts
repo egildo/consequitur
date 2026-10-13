@@ -70,9 +70,12 @@ export function payloadProblem(schema: Schema, gist: GistSchema, payload: Payloa
  * a fixed order, so two readers give the same answer. The drafts `settle` writes
  * never come through here, so a goal writes its line whatever that gist's `when`
  * says; and a draft that would be one of them, a line by a goal or of a record
- * gist, is refused.
+ * gist, is refused. `now` is the instant the line would be stamped at, which a
+ * `when` reads as `$now`; without it, a `when` that reads `$now` refuses the line.
+ * One that does not parse as a date is the caller's mistake, not a refusal: a
+ * `when` is then not read, and the platform's `RangeError` is thrown, as `stamp` does.
  */
-export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Refusal | undefined {
+export function admit(lines: EventLine[], draft: LineDraft, schema: Schema, now?: string): Refusal | undefined {
   const { gists } = schema;
   // the thread as it stands, read once; a thread that is not one chain declared for this schema is refused whole
   const expected = expectations(lines, schema);
@@ -101,7 +104,7 @@ export function admit(lines: EventLine[], draft: LineDraft, schema: Schema): Ref
   }
 
   // the `when` reads the draft as it will be stored; one that is not an object has nothing to read
-  if (gist.when !== undefined && !holds(expected, draft.writer, gist.when, schema, isRecord(stored) ? stored : {})) {
+  if (gist.when !== undefined && !holds(expected, draft.writer, gist.when, schema, isRecord(stored) ? stored : {}, now)) {
     return refuse('not-now', `The gist "${draft.gist}" may not be written by "${draft.writer}" on the thread as it stands.`);
   }
 
@@ -284,7 +287,7 @@ export async function dryRun(state: ThreadState, draft: LineDraft, schema: Schem
   const policy = options.policy ?? [];
   const before = counted(consequitur(state.lines, state.handles, schema), state.handles, policy);
   const refused = (refusal: Refusal): DryRun => ({ state, reading: before, refusal, added: [], rounds: [], verdicts: [] });
-  const refusal = admit(state.lines, draft, schema);
+  const refusal = admit(state.lines, draft, schema, now);
   if (refusal) return refused(refusal);
 
   const lines = [...state.lines, await stamp(draft, state.lines, now, { schema, nonce: options.nonce, from: options.from })];

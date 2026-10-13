@@ -2,11 +2,13 @@
 // (`Condition`) is the one a schema and a goal's payload store. `kdlet-guards` reads it in the module's
 // own form, to which this file translates it for one evaluation, with a host that resolves the
 // references from the thread and registers consequitur's two words, `line` and `at-least`; the module's
-// trace is translated back into consequitur's. The module's form is never stored.
+// trace is translated back into consequitur's. The module's form is never stored. The four comparisons,
+// `before`, `after`, `less` and `more`, are the module's own.
 //
 // Pure: the same condition and scope give the same answer. The reading is closed-world: a reference to
-// something no line states is absent, and an absent operand makes `is` false. The one unknown is the draft
-// a menu is drawn for: there, a node that reads `$draft` is neither true nor false.
+// something no line states is absent, and an absent operand makes `is` and a comparison false. The unknowns
+// are the draft a menu is drawn for and the instant nobody gave: there, a node that reads `$draft` or `$now`
+// is neither true nor false. No clock is read here: `$now` is the instant admission is handed.
 
 import { check, evaluate, problems, UNKNOWN, type Condition as ModuleCondition, type Host, type Operand as ModuleOperand, type Ref, type Trace as ModuleTrace, type Word } from 'kdlet-guards';
 import { matches, resolvePayload, validCheck } from './check.ts';
@@ -19,29 +21,36 @@ export interface Names {
   guards: Record<string, Condition>;
 }
 
-const FROM = ['value', 'set', 'writer', 'draft'];
+const FROM = ['value', 'set', 'writer', 'draft', 'now'];
 
-/** The first thing wrong with an operand, or undefined. `$writer` and `$draft` stand only in a `when`. */
+/** The comparisons, the module's words of order: `before` and `after` of times, `less` and `more` of numbers. */
+const ORDER = ['before', 'after', 'less', 'more'] as const;
+
+/** The first thing wrong with an operand, or undefined. `$writer`, `$draft` and `$now` stand only in a `when`. */
 function operandProblem(value: unknown, names: Names, inWhen: boolean): string | undefined {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return undefined;
   if (typeof value === 'number') return Number.isFinite(value) ? undefined : 'a number operand must be finite.';
   const keys = isObject(value) ? Object.keys(value) : [];
   if (!isObject(value) || keys.length !== 1 || !FROM.includes(keys[0].slice(1)) || !keys[0].startsWith('$') || typeof value[keys[0]] !== 'string') {
-    return 'an operand is a string, a number, a boolean, null, or a reference: $value, $set, $writer or $draft, naming a string.';
+    return 'an operand is a string, a number, a boolean, null, or a reference: $value, $set, $writer, $draft or $now, naming a string.';
   }
   const [key] = keys;
   const field = value[key] as string;
   if (key === '$set' && !names.sets.includes(field)) return `the reference names the set "${field}", which the schema does not declare.`;
   if (key === '$writer' && field !== 'id' && field !== 'kin') return '$writer reads id or kin.';
-  if ((key === '$writer' || key === '$draft') && !inWhen) return `${key} may stand only in a when.`;
+  if (key === '$now' && field !== 'instant') return '$now reads instant.';
+  if ((key === '$writer' || key === '$draft' || key === '$now') && !inWhen) return `${key} may stand only in a when.`;
   return undefined;
 }
 
 /**
  * The first thing wrong with a condition, in English, or undefined. Every node has exactly the keys of its
  * kind; `all`, `any` and `atLeast`'s `of` hold at least one condition, and `atLeast` is a whole number from
- * one to their count; a `line` holds a check; a guard is one the schema names. `$writer` and `$draft` stand
- * only in a `when` (`inWhen`), and elsewhere not in a guard the condition uses either.
+ * one to their count; a `line` holds a check; a guard is one the schema names. A comparison holds two
+ * operands, neither a `$set` nor a `$writer`, has `days` only on `before` and `after`, and the module's
+ * `problems` has nothing to say of it (a literal of the wrong kind, `days` that is not a whole number).
+ * `$writer`, `$draft` and `$now` stand only in a `when` (`inWhen`), and elsewhere not in a guard the
+ * condition uses either.
  */
 export function conditionProblem(value: unknown, names: Names, inWhen: boolean): string | undefined {
   const entered = new Set<string>();
@@ -68,6 +77,19 @@ export function conditionProblem(value: unknown, names: Names, inWhen: boolean):
       return undefined;
     }
     if (shape('has')) return operandProblem(node.has, names, inWhen);
+    const word = ORDER.find((w) => keys.includes(w));
+    if (word !== undefined && (shape(word) || ((word === 'before' || word === 'after') && shape(word, 'days')))) {
+      const operands = node[word];
+      if (!Array.isArray(operands) || operands.length !== 2) return `${word} must hold two operands, the left first.`;
+      for (const operand of operands) {
+        // a set's members and a writer's name are never a time or a number
+        if (isObject(operand) && (has(operand, '$set') || has(operand, '$writer'))) return `${word} compares $value, $draft, $now and plain values, not a $set or a $writer.`;
+        const problem = operandProblem(operand, names, inWhen);
+        if (problem !== undefined) return problem;
+      }
+      const [fault] = problems(toModuleForm(node as Condition), { words: NO_WORDS });
+      return fault === undefined ? undefined : `${fault}.`;
+    }
     if (shape('not')) return visit(node.not);
     if (shape('all')) return list(node.all, 'all');
     if (shape('any')) return list(node.any, 'any');
@@ -87,7 +109,7 @@ export function conditionProblem(value: unknown, names: Names, inWhen: boolean):
       const fits = typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= (node.of as unknown[]).length;
       return fits ? undefined : 'atLeast must be a whole number from 1 to the count of its conditions.';
     }
-    return 'a condition has exactly one of is (with values), has, not, all, any, guard, line and atLeast (with of).';
+    return 'a condition has exactly one of is (with values), has, before and after (with days or not), less, more, not, all, any, guard, line and atLeast (with of).';
   };
   return visit(value);
 }
@@ -122,6 +144,9 @@ const refOf = (reference: Reference): Ref => {
 
 const isReference = (operand: Operand): operand is Reference => typeof operand === 'object' && operand !== null;
 
+/** `days` as a comparison carries it: absent when it is. */
+const daysOf = (c: { days?: number }): { days?: number } => (c.days === undefined ? {} : { days: c.days });
+
 /**
  * consequitur's form to the module's: a reference becomes a `ref` (`$value` reads from `value`, and so on),
  * `line` and `atLeast` become the words `line` and `at-least`. Given `members`, a `$set` among an `is`'s values
@@ -136,6 +161,10 @@ export function toModuleForm(condition: Condition, members?: (set: string) => st
     return { is: operand(condition.is), values };
   }
   if ('has' in condition) return { has: operand(condition.has) };
+  if ('before' in condition) return { before: [operand(condition.before[0]), operand(condition.before[1])], ...daysOf(condition) };
+  if ('after' in condition) return { after: [operand(condition.after[0]), operand(condition.after[1])], ...daysOf(condition) };
+  if ('less' in condition) return { less: [operand(condition.less[0]), operand(condition.less[1])] };
+  if ('more' in condition) return { more: [operand(condition.more[0]), operand(condition.more[1])] };
   if ('not' in condition) return { not: go(condition.not) };
   if ('all' in condition) return { all: condition.all.map(go) };
   if ('any' in condition) return { any: condition.any.map(go) };
@@ -145,9 +174,10 @@ export function toModuleForm(condition: Condition, members?: (set: string) => st
 }
 
 /**
- * The module's form to consequitur's, for a schema read from elsewhere: a `ref` from `value`, `set`, `writer` or
- * `draft` becomes a reference, the words `line` and `at-least` the two nodes. What consequitur's form cannot say
- * (another word, a reference from elsewhere) is a problem, in English. Whether the result is a valid condition is
+ * The module's form to consequitur's, for a schema read from elsewhere: a `ref` from `value`, `set`, `writer`,
+ * `draft` or `now` becomes a reference, the words `line` and `at-least` the two nodes, and the comparisons stay
+ * comparisons. What consequitur's form cannot say (another word, a reference from elsewhere) is a problem, in
+ * English. Whether the result is a valid condition is
  * `conditionProblem`'s to say.
  */
 export function fromModuleForm(condition: ModuleCondition): Condition | string {
@@ -163,12 +193,17 @@ export function fromModuleForm(condition: ModuleCondition): Condition | string {
     if (from === 'set') return { $set: field };
     if (from === 'draft') return { $draft: field };
     if (from === 'writer' && (field === 'id' || field === 'kin')) return { $writer: field };
+    if (from === 'now' && field === 'instant') return { $now: field };
     fail(`the reference (${from})${field} is not one consequitur reads.`);
     return null;
   };
   const go = (c: ModuleCondition): Condition => {
     if ('is' in c) return { is: operand(c.is), values: c.values.map(operand) };
     if ('has' in c) return { has: operand(c.has) };
+    if ('before' in c) return { before: [operand(c.before[0]), operand(c.before[1])], ...daysOf(c) };
+    if ('after' in c) return { after: [operand(c.after[0]), operand(c.after[1])], ...daysOf(c) };
+    if ('less' in c) return { less: [operand(c.less[0]), operand(c.less[1])] };
+    if ('more' in c) return { more: [operand(c.more[0]), operand(c.more[1])] };
     if ('not' in c) return { not: go(c.not) };
     if ('all' in c) return { all: c.all.map(go) };
     if ('any' in c) return { any: c.any.map(go) };
@@ -198,6 +233,8 @@ export interface Scope {
   writer?: Writer;
   /** The payload of the line being written, which `$draft` reads; `unknown` for a menu, drawn before there is a draft. */
   draft?: Payload | 'unknown';
+  /** The instant the line is admitted at, which `$now` reads, as `stamp` writes it; without one, `$now` is unknown. */
+  now?: string;
 }
 
 /** The members a set handle holds in one set; anything that is not a list of names holds none. */
@@ -246,6 +283,7 @@ function hostOf(scope: Scope): Host {
       if (ref.from === 'set') return isRecord(scope.handles.set) && has(scope.handles.set, ref.field) ? members(ref.field) : undefined;
       if (ref.from === 'writer') return ref.field === 'id' ? idOf(scope.writer) : ref.field === 'kin' ? kinOf(scope.writer) : undefined;
       if (ref.from === 'draft') return scope.draft === 'unknown' ? UNKNOWN : has(scope.draft, ref.field) ? scope.draft![ref.field] : undefined;
+      if (ref.from === 'now') return scope.now ?? UNKNOWN;
       return undefined;
     },
     guards: Object.fromEntries(Object.entries(scope.guards).map(([name, body]) => [name, toModuleForm(body, members)])),
@@ -254,7 +292,7 @@ function hostOf(scope: Scope): Host {
   };
 }
 
-/** Whether a condition holds in a scope: true, false, or `unknown` when it hangs on the draft a menu does not have. */
+/** Whether a condition holds in a scope: true, false, or `unknown` when it hangs on the draft a menu does not have, or on an instant nobody gave. */
 export function conditionHolds(condition: Condition, scope: Scope): boolean | 'unknown' {
   const host = hostOf(scope);
   const answer = check(toModuleForm(condition, (set) => membersOf(scope.handles, set)), host);
@@ -303,8 +341,8 @@ export function nodes(trace: Trace): Array<{ path: string; node: Trace }> {
 
 /**
  * Marks each node of a trace that can no longer hold, given when a `line` node cannot: an `all` when a child
- * cannot, an `any` when none can, an `atLeast n` when fewer than n can, a guard as its body; `not`, `is` and `has`
- * never. A node that holds is never marked. Answers whether the root is.
+ * cannot, an `any` when none can, an `atLeast n` when fewer than n can, a guard as its body; `not`, `is`, `has`
+ * and the comparisons never. A node that holds is never marked. Answers whether the root is.
  */
 export function markLost(trace: Trace, lineLost: (node: Trace) => boolean): boolean {
   const lost = (trace.children ?? []).map((child) => markLost(child, lineLost));

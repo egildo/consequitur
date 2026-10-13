@@ -31,7 +31,13 @@
         { "rule": "value", "key": "version", "from": "version", "required": true },
         { "rule": "value", "key": "status", "value": "in_review" }
       ],
-      "when": { "all": [{ "guard": "member" }, { "is": { "$value": "status" }, "values": ["draft", "changes_requested"] }] }
+      "when": {
+        "all": [
+          { "guard": "member" },
+          { "is": { "$value": "status" }, "values": ["draft", "changes_requested"] },
+          { "not": { "after": [{ "$now": "instant" }, { "$value": "deadline" }] } }
+        ]
+      }
     },
     {
       "gist": "request_review",

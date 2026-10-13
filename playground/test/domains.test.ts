@@ -119,13 +119,24 @@ describe('the domains', () => {
     });
   }
 
-  it('end the editorial review\'s last example on the refusal the law gives', async () => {
+  it('end the editorial review\'s last example on the refusal the law gives, and its late one on a version sent after the deadline', async () => {
     const editorial = DOMAINS[1];
     useDomain(editorial);
     const { out } = await played(editorial, 'left-alone');
     expect(out.refused).toHaveLength(1);
     expect(out.refused[0].refusal.code).toBe('law');
-    for (const example of ['published', 'late']) expect((await played(editorial, example)).out.refused).toEqual([]);
+    expect((await played(editorial, 'published')).out.refused).toEqual([]);
+    expect((await played(editorial, 'late')).out.refused.map(({ step, refusal }) => [step.gist, refusal.code])).toEqual([['revision', 'not-now']]);
+  });
+
+  it('says the four comparisons and $now in Italian, with the days that move the right one', () => {
+    useDomain(DOMAINS[1]);
+    expect(nodeSentence({ not: { after: [{ $now: 'instant' }, { $value: 'deadline' }] } }, [])).toBe('non è vero che:');
+    expect(nodeSentence({ after: [{ $now: 'instant' }, { $value: 'deadline' }] }, [])).toBe('adesso è dopo Scadenza');
+    expect(nodeSentence({ before: [{ $value: 'deadline' }, '2026-10-31'], days: -1 }, [])).toBe('Scadenza è prima di 2026-10-31 meno 1 giorno');
+    expect(nodeSentence({ after: [{ $draft: 'date' }, { $value: 'deadline' }], days: 2 }, [])).toBe('«date» della riga è dopo Scadenza più 2 giorni');
+    expect(nodeSentence({ less: [{ $value: 'version' }, 3] }, [])).toBe('Versione è meno di 3');
+    expect(nodeSentence({ more: [{ $draft: 'version' }, { $value: 'version' }] }, [])).toBe('«version» della riga è più di Versione');
   });
 
   it('have the editorial review run with no policy and no document', () => {

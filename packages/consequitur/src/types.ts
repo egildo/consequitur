@@ -68,11 +68,12 @@ export interface Check {
 
 /**
  * In a condition, what the thread expects under a name, read when the condition is: the value handle under a
- * key, the members of a set, and, in a `when` only, the writer's `id` or `kin` and a key of the draft's payload.
+ * key, the members of a set, and, in a `when` only, the writer's `id` or `kin`, a key of the draft's payload
+ * and the instant the line is admitted at.
  */
-export type Reference = { $value: string } | { $set: string } | { $writer: 'id' | 'kin' } | { $draft: string };
+export type Reference = { $value: string } | { $set: string } | { $writer: 'id' | 'kin' } | { $draft: string } | { $now: 'instant' };
 
-/** What `is` and `has` read: a plain value, or a reference. */
+/** What `is`, `has` and the four comparisons read: a plain value, or a reference. */
 export type Operand = string | number | boolean | null | Reference;
 
 /**
@@ -84,6 +85,14 @@ export type Condition =
   | { is: Operand; values: Operand[] }
   /** The operand is there, and not null, empty text or an empty list. */
   | { has: Operand }
+  /** The left time is earlier than the right, moved by `days` (dates only). A date never compares with an instant. */
+  | { before: [Operand, Operand]; days?: number }
+  /** The left time is later than the right, moved by `days` (dates only). */
+  | { after: [Operand, Operand]; days?: number }
+  /** The left number is smaller than the right. */
+  | { less: [Operand, Operand] }
+  /** The left number is greater than the right. */
+  | { more: [Operand, Operand] }
   | { not: Condition }
   | { all: Condition[] }
   | { any: Condition[] }

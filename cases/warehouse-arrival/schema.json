@@ -7,7 +7,9 @@
   "records": { "value": "metadata_set", "join": "assigned", "leave": "unassigned", "warning": "goal_warning" },
   "judged": ["user"],
   "guards": {
-    "member": { "is": { "$writer": "id" }, "values": [{ "$set": "team" }] }
+    "member": { "is": { "$writer": "id" }, "values": [{ "$set": "team" }] },
+    "late": { "after": [{ "$value": "arrived" }, { "$value": "announced" }], "days": 2 },
+    "short": { "less": [{ "$value": "counted" }, { "$value": "pallets" }] }
   },
   "gists": [
     {
@@ -15,6 +17,8 @@
       "writers": ["user"],
       "rules": [
         { "rule": "value", "key": "name", "from": "name", "required": true },
+        { "rule": "value", "key": "announced", "from": "announced" },
+        { "rule": "value", "key": "pallets", "from": "pallets" },
         { "rule": "join", "set": "team", "from": "team", "required": true }
       ]
     },
@@ -46,7 +50,14 @@
     },
     { "gist": "notice", "writers": ["goal"], "rules": [] },
     { "gist": "closed", "writers": ["goal"], "rules": [{ "rule": "value", "key": "status", "value": "closed" }] },
-    { "gist": "arrival_scanned", "writers": ["system"], "rules": [] },
+    {
+      "gist": "arrival_scanned",
+      "writers": ["system"],
+      "rules": [
+        { "rule": "value", "key": "arrived", "from": "date" },
+        { "rule": "value", "key": "counted", "from": "pallets" }
+      ]
+    },
     { "gist": "metadata_set", "writers": ["system"], "rules": [] },
     { "gist": "assigned", "writers": ["system"], "rules": [] },
     { "gist": "unassigned", "writers": ["system"], "rules": [] },

@@ -63,6 +63,36 @@ describe('conditions', () => {
     );
   });
 
+  it('come back as they went with the four comparisons and $now, dates and instants quoted', () => {
+    const order: Condition = {
+      all: [
+        { not: { after: [{ $now: 'instant' }, { $value: 'deadline' }] } },
+        { before: [{ $value: 'approved' }, '2026-10-13'], days: -2 },
+        { after: [{ $value: 'arrived' }, { $value: 'announced' }], days: 2 },
+        { less: [{ $draft: 'n' }, { $value: 'pallets' }] },
+        { more: [{ $value: 'counted' }, 0] },
+      ],
+    };
+    const text = toKdl({ guards: { probe: order as unknown as Json } });
+    expect(text).toBe(
+      [
+        'guard probe {',
+        '    all {',
+        '        not {',
+        '            after (now)instant (value)deadline',
+        '        }',
+        '        before (value)approved "2026-10-13" days=-2',
+        '        after (value)arrived (value)announced days=2',
+        '        less (draft)n (value)pallets',
+        '        more (value)counted 0',
+        '    }',
+        '}',
+        '',
+      ].join('\n'),
+    );
+    expect(fromKdl(text)).toEqual({ json: { guards: { probe: order }, gists: [] }, problems: [] });
+  });
+
   it('read several conditions in one body as all of them', () => {
     const { json, problems } = fromKdl('guard probe {\n  has (value)a\n  has (value)b\n}');
     expect(problems).toEqual([]);
@@ -92,6 +122,8 @@ describe('what the reader refuses', () => {
     ['a payload value tagged as another reference', 'guard g {\n  line gist=memo {\n    payload who=(set)team\n  }\n}', 3],
     ['a law with no kind', 'law strength=refuse', 1],
     ['a binding key written twice', 'gist a user {\n  revoke from=x {\n    from y\n  }\n}', 3],
+    ['a comparison whose left is not a reference', 'guard g {\n  before "2026-10-13" (value)a\n}', 2],
+    ['$now that reads something else', 'guard g {\n  after (now)today (value)a\n}', 1],
   ])('%s, and says on which line', (_, text, line) => {
     const problems = problemsOf(text);
     expect(problems.length).toBeGreaterThan(0);

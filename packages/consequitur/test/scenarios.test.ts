@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { admit, consequitur, diff, draftOf, dryRun, emptyState, holed, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Seal, type Step, type ThreadState, type Writer } from '../src/index.ts';
+import { admit, conditionHolds, consequitur, diff, draftOf, dryRun, emptyState, holed, inOrder, lockedBy, matches, offers, playScenario, post, prune, readPolicy, readScenarios, resolve, stepsOf, type Check, type EventLine, type Io, type LineDraft, type Policy, type Refusal, type Schema, type Seal, type Step, type ThreadState, type Writer } from '../src/index.ts';
 import { replayed } from '../src/scenario.ts';
 import { strict, SIBAR_JSON, membersOf, valuesOf } from './helpers.ts';
 
@@ -287,9 +287,10 @@ describe('the offers and admission, at every state the scenarios pass through', 
   /** The refusals that say a writer may not write a gist now, or not on that line: the menu's own questions. */
   const MENU: Array<Refusal['code']> = ['not-now', 'writer-not-allowed', 'unknown-line', 'not-revocable'];
 
-  it('agree: an offer is never refused for the moment, the writer or the line, and what is not offered is refused', async () => {
+  it('agree: an offer is never refused for the writer or the line, nor for the moment but as late, and what is not offered is refused', async () => {
     let states = 0;
     let offered = 0;
+    let late = 0;
     for (const domain of ['sibar-activity', 'editorial-review']) {
       const schema = strict(JSON.parse(readFileSync(casePath(domain, 'schema.json'), 'utf8')));
       const policy = domain === 'sibar-activity' ? sibarPolicy(schema) : [];
@@ -309,10 +310,12 @@ describe('the offers and admission, at every state the scenarios pass through', 
                 const draft: LineDraft = { gist: gist.gist, writer, payload: revoking && target !== undefined ? { [revoking.from as string]: target } : {} };
                 const named = `${domain} ${scenario.id}, ${writer} ${gist.gist}${target ? ` of ${target.split(':')[1].slice(0, 8)}` : ''}`;
                 const isOffered = offer !== undefined && (!revoking || (target !== undefined && offer.targets?.includes(target) === true));
-                const refusal = admit(state.lines, draft, schema);
+                const refusal = admit(state.lines, draft, schema, NOW);
                 if (isOffered) {
                   offered++;
-                  expect(MENU, `offered and refused: ${named}`).not.toContain(refusal?.code);
+                  // the menu has no instant, so it offers what admission may refuse as late: a `when` that reads `$now`
+                  if (refusal?.code === 'not-now' && JSON.stringify(gist.when).includes('"$now"')) late++;
+                  else expect(MENU, `offered and refused: ${named}`).not.toContain(refusal?.code);
                 } else if (refusal === undefined) {
                   // admitted though not offered: only the opening rule, which the dry run reads, may refuse it
                   expect((await dryRun(state, draft, schema, NOW, { policy })).refusal?.code, `not offered and admitted: ${named}`).toBe('unreconcilable');
@@ -328,6 +331,8 @@ describe('the offers and admission, at every state the scenarios pass through', 
     }
     expect(states).toBeGreaterThan(40);
     expect(offered).toBeGreaterThan(100);
+    // the editorial «late»: a new version, offered after the deadline, is refused
+    expect(late).toBeGreaterThan(0);
   });
 });
 
@@ -353,7 +358,7 @@ describe('the warehouse arrival', () => {
 
   it('«Tuesday»: the goals write the notice, the memo to sorting and the closing; the team grows with the memos', async () => {
     const { lines, handles, played } = await tuesday();
-    expect(valuesOf(handles)).toEqual({ name: 'Arrivo Ferrari · DDT 4471', steps: ['unload', 'sort', 'shelve'], status: 'closed' });
+    expect(valuesOf(handles)).toEqual({ name: 'Arrivo Ferrari · DDT 4471', announced: '2026-10-05', pallets: 12, arrived: '2026-10-06', counted: 12, steps: ['unload', 'sort', 'shelve'], status: 'closed' });
     expect(handles.set).toEqual({ team: ['cneri', 'gverdi', 'lbianchi', 'mrossi'] });
     const goalLines = lines.filter((l) => l.writer.startsWith('goal::'));
     expect(goalLines.map((l) => l.gist)).toEqual(['notice', 'memo', 'closed']);
@@ -369,6 +374,8 @@ describe('the warehouse arrival', () => {
     expect(inOrder(lines).map((l) => [l.gist, why.get(l.id) ?? 'open'])).toEqual([
       ['open', 'open'],
       ['metadata_set', 'engine'],
+      ['metadata_set', 'engine'],
+      ['metadata_set', 'engine'],
       ['assigned', 'engine'],
       ['assigned', 'engine'],
       ['memo', 'open'],
@@ -379,6 +386,8 @@ describe('the warehouse arrival', () => {
       ['set_goal_revoke', 'revoked'],
       ['arrival_scanned', 'outside'],
       ['notice', 'engine'],
+      ['metadata_set', 'engine'],
+      ['metadata_set', 'engine'],
       ['comment', 'open'],
       ['done', 'found'],
       ['memo', 'engine'],
@@ -472,6 +481,36 @@ describe('the warehouse arrival', () => {
       { kind: 'value', key: 'sorter', after: 'gverdi' },
       { kind: 'value', key: 'unloader', after: 'lbianchi' },
     ]);
+  });
+
+  it('«Tuesday» came a day after it was announced, with every pallet: neither the guard late nor short holds', async () => {
+    const { lines, handles } = await tuesday();
+    const scope = { handles, lines, guards: schema.guards };
+    expect(valuesOf(handles)).toMatchObject({ announced: '2026-10-05', arrived: '2026-10-06', pallets: 12, counted: 12 });
+    expect(conditionHolds({ guard: 'late' }, scope)).toBe(false);
+    expect(conditionHolds({ guard: 'short' }, scope)).toBe(false);
+  });
+
+  it('«Late and short»: three days after it was announced and two pallets short, the goal on late writes the notice and the one on short the memo', async () => {
+    const h = host(schema);
+    const played = await playScenario(scenarios.get('late-and-short')!.steps, h.io);
+    expect(played.failed).toBeUndefined();
+    const { lines, handles } = h.state();
+    expect(valuesOf(handles)).toMatchObject({ announced: '2026-10-05', arrived: '2026-10-08', pallets: 12, counted: 10 });
+    const written = lines.filter((l) => l.writer.startsWith('goal::'));
+    expect(written.map((l) => [l.gist, l.writer])).toEqual([
+      ['notice', `goal::${played.labels.get('late')}`],
+      ['memo', `goal::${played.labels.get('short')}`],
+    ]);
+    expect(consequitur(lines, handles, schema).settled).toBe(true);
+  });
+
+  it('«Late and short», two days after and with every pallet: strict both ways, no goal fires', async () => {
+    const steps = scenarios.get('late-and-short')!.steps;
+    const h = host(schema);
+    const onTime = steps.map((s) => (s.gist === 'arrival_scanned' ? { ...s, payload: { ...s.payload, date: '2026-10-07', pallets: 12 } } : s));
+    expect((await playScenario(onTime, h.io)).failed).toBeUndefined();
+    expect(h.state().lines.filter((l) => l.writer.startsWith('goal::'))).toEqual([]);
   });
 
   it('«Second assignee»: a memo names one assignee and leaves a second, a goal waits on it, and a fill by a member of the team names it and the goal fires', async () => {

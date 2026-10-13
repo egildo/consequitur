@@ -43,7 +43,7 @@ type Primitive = string | number | boolean | null;
 type Sink = Problem[];
 
 /** The tags that make a reference in a condition. */
-const FROM = ['value', 'set', 'writer', 'draft'];
+const FROM = ['value', 'set', 'writer', 'draft', 'now'];
 
 /** The words consequitur registers on the module. */
 const WORDS = ['line', 'at-least'];
@@ -144,10 +144,10 @@ function standIn(sink: Sink, nodes: Node[], checks: Check[]): void {
 
 /** The module's form with the stand-ins of `line` and the one argument of `at-least` put back as consequitur's words have them. */
 function putBack(condition: ModuleCondition, checks: Check[]): ModuleCondition {
-  if ('is' in condition || 'has' in condition || 'guard' in condition) return condition;
   if ('not' in condition) return { not: putBack(condition.not, checks) };
   if ('all' in condition) return { all: condition.all.map((c) => putBack(c, checks)) };
   if ('any' in condition) return { any: condition.any.map((c) => putBack(c, checks)) };
+  if (!('word' in condition)) return condition;
   const [first] = Array.isArray(condition.args) ? condition.args : [];
   if (condition.word === 'line') return { word: 'line', args: (typeof first === 'number' ? checks[first] : {}) as unknown as Json };
   return { ...condition, args: first ?? null, body: condition.body?.map((c) => putBack(c, checks)) };
@@ -195,10 +195,10 @@ function checkNode(check: Check): Node {
 function conditionNode(name: string, condition: Condition): Node {
   const checks: Check[] = [];
   const standing = (c: ModuleCondition): ModuleCondition => {
-    if ('is' in c || 'has' in c || 'guard' in c) return c;
     if ('not' in c) return { not: standing(c.not) };
     if ('all' in c) return { all: c.all.map(standing) };
     if ('any' in c) return { any: c.any.map(standing) };
+    if (!('word' in c)) return c;
     if (c.word === 'line') {
       checks.push(c.args as unknown as Check);
       return { word: 'line', args: [checks.length - 1] };

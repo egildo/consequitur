@@ -1,6 +1,6 @@
 # Times are compared as stated, the clock only at the door
 
-Status: settled 2026-10-13 by Egildo's answers: the words live in `kdlet-guards`; `$now` in a gist's `when` only; an offset in whole days on dates, now; numbers too. Built in two rounds ([plan](../plan.md) §4): kdlet's 0.3.0, then here.
+Status: settled 2026-10-13 by Egildo's answers: the words live in `kdlet-guards`; `$now` in a gist's `when` only; an offset in whole days on dates, now; numbers too. Built in two rounds ([plan](../plan.md) §4): kdlet's 0.3.0, then here: built in the round «Comparisons» ([conditions](../specs/conditions.md) §8 says where it chose; `$now` is written `{ "$now": "instant" }`).
 
 ## Context
 
@@ -24,7 +24,7 @@ The canon, from memory and not re-read for this decision:
 
 **Operands are what conditions already read.** `$value` and `$draft`, and literals. A reference to a value no line states is a hole: the comparison is false until it is filled, as `is` is ([holes are unstated values](holes-are-unstated-values.md)).
 
-**`$now`, in a gist's `when` only: the clock at the door.** It is the instant `post` and `dryRun` are given, as `stamp` writes it, an RFC 3339 instant in UTC. Admission may refuse a late line: `{ "not": { "after": [{ "$now": true }, { "$value": "deadline" }] } }`. The menu has no instant, so a node that reads `$now` is unknown there, as one that reads `$draft` is. A goal, a law or a `while` that names `$now` is a problem the reader names: the reading stays pure, and the passage of time inside the thread is still a line the world writes.
+**`$now`, in a gist's `when` only: the clock at the door.** It is the instant `post` and `dryRun` are given, as `stamp` writes it, an RFC 3339 instant in UTC. Admission may refuse a late line: `{ "not": { "after": [{ "$now": "instant" }, { "$value": "deadline" }] } }`. The menu has no instant, so a node that reads `$now` is unknown there, as one that reads `$draft` is. A goal, a law or a `while` that names `$now` is a problem the reader names: the reading stays pure, and the passage of time inside the thread is still a line the world writes.
 
 ## Nuance
 

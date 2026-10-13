@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  admit,
   BASE_KIT,
   emptyState,
   lockedBy,
@@ -200,7 +201,7 @@ describe('the editorial review: «late»', () => {
     expect(before.values).not.toHaveProperty('late');
 
     await t.play(stepsOf('late').slice(5));
-    expect(t.values.deadline).toBe('2026-10-31');
+    expect(t.values.deadline).toBe('2026-10-02T17:00:00+02:00');
     expect(t.values.late).toBe(true);
     // the only consequence is the value: the status, the approvals and the goal stand as they stood
     expect({ ...t.values, late: undefined, deadline: undefined }).toEqual({ ...before.values, late: undefined, deadline: undefined });
@@ -209,6 +210,22 @@ describe('the editorial review: «late»', () => {
     expect(t.state.lines.at(-2)?.writer).toBe('system::clock');
     // the clock is not asked to be a member of anything, and an editor's deadline is not the clock's word
     expect(await t.say(draft('drusso', 'deadline_passed', {}))).toMatchObject({ code: 'writer-not-allowed' });
+  });
+
+  it('refuses a new version sent after the deadline as not-now, at the instant it is admitted; the menu, which has none, offers it', async () => {
+    const t = thread();
+    const played = await t.play(stepsOf('late'));
+    expect(played.refused.map(({ step, refusal }) => [step.label, refusal.code])).toEqual([['too-late', 'not-now']]);
+    const v2 = draft('aconti', 'revision', { version: 'v2' });
+    // before the deadline, at its very instant (strict), after it, and with no instant at all
+    expect(admit(t.state.lines, v2, SCHEMA, '2026-10-02T14:59:59.999Z')).toBeUndefined();
+    expect(admit(t.state.lines, v2, SCHEMA, '2026-10-02T15:00:00.000Z')).toBeUndefined();
+    expect(admit(t.state.lines, v2, SCHEMA, '2026-10-02T15:00:00.001Z')).toMatchObject({ code: 'not-now' });
+    expect(admit(t.state.lines, v2, SCHEMA)).toMatchObject({ code: 'not-now' });
+    expect(t.offered('aconti')).toContain('revision');
+    // a deadline stated as a date never compares with the instant: it refuses nothing
+    expect(await t.say(draft('drusso', 'deadline', { date: '2026-10-02' }))).toBeUndefined();
+    expect(admit(t.state.lines, v2, SCHEMA, NOW)).toBeUndefined();
   });
 });
 

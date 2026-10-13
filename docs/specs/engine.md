@@ -20,14 +20,16 @@ The round «The first line declares the thread» gave a thread a **declaration**
 
 The round «Consolidation» gave the declaration `from`, by [threads are consolidated, never merged](../decisions/threads-are-consolidated-never-merged.md): a list of **seals**, `{ first, last }`, the sources a consolidation names. `stamp` writes it on the first line only, from its `opening` object (where the schema and the nonce are now too, since all three matter only on an empty thread), never empty and never as an absent key, so a thread that names no source keeps its ids; `post` and `dryRun` take it in their options beside `nonce`. The rest of consolidation, the derived schema, the preparing function and the drill, is in [consolidation](consolidation.md).
 
+The round «Comparisons» let a gist's `when` read the clock at the door, by [times are compared as stated](../decisions/times-are-compared-as-stated.md): `admit(lines, draft, schema, now?)` takes the instant the line would be stamped at, and a `when` reads it as `$now` ([conditions](conditions.md) §2), the instant `stamp` writes, `new Date(now).toISOString()`. `dryRun` and `post` pass theirs, so a drill's replay is admitted at the instant it is given. Without `now`, a node that reads `$now` is unknown, and admission, which holds only when the `when` is true, refuses the line as `not-now`; `offers` has no instant, and offers unless the `when` is false. `holds` and `whenHolds` take the same optional `now` after the payload. The reading, goals and laws never read it, and the engine reads no clock: `now` is always an argument.
+
 ## 1 · What is a mechanic and what is a kind
 
 **Mechanics** belong to the thread and are not registrable: the envelope and its hash; reading
 order; **revoke** (a binding `{ rule: 'revoke', from, gists }`); **goal** (`{ rule: 'goal' }`,
 its condition, once, final, `with`, warnings); the opening rule (exactly one line of the opening gist
 in force); `when`; reconciliation's loop and its bound; laws' place in a post. A goal's line carries
-`name`, `when` (a condition, [conditions](conditions.md) §2, which reads neither the writer nor the
-draft), `then`, and may carry `with` and `final`; the reading gives each goal its **trace**, and `met`
+`name`, `when` (a condition, [conditions](conditions.md) §2, which reads neither the writer, the
+draft nor the instant), `then`, and may carry `with` and `final`; the reading gives each goal its **trace**, and `met`
 is the root's `holds` *(round «Conditions»; a goal carried `checks`)*.
 
 **Kinds** are registered in a **kit** and named by schemas:
@@ -242,9 +244,9 @@ false.
   named; `warning` may be left out, and then the thread expects no warnings and no node is
   judged lost. A schema that uses fewer handle kinds is read against a smaller kit.
 - `laws`: optional; a schema with none judges nothing.
-- `when`: a condition ([conditions](conditions.md) §2), read with the writer and the draft. `guards`:
+- `when`: a condition ([conditions](conditions.md) §2), read with the writer, the draft and the instant. `guards`:
   optional, the named guards, each a condition, used by `{ "guard": name }` in a `when`, a goal or a
-  law; a guard may read `$writer` and `$draft`, and then only a `when` may use it. *(Round «Conditions»;
+  law; a guard may read `$writer`, `$draft` and `$now`, and then only a `when` may use it. *(Round «Conditions»;
   `when` was `{ checks?, in?, values? }`.)*
 
 ```ts
@@ -289,6 +291,7 @@ them for drafts whose writer's kin is in `judged`. The same law may appear again
 ## 7 · Posting, the policy, the diff
 
 ```ts
+export function admit(lines, draft, schema, now?: string): Refusal | undefined;
 export function dryRun(state, draft, schema, now, options?: { policy?: Policy; nonce?: string; from?: Seal[] }): Promise<DryRun>;
 export function post(state, draft, schema, now, options?: { confirmed?: boolean; policy?: Policy; nonce?: string; from?: Seal[] }): Promise<PostResult>;
 export function settle(state, schema, now, policy?: Policy): Promise<{ state; reading; rounds }>;
@@ -301,7 +304,8 @@ export function diff(before: Handles, after: Handles, kit: Kit): Change[];
 `dryRun` takes the policy too, so a preview is the post it previews. `now` is the host's argument, not
 the writer's: one that does not parse as a date is a mistake of the caller and not a refusal, so `post`,
 `dryRun` and `settle` reject with the platform's `RangeError` when they come to stamp a line, as `stamp`
-does, and the state given is unchanged.
+does, and the state given is unchanged; `admit`, given one, throws the same `RangeError` when it reads a
+`when` *(round «Comparisons»)*.
 
 `consequitur`, `admit`, `reconcile`, `payloadProblem`, `whenHolds` and `offers` take the schema where the
 ported engine took the gist schemas, since the kinds they ask live in its kit; `inForce` still takes

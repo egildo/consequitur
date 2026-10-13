@@ -93,17 +93,19 @@ No new function: the steps above are `playScenario`, `post` and `diff`. The case
 
 `cases/warehouse-arrival/` is the third domain, chosen for this spec: an arrival of merchandise registered, announced, unloaded, sorted and shelved. Its vocabulary stays small:
 
-- `open` (opening): `name`, and `team` joined from `team`;
+- `open` (opening): `name`, `announced` (the announced arrival date) and `pallets`, and `team` joined from `team`;
 - `memo`: assigns, joining `team` from `assignTo`; written by people and by goals;
 - `done`: a person says a step is finished; `steps` collects `step`;
 - `fill`: a person states a value a hole refers to, `value` from `keyFrom` and `from` (`key`, `value`);
 - `set_goal`, `set_goal_revoke`, `comment`;
 - `notice`: written by goals, states nothing;
 - `closed`: written by goals, `status` becomes `closed`;
-- `arrival_scanned`: written by `system::dock`, states nothing;
+- `arrival_scanned`: written by `system::dock`, states `arrived` from `date` and `counted` from `pallets`;
 - the records.
 
-`scenarios.json` holds three stories. «Tuesday» is the activity as it happened, with every kind of line: the manager's plan (goals that announce the arrival, assign the sorting, close the activity), a goal set by mistake and revoked, the scanner's line, a comment, the work (`done` lines), and one memo the manager wrote by hand when sorting was done, with no goal behind it. «Saved» is the scenario a person saves from it: the plan's lines, the by-hand memo turned into a goal, and holes for the supplier's reference (`ddt`), the unloader and the sorter, which end with three fills, the values Tuesday had, written by the manager. Played without them, «Saved» opens the activity with three holes and settled. «Second assignee» is a memo that names one assignee and a hole, `legal`, for a second, a goal whose condition is `has` on that reference, and a fill by the assignee who is on the team: the goal fires when the key is stated.
+Two guards compare what the lines state *(round «Comparisons»)*: `late`, `after (value)arrived (value)announced days=2`, an arrival more than two days after it was announced, and `short`, `less (value)counted (value)pallets`, fewer pallets counted than announced. Goals use them.
+
+`scenarios.json` holds three stories. «Tuesday» is the activity as it happened, with every kind of line: the manager's plan (goals that announce the arrival, assign the sorting, close the activity), a goal set by mistake and revoked, the scanner's line, a comment, the work (`done` lines), and one memo the manager wrote by hand when sorting was done, with no goal behind it. «Saved» is the scenario a person saves from it: the plan's lines, the by-hand memo turned into a goal, and holes for the supplier's reference (`ddt`), the unloader and the sorter, which end with three fills, the values Tuesday had, written by the manager. Played without them, «Saved» opens the activity with three holes and settled. «Second assignee» is a memo that names one assignee and a hole, `legal`, for a second, a goal whose condition is `has` on that reference, and a fill by the assignee who is on the team: the goal fires when the key is stated. «Late and short» is an arrival announced for Monday that comes on Thursday two pallets short: a goal on `late` writes a notice to purchasing, one on `short` a memo to count again, and both fire when the scanner's line comes. «Tuesday» and «Saved» state an arrival a day after it was announced, with every pallet: neither guard holds.
 
 The tests, in `packages/consequitur/test/scenarios.test.ts` or beside it: `prune` of «Tuesday» leaves out exactly the lines §3 says, for the reasons it says, and leaves open the plan's lines, the comment, the `done` of sorting, which no goal of «Tuesday» waits for, and the by-hand memo; `stepsOf` of the kept lines (the open lines but the comment, the `done` of sorting and the by-hand memo; the added goal waits for the one and writes the other) gives the steps of «Saved» but the goal the person added and the fills, once `holed` has made the three values holes; «Saved» played to its fills holds three holes and is settled, and its fills close them; the dry run of §4 ends with no difference in the handles but the three keys; and «Second assignee» fires its goal when the fill comes.
 

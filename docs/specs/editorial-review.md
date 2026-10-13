@@ -27,7 +27,7 @@ Head: `opening: "submit"`, `authority: "system::clock"`, `sets: ["team", "review
 | Gist | Writers | Rules | When |
 |---|---|---|---|
 | `submit` | user | value `title` from `title` (r); value `status` = `draft`; value `version` from `version` (r); join `team` from `authors` (r); join `editors` from `editor` (r) | — |
-| `revision` | user | value `version` from `version` (r); value `status` = `in_review` | in `team`; status `draft` or `changes_requested` |
+| `revision` | user | value `version` from `version` (r); value `status` = `in_review` | in `team`; status `draft` or `changes_requested`; not after the deadline (`$now`) |
 | `request_review` | user | join `reviewers` from `reviewers` (r); join `team` from `reviewers` (r); value `status` = `in_review` | in `team` |
 | `approve` | user | `collect-writer` `approvals` | in `reviewers`; status `in_review` |
 | `approve_revoke` | user | revoke `approve` from `target` | in `reviewers`; status `in_review` |
@@ -36,7 +36,7 @@ Head: `opening: "submit"`, `authority: "system::clock"`, `sets: ["team", "review
 | `set_goal` | user | goal | in `editors` |
 | `set_goal_revoke` | user | revoke `set_goal` from `target` | in `editors` |
 | `publish` | goal, user | value `status` = `published` | in `editors`; status `in_review` |
-| `deadline` | user | value `deadline` from `date` (r) | in `editors` |
+| `deadline` | user | value `deadline` from `date` (r), an instant | in `editors` |
 | `deadline_passed` | system | value `late` = `true` | — |
 | `leave_team` | user | leave `team`; leave `reviewers` | in `team` |
 | `value_set`, `joined`, `left` | system | — | — |
@@ -62,7 +62,9 @@ line is in force (a draft given a new version goes in review before anyone is as
    approve v2 → published by the goal; a `publish` revoke is not even offered (no revoke gist for
    it), and the goal's line is locked.
 2. **Late**: the same up to the request for changes, then the editor writes a deadline, and
-   `system::clock` posts `deadline_passed`: `late` is set, nothing else happens (§4).
+   `system::clock` posts `deadline_passed`: `late` is set, nothing else happens (§4). A new version
+   aconti sends then is refused `not-now`: the deadline is an instant before the one the post is given
+   *(round «Comparisons»)*.
 3. **Left alone**: bgalli leaves the team during the review while cneri stays: allowed; then cneri
    tries to leave: refused by `keeps-set` on reviewers.
 

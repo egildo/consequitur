@@ -200,25 +200,29 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
 
 /**
  * Whether a gist's `when` lets this writer write it, once the expectations are computed. Given the draft's
- * payload it is admission's question, and has two answers. Without one it is the menu's, asked before there
- * is a draft: a node that reads `$draft` is unknown, unknown spreads by Kleene's strong tables, and the
- * answer is no only when the `when` is false. So the menu may offer what admission refuses for its payload,
- * never the reverse.
+ * payload it is admission's question, and holds only when the `when` is true: `$now` reads `now`, as `stamp`
+ * will write it, and without one it is unknown, so the line is not admitted. Without a payload it is the
+ * menu's, asked before there is a draft or an instant: a node that reads `$draft` or `$now` is unknown,
+ * unknown spreads by Kleene's strong tables, and the answer is no only when the `when` is false. So the menu
+ * may offer what admission refuses for its payload or its instant, never the reverse.
  */
-export function holds(expected: Expectations, writer: Writer, when: Condition, schema: Schema, payload?: Payload): boolean {
+export function holds(expected: Expectations, writer: Writer, when: Condition, schema: Schema, payload?: Payload, now?: string): boolean {
   // the draft is read as the lines are: each reference replaced, one that states nothing left out
   const draft = payload === undefined ? ('unknown' as const) : resolvePayload(payload, expected.values);
-  const scope = { handles: expected.handles, lines: expected.read, guards: schema.guards, writer, draft };
-  return conditionHolds(when, scope) !== false;
+  // as `stamp` writes it; one that is no date is the caller's mistake, a `RangeError` as in `stamp`
+  const instant = payload === undefined || now === undefined ? undefined : new Date(now).toISOString();
+  const scope = { handles: expected.handles, lines: expected.read, guards: schema.guards, writer, draft, ...(instant === undefined ? {} : { now: instant }) };
+  const answer = conditionHolds(when, scope);
+  return payload === undefined ? answer !== false : answer === true;
 }
 
 /**
- * Whether a gist may be written by this writer on this thread, with this payload, or, without one, whether
- * the menu offers it. A gist with no `when` holds. Admission and the offers both ask this, so a menu drawn
- * from the offers cannot refuse what the authority admits.
+ * Whether a gist may be written by this writer on this thread, with this payload at the instant `now`, or,
+ * without a payload, whether the menu offers it. A gist with no `when` holds. Admission and the offers both
+ * ask this, so a menu drawn from the offers cannot refuse what the authority admits.
  */
-export function whenHolds(lines: EventLine[], writer: Writer, gist: GistSchema, schema: Schema, payload?: Payload): boolean {
-  return gist.when === undefined || holds(expectations(lines, schema), writer, gist.when, schema, payload);
+export function whenHolds(lines: EventLine[], writer: Writer, gist: GistSchema, schema: Schema, payload?: Payload, now?: string): boolean {
+  return gist.when === undefined || holds(expectations(lines, schema), writer, gist.when, schema, payload, now);
 }
 
 export function consequitur(lines: EventLine[], handles: Handles, schema: Schema): Reading {

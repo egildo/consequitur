@@ -24,8 +24,8 @@ importers:
   packages/consequitur:
     dependencies:
       kdlet-guards:
-        specifier: ^0.2.1
-        version: 0.2.1(@bgotink/kdl@0.4.0)
+        specifier: ^0.3.0
+        version: 0.3.0(@bgotink/kdl@0.4.0)
 
   packages/consequitur-kdl:
     dependencies:
@@ -36,8 +36,8 @@ importers:
         specifier: workspace:^
         version: link:../consequitur
       kdlet-guards:
-        specifier: ^0.2.1
-        version: 0.2.1(@bgotink/kdl@0.4.0)
+        specifier: ^0.3.0
+        version: 0.3.0(@bgotink/kdl@0.4.0)
 
   packages/consequitur-render:
     dependencies:
@@ -585,8 +585,8 @@ packages:
       canvas:
         optional: true
 
-  kdlet-guards@0.2.1:
-    resolution: {integrity: sha512-MNdl0/rT+d1dX4zD+0fCw/BXeYaWuPpbB2E9UcWbO1cVuzR4RFfCdK+IHt3CPWlfswVfZCvGvP7FHbWwPctINw==}
+  kdlet-guards@0.3.0:
+    resolution: {integrity: sha512-sBhXfmwkzZa3ANQHcSeq0IR9T13kzyl/Lgt/qYZXOv0L+SnPyMhWKM2+8MNKopJk4TuxztmrnRgLqDIzHBs0ow==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@bgotink/kdl': ^0.4.0
@@ -1309,7 +1309,7 @@ snapshots:
     transitivePeerDependencies:
       - '@noble/hashes'
 
-  kdlet-guards@0.2.1(@bgotink/kdl@0.4.0):
+  kdlet-guards@0.3.0(@bgotink/kdl@0.4.0):
     optionalDependencies:
       '@bgotink/kdl': 0.4.0
 

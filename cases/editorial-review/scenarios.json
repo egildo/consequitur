@@ -15,15 +15,16 @@
   },
   {
     "id": "late",
-    "title": "A deadline is written and the clock says it passed: late is set, and nothing else happens",
+    "title": "A deadline is written and the clock says it passed: late is set, nothing else happens, and a version sent after the deadline is refused",
     "steps": [
       {"label": "submit", "writer": "user::aconti", "gist": "submit", "payload": {"title": "Le biblioteche civiche nel 2030", "version": "v1", "authors": ["aconti"], "editor": "drusso"}},
       {"label": "request", "writer": "user::aconti", "gist": "request_review", "payload": {"reviewers": ["bgalli", "cneri"]}},
       {"label": "goal", "writer": "user::drusso", "gist": "set_goal", "payload": {"name": "Pubblicazione", "then": "publish", "when": {"all": [{"line": {"gist": "approve", "writer": "user::bgalli", "payload": {"version": {"$value": "version"}}}}, {"line": {"gist": "approve", "writer": "user::cneri", "payload": {"version": {"$value": "version"}}}}]}, "final": true}},
       {"label": "bgalli-v1", "writer": "user::bgalli", "gist": "approve", "payload": {"version": "v1"}},
       {"label": "changes", "writer": "user::cneri", "gist": "request_changes", "payload": {}},
-      {"label": "deadline", "writer": "user::drusso", "gist": "deadline", "payload": {"date": "2026-10-31"}},
-      {"label": "passed", "writer": "system::clock", "gist": "deadline_passed", "payload": {}}
+      {"label": "deadline", "writer": "user::drusso", "gist": "deadline", "payload": {"date": "2026-10-02T17:00:00+02:00"}},
+      {"label": "passed", "writer": "system::clock", "gist": "deadline_passed", "payload": {}},
+      {"label": "too-late", "writer": "user::aconti", "gist": "revision", "payload": {"version": "v2"}, "refused": "not-now"}
     ]
   },
   {

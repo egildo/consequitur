@@ -140,18 +140,29 @@ export function outcomeSentence(then: string, outcome: Payload | undefined): str
   return doing.sentence.replace(/\{(\w+)\}/g, (_, key: string) => said(outcome?.[key])).trim();
 }
 
-/** An operand of `is` or `has` in a sentence: a reference by what it reads, a value as a person reads it under the key it is compared with. */
+/** An operand of a condition in a sentence: a reference by what it reads, a value as a person reads it under the key it is compared with. */
 function operandSentence(operand: Operand, key?: string): string {
   if (operand === null || typeof operand !== 'object') return key === undefined ? said(operand) : metadataValue(key, operand, []);
   if ('$value' in operand) return metadataLabel(operand.$value);
   if ('$set' in operand) return `«${domain().sets[operand.$set]?.label ?? operand.$set}»`;
   if ('$writer' in operand) return operand.$writer === 'id' ? 'chi scrive' : 'il tipo di chi scrive';
+  if ('$now' in operand) return 'adesso';
   return `«${operand.$draft}» della riga`;
+}
+
+/** The words of the four comparisons, between their two operands. */
+const ORDER_WORDS = { before: 'è prima di', after: 'è dopo', less: 'è meno di', more: 'è più di' } as const;
+
+/** A comparison in a sentence: its two operands, a value as the left's key reads it, and the days that move the right one. */
+function comparisonSentence(word: keyof typeof ORDER_WORDS, [left, right]: [Operand, Operand], days = 0): string {
+  const key = typeof left === 'object' && left !== null && '$value' in left ? left.$value : undefined;
+  const moved = days === 0 ? '' : ` ${days > 0 ? 'più' : 'meno'} ${Math.abs(days)} ${Math.abs(days) === 1 ? 'giorno' : 'giorni'}`;
+  return `${operandSentence(left)} ${ORDER_WORDS[word]} ${operandSentence(right, key)}${moved}`;
 }
 
 /**
  * The sentence of one node of a condition, without its children: a `line` is its check's sentence, a guard
- * the domain's words for it, `is` and `has` what they compare; `all`, `any`, `atLeast` and `not` say how their
+ * the domain's words for it, `is`, `has` and the comparisons what they compare; `all`, `any`, `atLeast` and `not` say how their
  * children count, and the children follow.
  */
 export function nodeSentence(condition: Condition, lines: EventLine[], check?: Check): string {
@@ -163,6 +174,10 @@ export function nodeSentence(condition: Condition, lines: EventLine[], check?: C
     return `${operandSentence(condition.is)} è ${values.join(' o ')}`;
   }
   if ('has' in condition) return `${operandSentence(condition.has)} non è vuoto`;
+  if ('before' in condition) return comparisonSentence('before', condition.before, condition.days);
+  if ('after' in condition) return comparisonSentence('after', condition.after, condition.days);
+  if ('less' in condition) return comparisonSentence('less', condition.less);
+  if ('more' in condition) return comparisonSentence('more', condition.more);
   if ('not' in condition) return 'non è vero che:';
   if ('all' in condition) return 'tutte queste:';
   if ('any' in condition) return 'almeno una di queste:';

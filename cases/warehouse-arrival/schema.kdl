@@ -8,8 +8,16 @@ judged user
 guard member {
     is (writer)id (set)team
 }
+guard late {
+    after (value)arrived (value)announced days=2
+}
+guard short {
+    less (value)counted (value)pallets
+}
 gist open user {
     value from=name key=name required=#true
+    value from=announced key=announced
+    value from=pallets key=pallets
     join from=team required=#true set=team
 }
 gist memo user goal {
@@ -53,7 +61,10 @@ gist notice goal
 gist closed goal {
     value key=status value=closed
 }
-gist arrival_scanned system
+gist arrival_scanned system {
+    value from=date key=arrived
+    value from=pallets key=counted
+}
 gist metadata_set system
 gist assigned system
 gist unassigned system

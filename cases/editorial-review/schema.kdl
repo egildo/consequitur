@@ -34,6 +34,9 @@ gist revision user {
         all {
             guard member
             is (value)status draft changes_requested
+            not {
+                after (now)instant (value)deadline
+            }
         }
     }
 }

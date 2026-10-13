@@ -76,7 +76,7 @@ const ui: GistUi[] = [
     label: 'Scadenza',
     card: 'mark',
     says: '{writer} ha fissato la scadenza al {date}',
-    compose: { fields: [{ key: 'date', label: 'Data', initial: '2026-10-31' }] },
+    compose: { fields: [{ key: 'date', label: 'Data', initial: '2026-10-31T17:00:00+01:00' }] },
   },
   { gist: 'deadline_passed', label: 'Scadenza passata', card: 'mark', says: 'La scadenza è passata', compose: {} },
   { gist: 'leave_team', label: 'Esci dalla redazione', card: 'mark', says: '{writer} ha lasciato la redazione', compose: { body: NOTE, bodyOptional: true } },
