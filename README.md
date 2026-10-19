@@ -36,7 +36,7 @@ The packages are [`consequitur`](packages/consequitur/README.md) ([reference](do
 
 Five shelves in [`docs/`](docs/):
 
-- [Tutorial](docs/tutorial/README.md): a lesson, your first thread.
+- [Tutorial](docs/tutorial/your-first-thread.md): a lesson, your first thread.
 - [How-to guides](docs/how-to/README.md): directions to one goal each.
 - [Reference](docs/reference/README.md): the machinery as it is today, and the glossary of every name.
 - [Explanation](docs/explanation/README.md): the vision, the principles, how it works, and the decisions with their reasons.

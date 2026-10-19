@@ -1,3 +1,3 @@
 # Tutorial
 
-This shelf will hold one lesson, «Your first thread»: a small schema, a thread written line by line, a dry run, and a goal, run as a test so that it cannot drift. It comes in round 19.
+- [Your first thread](your-first-thread.md): a book club's schema, a thread written line by line, a dry run, a refused line and a goal that fires.
