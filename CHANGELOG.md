@@ -4,13 +4,15 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
-### Fixed
-
-- `fromKdl` reports a property written twice on one node (`value key=k key=j`, `where a=1 a=2`, `records join=a join=b`) as a problem, at the second; it used to keep the last without a word.
+## [0.2.1] — 2026-10-19
 
 ### Changed
 
-- The documents are reorganised into a [tutorial](docs/tutorial/your-first-thread.md), [how-to guides](docs/how-to/README.md), [reference](docs/reference/README.md) and [explanation](docs/explanation/README.md). No code changed.
+- The documents are reorganised into a [tutorial](docs/tutorial/your-first-thread.md), [how-to guides](docs/how-to/README.md), [reference](docs/reference/README.md) and [explanation](docs/explanation/README.md).
+
+### Fixed
+
+- `fromKdl` reports a property written twice on one node (`value key=k key=j`, `where a=1 a=2`, `records join=a join=b`) as a problem, at the second; it used to keep the last without a word.
 
 ## [0.2.0] — 2026-10-13
 
@@ -46,6 +48,7 @@ The first release.
 - `consequitur-render`: [`lineFacts`, `changes`, `keyed`, `previewer` and `band`](docs/reference/render.md) turn a reading into DOM, with no markup and no style of their own.
 - ESM packages for Node 20 and later, with their types.
 
-[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.2.0...main
+[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.2.1...main
+[0.2.1]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.1
 [0.2.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.0
 [0.1.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.1.0
