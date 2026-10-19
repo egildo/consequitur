@@ -91,7 +91,7 @@ function keyed<T>(
   root: HTMLElement,
   spec: {
     id(item: T): string;
-    /** What the node shows beyond what never changes; a change rebuilds the node. */
+    /** Everything the node shows that can change; a change rebuilds the node. */
     key(item: T): string;
     build(item: T): HTMLElement;
   },
@@ -99,6 +99,8 @@ function keyed<T>(
 ```
 
 Nodes kept by id under `root`. `update` builds a node once for each id and builds it again only when its key changes. A new item's node is inserted at its place, a node whose item is gone is removed, and a node whose id and key are unchanged is not touched, so focus, scroll and hover stay where they are. `node` gives the node of an id; `clear` forgets every node and empties the root.
+
+**The `key` must include everything the node shows.** `keyed` compares nothing but the key: a node whose key is unchanged is never built again, so a part of the item that the node shows and the key leaves out stays as it was drawn. Put every part of the item the node draws into `key`, as a string, for example with `JSON.stringify` of a list of those parts.
 
 What changes often and costs nothing to redraw, such as selected or lit, is a class the application sets on `node(id)`, outside the key. A node built again starts without it, so those classes are set after every `update`.
 

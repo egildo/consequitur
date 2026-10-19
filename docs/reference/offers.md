@@ -29,6 +29,8 @@ A gist is offered when all of these hold:
 - the opening rule would stand: the opening gist only while no line of it is in force, any other gist only while exactly one is;
 - for a gist with a `revoke` binding, some line in force is of a gist it may revoke and was not written by a final goal. Those lines are its `targets`.
 
+A gist with no `when` is offered to every writer of a kin it lists, before that writer has joined any set or written any line. Only a `when` can limit it to those who have, for example with a guard on a set.
+
 The first gist schema of a gist is the one read. The lines the engine writes, a goal's and the records, are offered to nobody.
 
 ```ts

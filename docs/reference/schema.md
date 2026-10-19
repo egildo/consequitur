@@ -71,6 +71,13 @@ const { schema, problems } = readSchema(JSON.parse(text), BASE_KIT);
 if (problems.length > 0) throw new Error(problems.join(' '));
 ```
 
+### What the problems say
+
+A problem is a sentence for a developer, and two of them say less than a reader might expect:
+
+- **A misspelled key in a `value` binding is not named.** A binding that has no `key` or not exactly one of `from`, `value` and `collect` gets «a value binding has a key and exactly one of from, value and collect.» Any other wrong key (`requird` for `required`, an unknown key) gets «does not have exactly the keys and types of a value binding.» The sentence is prefixed with the binding's index and the gist, and the other kinds say the same of their own bindings.
+- **A problem in the schema is reported again as a missing schema.** When a gist schema fails to read it is left out, so the check of the head against the gists also says that a record gist or the opening gist «has no schema», when the cause is the gist's own problem, which is listed too. Read the problem that names the gist first.
+
 ## The head
 
 The keys a schema object may have are `name`, `version`, `opening`, `authority`, `sets`, `records`, `judged`, `guards`, `gists` and `laws`. Any other is a problem.
@@ -88,7 +95,7 @@ The keys a schema object may have are `name`, `version`, `opening`, `authority`,
 | `gists` | The gist schemas, a list. | Yes. |
 | `laws` | The law bindings, a list. | No; none when left out. |
 
-**Records.** A [record](glossary.md) is a line the authority writes to say a reconciliation changed a handle. `records` maps each role to its gist. Every role of every handle kind of the kit must be named; a role no handle kind answers with is a problem, and so is a missing one. `warning` may be named, for the [warning](glossary.md) a goal writes; without it the thread expects no warnings and no goal is judged lost. Each record gist must have a gist schema with no rules, since a record states nothing; its writers must hold the authority's kin, or `goal` for `warning`.
+**Records.** A [record](glossary.md) is a line the authority writes to say a reconciliation changed a handle. `records` maps each role to its gist. Every role of every handle kind of the kit must be named, even one the domain never uses: with `BASE_KIT`, a schema whose sets nobody leaves still names a `leave` gist and gives it a gist schema, or `readSchema` says `records lacks the role "leave".` A role no handle kind answers with is a problem, and so is a missing one. `warning` may be named, for the [warning](glossary.md) a goal writes; without it the thread expects no warnings and no goal is judged lost. Each record gist must have a gist schema with no rules, since a record states nothing; its writers must hold the authority's kin, or `goal` for `warning`.
 
 With `BASE_KIT` the roles are `value`, `join` and `leave`:
 
@@ -165,7 +172,6 @@ A law binding names its kind and its `strength`, `refuse` or `confirm`, and the 
 | `{ law: 'settles', strength }` | The thread, once the line and its reconciliations are read, is still not settled. |
 
 `keeps-set` names a set the head declares. Its `while` is a condition that may not read the writer, the draft or the instant; it is read on the handles after the line settles and on the lines then in force, as they are written, with the schema's guards. Its verdict carries `set`. `keeps-goals`' verdict carries `goal`, the goal's line, and `path`, the node that would make it lost.
-
 ## `readGists` and `readLaws`
 
 ```ts
@@ -287,7 +293,8 @@ interface LawKind {
 }
 ```
 
-`judge` gives one entry for each breach, each with a `detail` in English; the engine adds the law's name and strength to make a [verdict](posting.md#laws-and-verdicts).
+- `read` receives the whole binding, `strength` among its keys: `readSchema` has checked that it is `refuse` or `confirm`, and asks `read` after. A kind lists `strength` as a required key (`keysAre(binding, ['set', 'strength'])`), since a key it does not list is a problem, and returns the binding with `strength` in it, since the engine takes the strength from there.
+- `judge` gives one entry for each breach, each with a `detail` in English; the engine adds the law's name and strength to make a [verdict](posting.md#laws-and-verdicts).
 
 ### `keysAre` and `optionalFlag`
 

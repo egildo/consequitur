@@ -1,7 +1,6 @@
 # Glossary
 
-One entry per name. Status: settled — the names come from `sibardoc-prototype`, where Egildo gave most of them.
-A name links to the reference page that describes it, where one does.
+One entry per name. A name links to the reference page that describes it, where one does.
 
 | Name | What it is |
 |---|---|
@@ -45,11 +44,12 @@ A name links to the reference page that describes it, where one does.
 | **[final](reading.md#goals)** | A goal whose outcome can never be revoked. |
 | **[warning](reading.md#goals)** | The line a goal writes, `{ path }`, when its condition can no longer hold, once for each path: `path` names the node that made it so (a `line` node whose check names what the thread lost, or an `any` or `atLeast` with too few children left). |
 | **[when](offers.md)** | When a gist may be written: a condition, read with the writer, the draft and the instant the line is admitted at (`$now`). What the menu is built from: there the draft and the instant are unknown, and a gist is offered unless its `when` is false. |
-| **[offer](offers.md)** | A gist a writer may write now, with the lines it may name if it revokes. |
+| **[offer](offers.md)** | A gist a writer may write on the thread as it stands, with the lines it may name if it revokes. |
 | **[law](schema.md#law-bindings)** | A registered judgement on what a line would cause, with a strength: refuse, or confirm. The schema binds it, and its head says whose lines are `judged`. `keeps-set`'s `while` is a condition. |
 | **[verdict](posting.md#laws-and-verdicts)** | One law found broken by a dry run. |
 | **[dry run](posting.md#dryrun)** | A post whose result is kept and not applied: the lines it would add, the rounds, the verdicts. |
-| **[policy](posting.md#the-policy)** | Which denunciations an authority leaves unanswered, each entry with optional values the value handle must hold for it (`while`). Conf, outside the thread. A reading that only the policy keeps from settling counts as settled. |
+| **[refusal](posting.md#refusal-codes)** | The answer when a line cannot join a thread: a `code`, a sentence in `detail` for a developer, and, for a law, its `verdicts`. A refusal leaves the thread as it was. |
+| **[policy](posting.md#the-policy)** | Which denunciations an authority leaves unanswered, each entry with optional values the value handle must hold for it (`while`). Configuration, outside the thread. A reading that only the policy keeps from settling counts as settled. |
 | **[render](render.md)** | `consequitur-render`: helpers that turn a reading into DOM, owning no markup: each line's facts, nodes kept by line id, the dry-run preview loop, the **band** (the line drawn from a slot to a line, or between two elements). |
 | **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. It runs one domain at a time and has a picker for them. |
 | **case** | A domain's files in `cases/<domain>/`: its schema, its scenarios and, where it has one, its policy. The tests and the playground read the same files. |
@@ -59,7 +59,7 @@ A name links to the reference page that describes it, where one does.
 | **[reference](conditions.md#references)** | In a condition or a payload, what the thread expects under a name, read when the thread is read: `{ "$value": key }` (the value handle's key), `{ "$set": name }` (a set's members), and in a `when` only `$writer`, `$draft` and `{ "$now": "instant" }` (the instant the line is admitted at, which `post` and `dryRun` are given: the clock at the door). Only `$value` may stand in a payload. |
 | **[hole](reading.md#holes)** | A reference to a value no line in force states (a value stated through a reference counts for none: only the lines that hold no reference feed resolution). Awaited, never denounced: the reading lists it, with the lines that hold it, and a condition that reads it is false until a **fill** states it. |
 | **[fill](schema.md#value)** | A line that states the value a hole refers to: of a gist whose `value` rule takes its key from the payload. Later fill wins; revoking it gives back what stood before. It may not state a key a rule of the schema states. |
-| **misfit** | Something a schema author wanted that the engine cannot say. Each is recorded in [misfits.md](../project/misfits.md) with what the engine does today and the smallest change that would make it fit. |
+| **misfit** | Something a schema author wanted that the engine cannot say. Each is recorded in [misfits.md](../project/misfits.md) with what the engine does and the smallest change that would make it fit. |
 | **domain** | In the playground, a case together with the application's side of it, the **UI schema**: one module in `playground/src/domains/`. The rest of the page reads the domain in use and names no gist. |
 | **UI schema** | What an application needs to know about each gist beyond the schema: its words, its card, how a person composes it, how a goal awaits it. It is the application's, not the library's. |
 | **[consolidation](consolidation.md)** | Two threads made one: a new thread opens by naming the two **sources**, and each is replayed into it, the first's steps and then the second's, through `post` as any line is. Never a merge: the sources' chains are not interleaved, and the new lines are new lines. |

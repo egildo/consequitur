@@ -91,7 +91,9 @@ A schema's text is a list of top-level nodes, each one of `name`, `version`, `op
 
 **A gist** is its name, then the kins of its writers, as arguments, and no properties. Its children are its rule bindings, in order, and at most one `when`, which holds a condition in its body and nothing else.
 
-**A binding** is a node named for its rule, or `law <kind>` for a law. Its keys of plain value are its properties. A key whose value is a list is a child node with the items as arguments; one whose value is an object of plain values is a child node with them as properties. A key written twice is a problem.
+**A binding** is a node named for its rule, or `law <kind>` for a law. Its keys of plain value are its properties. A key whose value is a list is a child node with the items as arguments; one whose value is an object of plain values is a child node with them as properties. A key written as a child node when the node already holds it, as a property or as an earlier child, is a problem: «"key" is written twice on "value"».
+
+**A property written twice on one node is not reported.** The last one wins, in a binding, a `where`, a `records` node and a `law`: `value key=k key=j from=x` reads as `value` with the key `j`, and `fromKdl` gives no problem. `readSchema` cannot see it either, since the object holds one key. Write each property once.
 
 ```kdl
 gist memo_revoke user {

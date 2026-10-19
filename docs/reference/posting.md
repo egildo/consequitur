@@ -1,6 +1,6 @@
 # Posting
 
-This page covers how a line joins a [thread](glossary.md): admission, the [dry run](glossary.md) and the post, [reconciliation](glossary.md) and its rounds, the [laws](glossary.md) and their [verdicts](glossary.md), the [policy](glossary.md), the diff of two handles, and the refusals and their codes. Its functions are `emptyState`, `admit`, `payloadProblem`, `dryRun`, `post`, `settle`, `reconcile`, `answer`, `readPolicy` and `diff`.
+This page covers how a line joins a [thread](glossary.md): admission, the [dry run](glossary.md) and the post, [reconciliation](glossary.md) and its rounds, the [laws](glossary.md) and their [verdicts](glossary.md), the [policy](glossary.md), the diff of two handles, and the [refusals](glossary.md) and their codes. Its functions are `emptyState`, `admit`, `payloadProblem`, `dryRun`, `post`, `settle`, `reconcile`, `answer`, `readPolicy` and `diff`.
 
 `now` is always an argument: the engine reads no clock. It is the instant the lines are stamped at, and the instant a gist's `when` reads as `$now`. One that does not parse as a date is the caller's mistake and not a refusal: the function throws the platform's `RangeError` when it comes to stamp a line or read a `when`, and the state given is unchanged.
 
@@ -12,6 +12,9 @@ interface ThreadState {
   lines: EventLine[];
   handles: Handles;
 }
+
+/** What a writer hands over: the gist, the writer and the payload. */
+type LineDraft = Pick<EventLine, 'gist' | 'writer' | 'payload'>;
 
 interface Refusal {
   code: 'unknown-gist' | 'writer-not-allowed' | 'not-now' | 'invalid-payload' | 'unknown-line'
@@ -43,6 +46,21 @@ interface PostResult {
   rounds: Denunciation[][];
 }
 ```
+
+### What a `LineDraft` accepts
+
+`writer` is typed as `KIN::ID`, a template literal type, and `payload` as a `Payload`: a mutable object of JSON. So a draft kept in a variable without a type, `{ gist: 'vote', writer: 'user::ana', payload: {} }`, has `writer: string`, and TypeScript refuses it. Two ways make it fit:
+
+- annotate it: `const draft: LineDraft = { … }`;
+- write it `as const`, so that `writer` is the literal `'user::ana'`. A draft built so is accepted when its payload holds no list, since `as const` makes a list readonly and a readonly list is not `Json`. A payload with a list needs the annotation.
+
+```ts
+const vote = { gist: 'vote', writer: 'user::ana', payload: {} } as const; // accepted
+const memo = { gist: 'memo', writer: 'user::ana', payload: { assignTo: ['ana'] } } as const; // refused: the list is readonly
+const memoDraft: LineDraft = { gist: 'memo', writer: 'user::ana', payload: { assignTo: ['ana'] } }; // accepted
+```
+
+A draft that comes from outside, such as a request body, is a promise of the type and not a fact: [`admit`](#admit) refuses one that is not an object, or whose writer is not a well-formed string.
 
 ## `emptyState`
 
@@ -143,6 +161,17 @@ if (result.refusal) console.log(result.refusal.code, result.refusal.detail);
 else state = result.state;
 ```
 
+### What a post adds
+
+One post can add several lines, in this order, which `added` holds:
+
+1. **The draft's line**, stamped as it was handed.
+2. **What each round of settling writes**, round after round, until nothing is left to answer. In a round:
+   1. the lines goals owe, in the order of the [denunciations](reading.md#denunciations), goal by goal, by name, each goal's outcome before its warnings. A round writes the outcome of one goal at most;
+   2. then the [records](glossary.md), one for each difference between what the thread expects and the handles: the value handle's keys in sorted order, then the set handle's sets in sorted order, each with its members in sorted order.
+
+A goal's outcome is written in the round that finds its `when` met, before that round's records. What the outcome changes is recorded in the next round. In the tutorial's last vote, `added` is the vote, the goal's `close_vote`, the record for `voters` (round 1), and the record for `status` (round 2). `rounds` holds the denunciations each round answered, in this order.
+
 ## `settle`
 
 ```ts
@@ -191,7 +220,7 @@ interface Verdict {
 }
 ```
 
-The laws judge what a line would cause, once it has settled, and only a line whose writer is of a kin the head's `judged` lists: a line from outside states a fact that has already happened, so it is never judged. Each law of the schema is judged in its order, by its kind, with the thread before the line (its reading, its handles, its lines) and the thread after it, settled. Each breach is one verdict, with the law's name and strength. The base laws are on the [schema](schema.md#law-bindings) page.
+The laws judge what a line would cause, once it has settled, and only a line whose writer is of a kin the head's `judged` lists: a line from outside states a fact that has already happened, so it is never judged. Each law of the schema is judged in its order, by its kind, with the thread before the line (its reading, its handles, its lines) and the thread after it, settled. Each breach is one verdict, with the law's name and strength. The base laws are on the [schema](schema.md#law-bindings) page. The binding of a law reaches its kind's `read` with its `strength` among the keys, and `read` returns it so: see [law kinds](schema.md#law-kinds).
 
 ## The policy
 

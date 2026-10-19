@@ -171,6 +171,12 @@ The drill's next state. Without a stop, it plays the next step, with no choice. 
 
 A step is played with [`playScenario`](scenarios.md#playscenario) and `post`, at `now`, as its own writer, with the labels so far, the drill's nonce and policy, and the consolidation's seals: the first line posted declares the thread with them. A step refused, or one whose placeholder finds no line, stops the drill at the step with the state and the labels as they were. The drill is `done` once the last step is played or skipped.
 
+**The usual step stop is the second source's opening line.** The new thread already holds the first source's opening line in force, so posting the second's would leave two. The post is refused as `unreconcilable`, and the drill stops at that step with the refusal. A drill reaches it whenever both sources begin with the opening gist, and gets past it by a choice:
+
+- `skip` leaves the opening out. A later step of the second source that points at it by a label stops in its turn, at a placeholder that finds no line;
+- `edit` replaces it with a step of another gist that states what the opening stated, such as a line that adds a reviewer, and plays it at once;
+- `again` is no way past: it plays the same step against the same thread, and is refused the same way.
+
 It throws an `Error` when the drill is `done` or `aborted`, when a choice is given where the drill does not stop, and when the choice does not fit the stop.
 
 ```ts

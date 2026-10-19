@@ -166,4 +166,4 @@ A denunciation is one difference between what the thread expects and what is. Th
 2. `line`: the lines the goals owe, by goal name, each goal's outcome before its warning.
 3. `handle`: each handle kind's, in the kit's order of handle kinds, each in its kind's own order (see [handle kinds](schema.md#handle-kinds)).
 
-Each handle denunciation is answered by its kind; each line denunciation by writing the line; a thread denunciation by nothing. See [reconciliation](posting.md#reconcile-and-answer).
+Each handle denunciation is answered by its kind; each line denunciation by writing the line; a thread denunciation by nothing. See [reconciliation](posting.md#reconcile-and-answer). The order is the order of the lines a post adds: see [what a post adds](posting.md#what-a-post-adds).
