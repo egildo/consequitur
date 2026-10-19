@@ -71,7 +71,7 @@ function keyOfCheck(goal: GoalReading, path: string): string;
 - **A [hole](glossary.md)** is `opened` when its key is newly listed, `filled` when it is gone.
 - **The thread** is `settled` or `unsettled` when its settling flips.
 
-A reading is built fresh each time, so a host that keeps nodes by reference needs a key for what has no id of its own. `keyOf` gives one for a denunciation: equal for two that say the same thing in two readings, different otherwise. A `handle` one is keyed by its kind, key and member; a `line` one by the goal's line, the gist and the payload; a `thread` one by its rule. It does not read what is expected or found. `keyOfCheck` gives one for a node of a goal's condition: the goal's line id and the node's path, so two equal checks of one goal have two keys.
+A reading is built fresh each time, so a host that keeps nodes by reference needs a key for what has no id of its own. `keyOf` gives one for a denunciation: equal for two that say the same thing in two readings, different otherwise. A `handle` one is keyed by its kind, key and member; a `line` one a goal owes by the goal's line, the gist and the payload, and one a kin answers by the gist and the kin; a `thread` one by its rule. It does not read what is expected or found. `keyOfCheck` gives one for a node of a goal's condition: the goal's line id and the node's path, so two equal checks of one goal have two keys.
 
 ```ts
 for (const change of changes(before, after)) if (change.of === 'goal' && change.change === 'met') flash(change.key);

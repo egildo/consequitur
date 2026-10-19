@@ -132,7 +132,7 @@ What a post would do, kept and not applied. It changes nothing it is given.
 4. **Settle** with [`settle`](#settle) and `options.policy`.
 5. **Judge** the laws, when the draft's writer is of a kin the head's `judged` lists. See [laws and verdicts](#laws-and-verdicts).
 
-A refusal returns the state given, its reading, the refusal, and nothing added. Otherwise `state` is the state settled, `added` the draft's line and then every line reconciliation wrote, and `verdicts` every law broken, whatever its strength: a dry run refuses nothing for a verdict.
+A refusal returns the state given, its reading, the refusal, and nothing added. Otherwise `state` is the state settled, `added` the draft's line and then every line reconciliation wrote, and `verdicts` every law broken, whatever its strength: a dry run refuses nothing for a verdict. The reading's denunciations that name a `kin` are the lines the thread would then expect: a screen can say, before the line is sent, that an approval makes a publication expected.
 
 ## `post`
 
@@ -190,7 +190,7 @@ Reads the thread, and while the reading holds a denunciation the authority answe
 - **Each line** a round writes is stamped at `now` against the thread with the lines before it appended, so the chain holds.
 - **Reaching the bound** is a pause, not an error: the reading is not settled, and the next `post` or `settle` goes on. The law `settles` refuses a line that leaves the thread so.
 
-`rounds` holds, for each round that ran, the denunciations it answered. The reading returned counts as settled when its only denunciations are those `policy` leaves.
+`rounds` holds, for each round that ran, the denunciations it answered. The reading returned counts as settled when its only denunciations are those `policy` leaves and those a kin answers.
 
 ## `reconcile` and `answer`
 
@@ -199,9 +199,9 @@ function reconcile(reading: Reading, handles: Handles, schema: Schema): { handle
 function answer(reading: Reading, handles: Handles, policy?: Policy): Denunciation[];
 ```
 
-`reconcile` answers each denunciation of the reading, in its order. A handle denunciation is answered by its handle kind, which gives the new handle and the role of the [record](glossary.md); the record is drafted as the schema's `authority`, under the gist `records` names for that role. A role the head does not name changes nothing and writes nothing, since a handle must not change without a line. A line denunciation is drafted as it is, by the goal's writer. A thread denunciation has no answer. `drafts` follows the order of the denunciations.
+`reconcile` answers each denunciation of the reading, in its order. A handle denunciation is answered by its handle kind, which gives the new handle and the role of the [record](glossary.md); the record is drafted as the schema's `authority`, under the gist `records` names for that role. A role the head does not name changes nothing and writes nothing, since a handle must not change without a line. A line denunciation a goal owes is drafted as it is, by the goal's writer. A thread denunciation has no answer. `drafts` follows the order of the denunciations.
 
-`answer` gives the denunciations the authority answers: all but those of the thread, which nothing can reconcile, and those the policy leaves.
+`answer` gives the denunciations the authority answers: all but those of the thread, which nothing can reconcile, those that name a `kin`, which that kin answers by writing the line itself ([expected lines](reading.md#expected-lines)), and those the policy leaves.
 
 ## Laws and verdicts
 
@@ -237,7 +237,7 @@ function readPolicy(json: unknown, schema: Schema): { policy: Policy; problems: 
 
 Which denunciations the authority leaves unanswered. It is the authority's configuration, outside the thread: the thread says what is expected, the policy what the authority does not enforce. An entry leaves a denunciation when the denunciation equals every part of `leave` stated, `kind`, `key` and `member` read on a handle denunciation and `gist` on a line one; and, when there is a `while`, when each key of `while.values` is held by the value handle, as it stands at the start of each round, with an equal value. A thread denunciation is never left.
 
-A reading whose only denunciations a policy leaves counts as settled, with the denunciations still listed, so the bound is not reached and `settles` does not refuse the line.
+A reading whose only denunciations a policy leaves counts as settled, with the denunciations still listed, so the bound is not reached and `settles` does not refuse the line. A denunciation that names a `kin` needs no policy: the authority never answers it, and it leaves the reading settled.
 
 `readPolicy` reads a policy from JSON against the schema it will be passed with. It never throws. Every key is checked at every level: an entry has `leave` and may have `while`; `leave` has only `sort` (`handle` or `line`), `kind` (a handle kind of the kit), `key` and `member` (strings) and `gist` (a gist of the schema); `while` has only `values`, an object of JSON with at least one key. A policy with any problem is read as the empty policy, and the problems say why.
 

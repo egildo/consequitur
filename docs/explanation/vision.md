@@ -14,7 +14,9 @@ consequitur replaces that with a **thread**: an append-only list of **lines**, e
 name, its status, whom it concerns — is never written directly: it is **deduced** from the lines
 in force by **rules** that a **schema** binds to each gist. The engine compares what the thread
 expects with what the record holds, **denounces** every difference, and **reconciles** it by
-writing a line that says so. **Goals** turn conditions on the thread into new lines; **laws**
+writing a line that says so. A difference that is someone else's to answer, a line the thread
+**expects** from a system that must publish or a person who must sign, it denounces with the
+**kin** that answers it, and waits for that line. **Goals** turn conditions on the thread into new lines; **laws**
 judge what a line would cause before it is accepted; a **dry run** answers «what if this line
 were sent?» without sending it.
 
@@ -34,7 +36,7 @@ has to post a line.
 Each exclusion has a price if it is ever added back.
 
 **Not storage, not transport.** No database, no network, no sync. The engine takes a thread and
-returns one. *Adding it back* means opinions on persistence and concurrency inside a library
+returns one. It never calls anyone: what the thread expects from outside, it names, and the host acts. *Adding it back* means opinions on persistence and concurrency inside a library
 whose value is being pure.
 
 **Not collaborative editing.** Lines are appended and ordered by one authority; nothing is

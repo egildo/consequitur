@@ -1,6 +1,6 @@
 # How to be the authority of a thread
 
-This guide gets you the host's side of a thread: you state who writes, post lines with your own clock, store what is added, read a refusal, and check a stored thread.
+This guide gets you the host's side of a thread: you state who writes, post lines with your own clock, store what is added, read a refusal, check a stored thread, and answer the lines the thread expects of you.
 
 The host is the [authority](../reference/glossary.md): the engine trusts the writer, the instant and the nonce you give it, and reads no clock and no database of its own.
 
@@ -103,10 +103,40 @@ const sent = await post(emptyState(schema), draft, schema, now, { nonce });
 // preview.added and sent.added hold the same ids
 ```
 
+## Answer the lines the thread expects of you
+
+A gist whose schema has an [`expect`](../reference/schema.md#expected-lines) is expected from a kin while its condition holds, and the reading denounces it with that kin. The engine never writes it, and the thread stays settled. When the kin is one of yours, a worker of yours does the work in the world and posts the line.
+
+1. **Find the threads that expect something of your kin.** After each post, look at `result.reading.denunciations`; when one names your kin, put the thread on your worker's queue. A sweep over the threads still open finds the rest, after a restart for example.
+
+2. **Read what is expected.** Read the thread again: the queue says where to look, the reading says what is due now.
+
+   ```ts
+   import { consequitur, type Denunciation } from 'consequitur';
+
+   type Expected = Extract<Denunciation, { kin: string }>;
+
+   const { lines, handles } = await store.load(threadId);
+   const reading = consequitur(lines, handles, schema);
+   const mine = reading.denunciations.filter((d): d is Expected => 'kin' in d && d.kin === 'system');
+   // [{ sort: 'line', gist: 'published', kin: 'system', line: 'sha256:…' }]
+   ```
+
+   The denunciation names the gist, not its payload. Take what the work needs from `reading.expected`, as the condition read it.
+
+3. **Do the work so that twice is once.** The worker may stop after the work and before the line is posted; the next reading denounces the same line, and the work runs again. Make it idempotent: key it by what it acts on, a tag for a publication, or by the thread, the gist and `line`, which stay the same while nothing the condition reads changes.
+
+4. **Post the line, as your kin, through steps 3 to 5 above.** Give it the writer of your kin that does the work, `system::tabularium` for example, and store what the post adds. The line is admitted as any line is, so its gist's `when` must hold: a refusal here means the schema expects a line it does not allow, which is the schema's fault, not the worker's.
+
+5. **Post a failure, if the schema has a gist for it.** The line is still expected after a failure, so a retry needs nothing new: the next reading finds it. A line such as `publish_failed` keeps on the thread that the work was tried and why it failed.
+
+Nothing in this needs a table of messages beside the thread: what is expected is a reading of the lines you stored in one transaction, so the thread is your outbox. How long a line has been expected, the engine does not say, since it reads no clock: the timestamp of the line the denunciation names is when it became expected, at the latest, and lateness is yours to judge.
+
 ## Variations
 
 - **What a writer may post.** `offers(lines, writer, schema)` lists the gists, for a menu.
 - **Preview before sending.** `dryRun(state, draft, schema, now)` gives the same answer as `post` would, with `added`, `rounds` and every `verdicts` found, and changes nothing. See [How to preview a draft](preview-a-draft.md).
+- **A line expected of a person.** An `expect` may name the kin `user`. The reading then lists what a person is expected to write, and your application decides whether to remind them, wait or ignore it.
 - **A thread that is not settled.** `settle(state, schema, now, policy)` goes on where a bound stopped it; the next `post` does the same.
 
 ## See also

@@ -2,7 +2,7 @@
 
 This page covers the [condition](glossary.md) language as consequitur reads it: every node, every [reference](glossary.md), where each may stand, the three-valued answer, named [guards](glossary.md), the [check](glossary.md) a `line` node asks, the [trace](glossary.md), and the functions of the condition module. Each node is shown in JSON, the form a schema and a goal's payload hold, and in KDL, the form [`consequitur-kdl`](kdl.md) reads and writes.
 
-A condition stands in four places: a gist's [`when`](glossary.md), a [goal](glossary.md)'s `when`, a `keeps-set` law's `while`, and a named guard in the schema's head. consequitur evaluates it with [`kdlet-guards`](https://www.npmjs.com/package/kdlet-guards), on which it registers its two [words](glossary.md), `line` and `at-least`.
+A condition stands in five places: a gist's [`when`](glossary.md), a gist's [`expect`](schema.md#expected-lines), under its `while`, a [goal](glossary.md)'s `when`, a `keeps-set` law's `while`, and a named guard in the schema's head. consequitur evaluates it with [`kdlet-guards`](https://www.npmjs.com/package/kdlet-guards), on which it registers its two [words](glossary.md), `line` and `at-least`.
 
 ## Types
 
@@ -97,9 +97,9 @@ A reference is an object with one key, `$` and the place it reads from, naming a
 | `{ "$draft": key }` | `(draft)key` | A key of the draft's payload, with its references replaced. | A gist's `when`. |
 | `{ "$now": "instant" }` | `(now)instant` | The instant the line is admitted at, as [`stamp`](thread.md#stamp) writes it. | A gist's `when`. |
 
-`$writer`, `$draft` and `$now` stand only in a gist's `when`, and in a guard that only a `when` uses: a goal and a law that use such a guard are refused.
+`$writer`, `$draft` and `$now` stand only in a gist's `when`, and in a guard that only a `when` uses: a goal, an `expect` and a law that use such a guard are refused.
 
-`$value` and `$set` read the handles the condition is read with. In a gist's `when` and in a goal, those are what the thread expects, [`Reading.expected`](reading.md#consequitur). In a `keeps-set` law's `while`, they are the handles as the line leaves them, settled.
+`$value` and `$set` read the handles the condition is read with. In a gist's `when`, an `expect` and a goal, those are what the thread expects, [`Reading.expected`](reading.md#consequitur). In a `keeps-set` law's `while`, they are the handles as the line leaves them, settled.
 
 ## The answer
 

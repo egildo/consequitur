@@ -140,7 +140,7 @@ engine, render and `consequitur-kdl` know nothing of it.
 ## The boundary: mechanics and kinds
 
 **Mechanics** are the thread's own and the engine reads them: the envelope and its hash, the
-declaration on the first line, reading order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, the
+declaration on the first line, reading order, **revoke** and **goal** (bindings the engine reads itself), the opening rule, `when`, `expect`, the
 three steps of the reading, the loop and bound of reconciliation, and where laws sit in a post.
 A schema names a mechanic and gives it its words; it cannot replace it.
 
@@ -187,7 +187,7 @@ answers it, and the thread stays settled.
 2. **Append** it, stamped at the instant the host gives; on an empty thread, with the declaration. Refuse it
    if the opening rule would break, since no reconciliation could answer that.
 3. **Settle**: read; the handle kinds compare what the thread expects with the handles; the authority
-   answers what its policy does not leave; each handle kind answers its own, and each record is written as
+   answers what its policy does not leave and no kin answers; each handle kind answers its own, and each record is written as
    the authority; repeat, one goal's outcome a round in thread order, within the bound the goals give
    ([goals fire in thread order](decisions/goals-fire-in-thread-order.md)).
 4. **Judge** what the line left behind, if its writer's kin is judged: each law of the schema. A fact from
@@ -197,3 +197,50 @@ answers it, and the thread stays settled.
 `diff` then tells a host, kind by kind, what to apply to its own copy of the handles. The engine reads no
 clock: the instant is always the host's argument, so a dry run and a post, given one instant and one nonce,
 give the same lines.
+
+## Who answers a denunciation
+
+A denunciation is a difference between what the thread expects and what is, and each has one answerer
+([a denunciation names who answers it](decisions/a-denunciation-names-who-answers-it.md)):
+
+- **the engine**, for the authority: a difference in a handle, answered by a record, and a line a goal owes,
+  written by the goal. A post writes them before it returns;
+- **a kin**: a line the thread expects, by a gist's `expect`, while its condition holds. The denunciation
+  names the kin, and the engine never writes the line;
+- **nobody**: the opening rule. No line can mend a thread with no opening, or two.
+
+A hole is answered by a person too, but it is listed apart and not denounced
+([holes are unstated values](decisions/holes-are-unstated-values.md)).
+
+`settled` means that nothing is left that the engine answers. A thread that waits for a kin is settled: the
+bound, the law `settles` and the policy read it so.
+
+## Around the engine
+
+The engine is one part of four, and the only one in these packages.
+
+- **The engine** reads, admits, settles and judges. It holds no state between calls, reads no clock and
+  calls nobody.
+- **The host**, the thread's authority, is the application's server. It states each writer from the identity
+  it authenticated, posts with its own clock, one post a thread at a time, and stores the lines a post adds
+  and the handles in one transaction ([How to be the authority](../how-to/be-the-authority.md)).
+- **The kins that answer** are whoever the schema expects a line of: a worker of the host, another system, a
+  person. Each reads the denunciations that name its kin, does the work in the world, and posts the line,
+  through the host, as a writer of that kin; it is admitted as any line is. If the work fails, it posts the
+  line the schema gives for a failure, when there is one.
+- **The clients** dry-run a draft and show what it would cause, the lines the thread would then expect
+  included; what they show is advice, and the host's post is the answer
+  ([principles](principles.md), «The server decides, a client previews»).
+
+Nothing passes between the engine and a kin but lines. The engine names what it expects; the kin answers
+by writing; the next reading finds the denunciation gone. So there is no message to deliver and no queue in
+the engine: the thread is the outbox. A denunciation is a reading of lines the host stored in one transaction
+with the post that made it, so what is expected and the state are committed together. Where a kin finds the
+threads that expect something of it, a queue fed after each post or a sweep over open threads, is the host's
+choice.
+
+The reading is level-triggered, as Kubernetes' controllers are: an expected line is denounced for as long as
+its condition holds, not once when it starts to. A worker that stops loses nothing, since the next reading
+denounces the same line. It may also act twice: the work was done and the line not yet posted when it
+stopped. So the work must be idempotent, keyed by what it acts on, or by the thread, the gist and the line
+the denunciation names.

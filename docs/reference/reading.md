@@ -1,6 +1,6 @@
 # The reading
 
-This page covers the [reading](glossary.md): which lines are [in force](glossary.md) and which are revoked, what the lines expect of the [handles](glossary.md), the [goals](glossary.md) and their [trace](glossary.md), the [holes](glossary.md), the [denunciations](glossary.md), and what a `Reading` holds. Its functions are `consequitur`, `expectations`, `inForce`, `lockedBy` and `goalWriter`.
+This page covers the [reading](glossary.md): which lines are [in force](glossary.md) and which are revoked, what the lines expect of the [handles](glossary.md), the [goals](glossary.md) and their [trace](glossary.md), the lines the thread expects from a [kin](glossary.md), the [holes](glossary.md), the [denunciations](glossary.md) and who answers each, and what a `Reading` holds. Its functions are `consequitur`, `expectations`, `inForce`, `lockedBy` and `goalWriter`.
 
 The reading is pure and synchronous. It reads no clock, draws no randomness and hashes nothing, so a client and the authority read one thread the same way. It never throws on a thread that is one chain declared for its schema: a payload that lacks what a binding reads, or holds it in another shape, states nothing. A thread that is not one chain, or is declared for another schema, is refused whole, by [`inOrder`](thread.md#inorder).
 
@@ -19,6 +19,7 @@ interface Reading {
   holes: Hole[];
   goals: GoalReading[];
   denunciations: Denunciation[];
+  /** No denunciation is left that the engine answers. */
   settled: boolean;
 }
 ```
@@ -32,13 +33,13 @@ function consequitur(lines: EventLine[], handles: Handles, schema: Schema): Read
 The reading of a thread against its handles, in three steps:
 
 1. **In force.** Which lines stand, and which a revoke has taken out.
-2. **Expectations.** What the lines in force expect of each handle, by every rule of their gists; the goals and what they owe; the holes.
+2. **Expectations.** What the lines in force expect of each handle, by every rule of their gists; the goals and what they owe; the lines the thread expects from a kin; the holes.
 3. **Comparison.** Each handle kind compares what the thread expects with the handle it is given, and the opening rule is checked.
 
 - `inForce` and `revoked` are line ids, in reading order.
 - `expected` is what the thread expects each handle to be, in each kind's form: a host that holds these handles agrees with the thread.
 - `holes`, `goals` and `denunciations` are below.
-- `settled` is true when there is no denunciation. [`settle`](posting.md#settle), [`dryRun`](posting.md#dryrun) and [`post`](posting.md#post) also count as settled a reading whose only denunciations the [policy](posting.md#the-policy) leaves.
+- `settled` is true when there is no denunciation the engine answers: one that names a `kin` is that kin's, and leaves the thread settled. [`settle`](posting.md#settle), [`dryRun`](posting.md#dryrun) and [`post`](posting.md#post) also count as settled a reading whose only denunciations the [policy](posting.md#the-policy) leaves.
 
 A line whose gist has no gist schema is in force and states nothing. The first gist schema of a gist is the one read.
 
@@ -78,6 +79,8 @@ interface Expectations {
   goals: GoalReading[];
   /** The lines the goals still owe, goal by goal: the outcome, then the warning. */
   missing: Denunciation[];
+  /** The lines the thread expects from a kin, in the order of the schema's gists. */
+  owed: Denunciation[];
 }
 ```
 
@@ -89,6 +92,18 @@ What the lines expect is read in reading order, the later line winning, by each 
 2. every line is read, with each reference replaced by the value `values` holds under its key, and one that names a key `values` lacks left out, as a key of its object or an item of its list.
 
 A value stated through a reference serves no other reference. Where no line holds a reference the first pass is the only one. A goal's line is read as it is written, since its `when` and its `with` hold references of their own. A line as stored keeps its reference, and its id covers it.
+
+## Expected lines
+
+A gist whose schema holds an [`expect`](schema.md#expected-lines) is expected while the condition under its `while` holds: the thread expects a line of the gist from a writer of the kin `expect` names. The condition is read as a goal's is, against what the thread expects and the lines in force, each with its references replaced. Each gist so expected is one entry of `owed`, and one denunciation of the reading:
+
+```ts
+{ sort: 'line', gist: 'published', kin: 'system', line: 'sha256:…' }
+```
+
+`line` is the line that made the gist expected: the latest line in force, in reading order, among the lines the condition reads. Those are, for each `$value` key, the line that states the value; for each `$set`, the lines that joined its present members; for each `line` node, the lines in force it matches; through a guard too. A condition that reads no line names the opening line. Its timestamp tells a host since when the line has been expected, at the latest: a line that changes what the condition reads without changing whether it holds names a later line.
+
+The denunciation carries no payload. The kin reads what it needs to do the work from `expected`, and writes the line; the line changes what the condition reads, and the next reading no longer denounces it. If the condition still holds after the line, the gist is still expected.
 
 ## Holes
 
@@ -156,14 +171,17 @@ type Denunciation =
   | HandleDenunciation
   /** A line a goal owes the thread: its outcome once met, or a warning. `line` is the goal. */
   | { sort: 'line'; gist: string; writer: Writer; line: LineId; payload: Payload }
+  /** A line the thread expects from a kin, which that kin answers. `line` made it expected. */
+  | { sort: 'line'; gist: string; kin: string; line: LineId }
   /** The opening rule: exactly one line of the opening gist in force. Nothing can reconcile it. */
   | { sort: 'thread'; rule: 'one-opening'; found: number };
 ```
 
-A denunciation is one difference between what the thread expects and what is. They come in a fixed order:
+A denunciation is one difference between what the thread expects and what is. A denunciation that names a `kin` is that kin's to answer; every other is the engine's, or nobody's. They come in a fixed order:
 
 1. `thread`: the opening rule, when the thread does not hold exactly one line of the opening gist in force. `found` is how many it holds.
 2. `line`: the lines the goals owe, by goal name, each goal's outcome before its warning.
 3. `handle`: each handle kind's, in the kit's order of handle kinds, each in its kind's own order (see [handle kinds](schema.md#handle-kinds)).
+4. `line` with a `kin`: the [expected lines](#expected-lines), in the order of the schema's gists.
 
-Each handle denunciation is answered by its kind; each line denunciation by writing the line; a thread denunciation by nothing. See [reconciliation](posting.md#reconcile-and-answer). The order is the order of the lines a post adds: see [what a post adds](posting.md#what-a-post-adds).
+Each handle denunciation is answered by its kind; each line denunciation a goal owes by writing the line; each one with a `kin` by that kin, which writes the line itself; a thread denunciation by nothing. See [reconciliation](posting.md#reconcile-and-answer). The first three come in the order of the lines a post adds: see [what a post adds](posting.md#what-a-post-adds). A post adds none of the fourth.

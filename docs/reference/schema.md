@@ -31,6 +31,14 @@ interface GistSchema {
   rules: RuleBinding[];
   /** When it may be written; a gist with none may be written at any point of a thread. */
   when?: Condition;
+  /** Who the thread expects a line of this gist from, and while what holds. */
+  expect?: Expect;
+}
+
+/** A line the thread expects from a kin while its condition holds. */
+interface Expect {
+  kin: string;
+  while: Condition;
 }
 
 /** A rule as a gist schema binds it: the kind's name and the payload keys it reads. */
@@ -109,12 +117,33 @@ With `BASE_KIT` the roles are `value`, `join` and `leave`:
 { "gist": "quit", "writers": ["user"], "rules": [{ "rule": "leave", "set": "assignees" }], "when": { "guard": "assignee" } }
 ```
 
-A gist schema has the keys `gist`, `writers` and `rules`, may have `when`, and has no other.
+A gist schema has the keys `gist`, `writers` and `rules`, may have `when` and `expect`, and has no other.
 
 - `gist`: lower snake case, starting with a letter, at most 32 characters. A gist with a schema earlier in the list is a problem.
 - `writers`: a list of kins, not empty. The kin `goal` lets a [goal](glossary.md) write the gist; a draft of kin `goal` is never admitted from outside.
 - `rules`: a list of bindings, at most one `revoke` and at most one `goal`. Each names a rule of the kit or a mechanic, and is read by its kind.
 - `when`: a [condition](conditions.md), read with the writer, the draft and the instant the line is admitted at. See [offers](offers.md) and [`admit`](posting.md#admit).
+- `expect`: the kin the thread expects a line of this gist from, and the condition under `while` for as long as it does. See [expected lines](#expected-lines).
+
+### Expected lines
+
+```json
+{ "gist": "published", "writers": ["system"], "rules": [ … ],
+  "expect": { "kin": "system", "while": { "all": [
+    { "has": { "$value": "approved" } },
+    { "not": { "is": { "$value": "approved" }, "values": [{ "$value": "published" }] } }
+  ] } } }
+```
+
+While its `while` holds, the thread expects a line of the gist from a writer of the kin, and the reading denounces it with the kin that answers it ([denunciations](reading.md#denunciations)). The engine never writes it: the kin does the work and posts the line, and the denunciation clears when the line makes the condition false. Write into the condition that the work is not yet done, here that the approved tag is not the published one, or the line is expected for ever.
+
+`expect` has exactly the keys `kin` and `while`. Each of these is a problem:
+
+- a `kin` the gist's `writers` do not list, or the kin `goal`;
+- an `expect` on a record gist, or on the opening gist;
+- a `while` that is not a condition, or that reads `$writer`, `$draft` or `$now`, through a guard either, as a goal's `when` may not.
+
+The `while` is read as a goal's `when` is: against what the thread expects and the lines in force, each with its references replaced, with the schema's guards. Whether the gist's `when` admits the line while the line is expected is not checked: a scenario of the case pins it.
 
 ## Rule bindings
 
@@ -169,7 +198,7 @@ A law binding names its kind and its `strength`, `refuse` or `confirm`, and the 
 |---|---|
 | `{ law: 'keeps-set', set, strength, while? }` | Once the line has settled, the set is empty, and `while`, when there is one, holds. |
 | `{ law: 'keeps-goals', strength }` | The line makes a goal in force lost, through a node it was not lost through before. One verdict for each goal. |
-| `{ law: 'settles', strength }` | The thread, once the line and its reconciliations are read, is still not settled. |
+| `{ law: 'settles', strength }` | The thread, once the line and its reconciliations are read, is still not settled. A line a kin is expected to write leaves it settled. |
 
 `keeps-set` names a set the head declares. Its `while` is a condition that may not read the writer, the draft or the instant; it is read on the handles after the line settles and on the lines then in force, as they are written, with the schema's guards. Its verdict carries `set`. `keeps-goals`' verdict carries `goal`, the goal's line, and `path`, the node that would make it lost.
 ## `readGists` and `readLaws`

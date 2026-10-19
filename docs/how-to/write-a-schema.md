@@ -155,6 +155,7 @@ npm install consequitur consequitur-kdl
 
 - **Keep the schema as JSON from a schema you hold.** `schemaJson(schema)` writes a read schema back as JSON, without its kit.
 - **Warn when a goal is lost.** Name a gist for `warning` in `records` (`"warning": "goal_warning"`), and give that gist a schema with `"goal"` as its only writer.
+- **Expect a line from someone outside the engine.** Give the gist an `expect`, with the kin that must write it and the condition under `while` for as long as it must: a publication while the approved version is not the published one. Write «not yet done» into the condition. See [expected lines](../reference/schema.md#expected-lines), and [How to be the authority](be-the-authority.md) for the side that answers.
 - **Use a kind of your own.** Read against a larger kit: `readSchema(json, kit)`. See [How to add a kind to a kit](add-a-kind.md). `fromKdl` needs no kit.
 
 ## See also

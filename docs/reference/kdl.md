@@ -84,12 +84,12 @@ A schema's text is a list of top-level nodes, each one of `name`, `version`, `op
 | `records` | `records <role>=<gist>…` | `records` |
 | `judged` | `judged <kin>…` | `judged` |
 | `guard` | `guard <name> { <condition> }` | one entry of `guards` |
-| `gist` | `gist <name> <kin>… { <binding>… when { <condition> } }` | one entry of `gists` |
+| `gist` | `gist <name> <kin>… { <binding>… when { <condition> } expect kin=<kin> { <condition> } }` | one entry of `gists` |
 | `law` | `law <kind> <key>=<value>… { while { <condition> } }` | one entry of `laws` |
 
 `name`, `version`, `opening`, `authority`, `sets`, `records` and `judged` are written once each; a second is a problem, and so is a guard name written twice. `version` holds one number and nothing else; `records` holds properties only.
 
-**A gist** is its name, then the kins of its writers, as arguments, and no properties. Its children are its rule bindings, in order, and at most one `when`, which holds a condition in its body and nothing else.
+**A gist** is its name, then the kins of its writers, as arguments, and no properties. Its children are its rule bindings, in order, at most one `when`, which holds a condition in its body and nothing else, and at most one `expect`, whose one property is `kin` and whose body is the condition read as its `while`. `when` and `expect` are not bindings, so a rule kind of either name cannot be written in KDL.
 
 **A binding** is a node named for its rule, or `law <kind>` for a law. Its keys of plain value are its properties. A key whose value is a list is a child node with the items as arguments; one whose value is an object of plain values is a child node with them as properties. A key written as a child node when the node already holds it, as a property or as an earlier child, is a problem: «"key" is written twice on "value"».
 
@@ -108,7 +108,19 @@ gist inbound system {
 }
 ```
 
-A law's `while` is a child node that holds a condition in its body, as a `when` does.
+A law's `while` is a child node that holds a condition in its body, as a `when` does. An `expect` holds its condition in its own body, as a `when` does, since it has only the one:
+
+```kdl
+gist published system {
+    value from=tag key=published required=#true
+    expect kin=system {
+        has (value)approved
+        not {
+            is (value)approved (value)published
+        }
+    }
+}
+```
 
 ## Conditions
 
