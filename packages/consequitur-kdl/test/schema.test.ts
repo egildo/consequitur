@@ -100,6 +100,17 @@ describe('conditions', () => {
   });
 });
 
+describe('a property written twice', () => {
+  it.each([
+    ['a binding', 'gist a user {\n  value key=k key=j from=x\n}', '"key" is written twice on "value"', 2, 15],
+    ['a where', 'gist a user {\n  revoke from=x {\n    where a=1 a=2\n  }\n}', '"a" is written twice on "where"', 3, 15],
+    ['records', 'records join=a join=b', '"join" is written twice on "records"', 1, 16],
+    ['a law', 'law keeps-set set=a set=b', '"set" is written twice on "law"', 1, 21],
+  ])('%s', (_, text, message, line, column) => {
+    expect(fromKdl(text).problems).toEqual([{ message, line, column }]);
+  });
+});
+
 describe('what the reader refuses', () => {
   const problemsOf = (text: string) => fromKdl(text).problems;
 

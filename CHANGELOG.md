@@ -4,6 +4,10 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- `fromKdl` reports a property written twice on one node (`value key=k key=j`, `where a=1 a=2`, `records join=a join=b`) as a problem, at the second; it used to keep the last without a word.
+
 ### Changed
 
 - The documents are reorganised into a [tutorial](docs/tutorial/your-first-thread.md), [how-to guides](docs/how-to/README.md), [reference](docs/reference/README.md) and [explanation](docs/explanation/README.md). No code changed.

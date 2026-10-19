@@ -85,12 +85,19 @@ function word(sink: Sink, node: Node): string | undefined {
   return all.length === 1 ? all[0] : undefined;
 }
 
-/** The properties of a node, as an object of plain values. */
+/** The properties of a node, as an object of plain values; the entries are read, not a map of them, so a property written twice is seen, and the first stands. */
 function propsOf(sink: Sink, node: Node, what: string): Record<string, Primitive> {
   const out: Record<string, Primitive> = {};
+  const seen = new Set<string>();
   for (const entry of entriesOf(node).props) {
+    const key = entry.getName()!;
+    if (seen.has(key)) {
+      problem(sink, `"${key}" is written twice on "${node.getName()}"`, entry);
+      continue;
+    }
+    seen.add(key);
     const value = plain(sink, entry, what);
-    if (value !== undefined) out[entry.getName()!] = value;
+    if (value !== undefined) out[key] = value;
   }
   return out;
 }
@@ -115,7 +122,13 @@ function readCheck(sink: Sink, node: Node): Check {
       continue;
     }
     const payload: Payload = {};
+    const written = new Set<string>();
     for (const entry of child.getPropertyEntries()) {
+      if (written.has(entry.getName()!)) {
+        problem(sink, `"${entry.getName()}" is written twice on "payload"`, entry);
+        continue;
+      }
+      written.add(entry.getName()!);
       const tag = entry.getTag();
       const value = entry.getValue();
       if (tag === null) payload[entry.getName()!] = value;
