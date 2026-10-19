@@ -14,10 +14,10 @@ parser too. «Zero dependencies» forbade both.
 ## Decision
 
 The principle becomes «Chosen dependencies»: a dependency is allowed when it does more than a few
-lines of ours would and its graph has been read; each is named in `architecture.md` with what it
+lines of ours would and its graph has been read; each is named in `how-it-works.md` with what it
 does for us. The engine's reading stays pure, whatever it depends on.
 
 ## Consequences
 
 `consequitur` may depend on `kdlet-guards`; `consequitur-kdl` on `@bgotink/kdl`. A consumer of the
-engine now installs what those bring; `architecture.md` keeps the list honest.
+engine now installs what those bring; `how-it-works.md` keeps the list honest.

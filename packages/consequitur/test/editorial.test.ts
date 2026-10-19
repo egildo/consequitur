@@ -1,7 +1,7 @@
 // The editorial review, a second domain unlike SIBAR's activities, chosen so that what did not fit
 // the engine would show. The case (`cases/editorial-review/`) is read as the playground reads it; the
 // first describes play its three scenarios, and the last shows, one test each, that the five misfits of
-// `docs/misfits.md` now fit.
+// `docs/project/misfits.md` now fit.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

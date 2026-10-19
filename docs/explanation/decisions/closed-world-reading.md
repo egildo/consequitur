@@ -1,6 +1,6 @@
 # The reading is closed-world; only the draft is unknown
 
-Status: settled 2026-10-06. The one unknown is built in the round «Conditions» ([plan](../plan.md) §4), in `kdlet-guards` first; the closed world needs no building, it is what the reading does.
+Status: settled 2026-10-06. The one unknown is built in the round «Conditions» ([plan](../../project/plan.md) §4), in `kdlet-guards` first; the closed world needs no building, it is what the reading does.
 
 ## Context
 

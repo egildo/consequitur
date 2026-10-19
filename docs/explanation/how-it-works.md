@@ -1,7 +1,7 @@
 # Architecture
 
-Status: as built after round 14, «Publish 0.1.0». What the engine does is in [specs/engine.md](specs/engine.md);
-why it is built so is in the [principles](principles.md); the names are in the [glossary](glossary.md).
+Status: as built after round 14, «Publish 0.1.0». What the engine does is in [specs/engine.md](../project/specs/engine.md);
+why it is built so is in the [principles](principles.md); the names are in the [glossary](../reference/glossary.md).
 
 ## The packages
 
@@ -54,14 +54,14 @@ plays the warehouse's: «Tuesday», `prune` and `stepsOf` of it, «Saved» with 
 against «Tuesday», and «Second assignee». `test/holes.test.ts` tests the two passes, `Reading.holes`, the fill and
 admission of a reference on a toy schema.
 `test/editorial.test.ts` plays the review's three, with assertions at the steps that matter, and shows, one
-test each, that the five misfits of [misfits.md](misfits.md) now fit. `test/condition.test.ts` tests the
+test each, that the five misfits of [misfits.md](../project/misfits.md) now fit. `test/condition.test.ts` tests the
 condition module on its own: the reader's rules, the translation both ways, the evaluation with the draft
 unknown, and what can no longer hold.
 
 ## Consolidation
 
 Two threads are made one by replay, never by merge ([threads are consolidated, never
-merged](decisions/threads-are-consolidated-never-merged.md), [spec](specs/consolidation.md)).
+merged](decisions/threads-are-consolidated-never-merged.md), [spec](../project/specs/consolidation.md)).
 `consolidate(first, second)` is the pure preparing function: it refuses a source that is not one chain
 declared for its schema, takes each source's `replayed` lines as steps (labels prefixed `1:` and `2:`),
 derives the schema with `deriveSchema` and gives the two seals. `startDrill` and `stepDrill` then play the

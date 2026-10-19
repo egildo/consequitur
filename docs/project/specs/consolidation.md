@@ -1,6 +1,6 @@
 # Consolidation — spec
 
-Status: built in the round «Consolidation» ([plan](../plan.md) §4), from the decision [threads are consolidated, never merged](../decisions/threads-are-consolidated-never-merged.md); the playground's panel came with the round «The drill in the playground». Words as in the [glossary](../glossary.md).
+Status: built in the round «Consolidation» ([plan](../plan.md) §4), from the decision [threads are consolidated, never merged](../../explanation/decisions/threads-are-consolidated-never-merged.md); the playground's panel came with the round «The drill in the playground». Words as in the [glossary](../../reference/glossary.md).
 
 A **consolidation** makes one new thread of two finished ones, the **sources**: each is replayed, one after the other, into a thread that opens by naming them. The package gives four things: the sources named in the **declaration**, a **derived schema** with its **schema conflicts**, a preparing function, and a **drill** that walks the replay and waits for a choice where it cannot go on. Nothing here reads a clock, draws randomness or touches storage; `now` is an argument of every step.
 

@@ -2962,7 +2962,7 @@ describe('the package', () => {
     for (const file of files) {
       for (const path of sourcesOf(readFileSync(join(dir, file), 'utf8'))) {
         seen++;
-        // the one dependency, named in architecture.md: the condition language
+        // the one dependency, named in docs/explanation/how-it-works.md: the condition language
         if (path === 'kdlet-guards') continue;
         expect(path, `${file} imports ${path}`).toMatch(/^\.\.?\/(?:[a-z-]+\/)*[a-z-]+\.ts$/);
         const target = relative(dir, resolve(dir, join(file, '..', path)));

@@ -41,6 +41,6 @@ A schema can also be written in KDL with [`consequitur-kdl`](https://www.npmjs.c
 
 ## Documents
 
-The vision, the principles, the glossary of every name, the specs and the decisions are in the repository's `docs/`: https://codeberg.org/egildo/consequitur
+The documents are in five shelves: [tutorial](https://codeberg.org/egildo/consequitur/src/branch/main/docs/tutorial/), [how-to guides](https://codeberg.org/egildo/consequitur/src/branch/main/docs/how-to/), [reference](https://codeberg.org/egildo/consequitur/src/branch/main/docs/reference/), [explanation](https://codeberg.org/egildo/consequitur/src/branch/main/docs/explanation/) and [project](https://codeberg.org/egildo/consequitur/src/branch/main/docs/project/), all in [`docs/`](https://codeberg.org/egildo/consequitur/src/branch/main/docs/) of the repository.
 
 MIT.

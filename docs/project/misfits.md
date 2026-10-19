@@ -1,6 +1,6 @@
 # What did not fit
 
-Status: recorded in round 5 ([plan](plan.md) §4), from the editorial review ([spec](specs/editorial-review.md)):
+Status: all five fit since the round «Conditions»; the page is kept as a record. Recorded in round 5 ([plan](plan.md) §4), from the editorial review ([spec](specs/editorial-review.md)):
 a second domain, chosen to be unlike SIBAR's activities, so that what the engine cannot say would show.
 Five things a schema author wanted did not fit. All five fit since the round «Conditions», which answered
 them together with one condition language ([conditions](specs/conditions.md)) rather than five keys. Each
@@ -21,7 +21,7 @@ approvals of the version written into it. Every new version meant revoking the g
 which is what scenario «published» did (the step «goal-v2»).
 
 **Now.** A check's payload value may be a reference, `{ "$value": "version" }`, resolved against the value
-the thread expects when the goal is read ([value references in checks](decisions/value-references-in-checks.md)).
+the thread expects when the goal is read ([value references in checks](../explanation/decisions/value-references-in-checks.md)).
 The goal set at v1 awaits v2 once v2 is posted; the trace shows each check as matched. A reference to a key
 no line states leaves the check unmet and is never lost, so it writes no warning. Scenario «published» has
 one goal and no step «goal-v2». Proved by: *1 · one goal follows the version the thread holds, and a key

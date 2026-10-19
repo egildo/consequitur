@@ -26,4 +26,8 @@ for (const facts of lineFacts(state.lines, reading, schema)) {
 
 Its one dependency is `consequitur`. `keyed`, `previewer` and `band` touch the DOM and take it as an argument or from `document`.
 
-MIT. Specs and sources: https://codeberg.org/egildo/consequitur
+## Documents
+
+The documents are in five shelves: [tutorial](https://codeberg.org/egildo/consequitur/src/branch/main/docs/tutorial/), [how-to guides](https://codeberg.org/egildo/consequitur/src/branch/main/docs/how-to/), [reference](https://codeberg.org/egildo/consequitur/src/branch/main/docs/reference/), [explanation](https://codeberg.org/egildo/consequitur/src/branch/main/docs/explanation/) and [project](https://codeberg.org/egildo/consequitur/src/branch/main/docs/project/), all in [`docs/`](https://codeberg.org/egildo/consequitur/src/branch/main/docs/) of the repository.
+
+MIT.

@@ -54,7 +54,7 @@ behaviour: the vocabulary grows without the core learning a domain.
 ## Chosen dependencies
 
 **Forbids** a dependency for what a few lines of our own would do, and one whose transitive graph
-nobody has read. Each runtime dependency of a package is named in [architecture](architecture.md)
+nobody has read. Each runtime dependency of a package is named in [architecture](how-it-works.md)
 with what it does for us; the engine's reading stays pure whatever it depends on. Hashing uses
 the platform's WebCrypto.
 
@@ -81,7 +81,7 @@ publish build is additive.
 ## A closed vocabulary
 
 **Forbids** a second name for one thing, in code, documents or conversation, and a term the
-[glossary](glossary.md) does not hold. A term is added by amending the glossary, when the
+[glossary](../reference/glossary.md) does not hold. A term is added by amending the glossary, when the
 existing ones cannot say what is needed.
 
 **From** the round that renamed «guards» to rules and «shell» out of the model: every extra name

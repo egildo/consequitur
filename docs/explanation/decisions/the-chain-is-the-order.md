@@ -1,6 +1,6 @@
 # The chain is the order
 
-Status: settled 2026-10-06, built in the round «Chain order» ([plan](../plan.md) §4). One of the three decisions that change ids for ever, so it binds before publishing 0.1.0.
+Status: settled 2026-10-06, built in the round «Chain order» ([plan](../../project/plan.md) §4). One of the three decisions that change ids for ever, so it binds before publishing 0.1.0.
 
 ## Context
 

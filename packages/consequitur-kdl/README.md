@@ -23,4 +23,8 @@ toKdl(json); // back to text
 
 Dependencies: `consequitur`, `kdlet-guards` (its `kdlet-guards/kdl` entry reads and writes a condition's nodes) and `@bgotink/kdl`, which parses and formats KDL.
 
-MIT. Specs and sources: https://codeberg.org/egildo/consequitur
+## Documents
+
+The documents are in five shelves: [tutorial](https://codeberg.org/egildo/consequitur/src/branch/main/docs/tutorial/), [how-to guides](https://codeberg.org/egildo/consequitur/src/branch/main/docs/how-to/), [reference](https://codeberg.org/egildo/consequitur/src/branch/main/docs/reference/), [explanation](https://codeberg.org/egildo/consequitur/src/branch/main/docs/explanation/) and [project](https://codeberg.org/egildo/consequitur/src/branch/main/docs/project/), all in [`docs/`](https://codeberg.org/egildo/consequitur/src/branch/main/docs/) of the repository.
+
+MIT.

@@ -1,8 +1,8 @@
 # Conditions — spec
 
 Status: §1 to §6 built in the round «Conditions» ([plan](../plan.md) §4), where the build chose as §6 and §8 say. From the decision
-[conditions are kdlet's guards](../decisions/conditions-are-kdlt-guards.md). Built on the module
-`kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is built in the round «Holes», from [holes are unstated values](../decisions/holes-are-unstated-values.md), and §8 says where it chose; the firing order of goals is in the [engine spec](engine.md) §7. The four comparisons and `$now` are built in the round «Comparisons», from [times are compared as stated](../decisions/times-are-compared-as-stated.md), on `kdlet-guards` 0.3, and §8 says where it chose.
+[conditions are kdlet's guards](../../explanation/decisions/conditions-are-kdlt-guards.md). Built on the module
+`kdlet-guards` (kdlet's repo, `docs/guards-module.md`; on npm as `kdlet-guards`). Section 7, references in payloads, is built in the round «Holes», from [holes are unstated values](../../explanation/decisions/holes-are-unstated-values.md), and §8 says where it chose; the firing order of goals is in the [engine spec](engine.md) §7. The four comparisons and `$now` are built in the round «Comparisons», from [times are compared as stated](../../explanation/decisions/times-are-compared-as-stated.md), on `kdlet-guards` 0.3, and §8 says where it chose.
 
 ## 1 · Where a condition stands
 
@@ -91,7 +91,7 @@ the value list under `key`, like `collect`. The editorial schema uses it and dro
   repeated «open and an assignee» becomes a named guard; the editorial misfits fit — one goal for
   the current version, «draft or changes requested», the deadline with `not`, a quorum where it
   makes sense in a scenario.
-- The misfit tests become tests that the five now fit; `docs/misfits.md` says so, each with the
+- The misfit tests become tests that the five now fit; `docs/project/misfits.md` says so, each with the
   test that proves it. The scenario «published» loses its step «goal-v2».
 - The playground's goal composer builds an `all` of `line` nodes as now; the dock and the
   inspector draw the trace as a tree.
@@ -125,7 +125,7 @@ playground's «Schemi» and «Leggi» show each part in KDL, from `toKdl`, or in
 
 *Round «Holes», built.* A **hole** is a reference to a value no line in force states. The conditions above read references; this section lets a reference stand in any payload, so that a line can be written before everything it names is known, and completed later by another line.
 
-**Where a reference may stand.** `{ "$value": key }` may stand wherever a JSON value stands in a payload, a list's item included. `$set`, `$writer` and `$draft` stay in conditions. A payload value that is an object with the single key `$value` is a reference, never a literal, as [value references in checks](../decisions/value-references-in-checks.md) already settled for checks.
+**Where a reference may stand.** `{ "$value": key }` may stand wherever a JSON value stands in a payload, a list's item included. `$set`, `$writer` and `$draft` stay in conditions. A payload value that is an object with the single key `$value` is a reference, never a literal, as [value references in checks](../../explanation/decisions/value-references-in-checks.md) already settled for checks.
 
 **How the reading resolves.** In two passes over the lines in force, both in reading order:
 

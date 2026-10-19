@@ -1,10 +1,10 @@
 # Conditions are kdlet's guards
 
-Status: settled 2026-10-05, built in the round «Conditions» ([plan](../plan.md) §4; [conditions](../specs/conditions.md) §8 says where the build chose).
+Status: settled 2026-10-05, built in the round «Conditions» ([plan](../../project/plan.md) §4; [conditions](../../project/specs/conditions.md) §8 says where the build chose).
 
 ## Context
 
-Four of the five [misfits](../misfits.md) asked for conditions the engine could not say: a value
+Four of the five [misfits](../../project/misfits.md) asked for conditions the engine could not say: a value
 now held, «A or B», «not», «at least two of three». Answering each with a key of its own would add
 four mechanisms. Prior art agrees on one small shape — XState's guards (`and`, `or`, `not`, named
 guards), json-rules-engine (`all`, `any`, `not`, named conditions), and kdlet's guards (`is`, `has`,

@@ -1,6 +1,6 @@
 # The documents are four shelves and an archive
 
-Status: settled 2026-10-19 by Egildo («let's do all of this»), taking the three leans below. Built in the rounds 17 to 21 ([plan](../plan.md) §4).
+Status: settled 2026-10-19 by Egildo («let's do all of this»), taking the three leans below. Built in the rounds 17 to 21 ([plan](../../project/plan.md) §4).
 
 ## Context
 

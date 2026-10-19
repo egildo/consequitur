@@ -1,6 +1,6 @@
 # Scenarios — spec
 
-Status: built in the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../decisions/templates-are-scenarios.md). Holes came with the round «Holes» and are marked so. Words as in the [glossary](../glossary.md).
+Status: built in the round «Order and scenarios» ([plan](../plan.md) §4), from the decision [templates are scenarios](../../explanation/decisions/templates-are-scenarios.md). Holes came with the round «Holes» and are marked so. Words as in the [glossary](../../reference/glossary.md).
 
 A scenario was a test device from the editorial round: a domain's story as data, played into an empty thread. It is a product device too. An application keeps a scenario as what its users call a template, plays it to open a new activity, and saves one from an activity a person configured by hand. The engine never sees a scenario; it sees the lines the player posts.
 

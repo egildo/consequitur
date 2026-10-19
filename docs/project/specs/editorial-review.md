@@ -70,7 +70,7 @@ line is in force (a draft given a new version goes in review before anyone is as
 
 ## 4 · What is expected not to fit
 
-The point of this round. Each item is tested as it is today and recorded in `docs/misfits.md`
+The point of this round. Each item is tested as it is today and recorded in `docs/project/misfits.md`
 with what the engine would need; nothing is added to the engine in this round.
 
 1. **«The current version».** A check cannot refer to a value handle, so a goal waits for
@@ -97,7 +97,7 @@ the thread. Nothing in the page's code names a gist outside the domains' modules
 
 `cases/editorial-review/` holds the schema and the scenarios; the engine's suite runs the three
 scenarios and the five misfits; the playground switches domains and runs the review's examples to
-the end in a browser; `docs/misfits.md` records the five with, for each, the smallest engine
+the end in a browser; `docs/project/misfits.md` records the five with, for each, the smallest engine
 change that would make it fit.
 
 ## 7 · As built

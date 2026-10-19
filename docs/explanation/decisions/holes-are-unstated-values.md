@@ -1,6 +1,6 @@
 # Holes are unstated values
 
-Status: settled 2026-10-06, built in the round «Holes» ([plan](../plan.md) §4); the spec is [conditions](../specs/conditions.md) §7, and its §8 says where the build chose.
+Status: settled 2026-10-06, built in the round «Holes» ([plan](../../project/plan.md) §4); the spec is [conditions](../../project/specs/conditions.md) §7, and its §8 says where the build chose.
 
 ## Context
 
