@@ -49,7 +49,7 @@ One entry per name. A name links to the reference page that describes it, where 
 | **[verdict](posting.md#laws-and-verdicts)** | One law found broken by a dry run. |
 | **[dry run](posting.md#dryrun)** | A post whose result is kept and not applied: the lines it would add, the rounds, the verdicts. |
 | **[refusal](posting.md#refusal-codes)** | The answer when a line cannot join a thread: a `code`, a sentence in `detail` for a developer, and, for a law, its `verdicts`. A refusal leaves the thread as it was. |
-| **[policy](posting.md#the-policy)** | Which denunciations an authority leaves unanswered, each entry with optional values the value handle must hold for it (`while`). Configuration, outside the thread. A reading that only the policy keeps from settling counts as settled. |
+| **[policy](posting.md#the-policy)** | Which denunciations an authority leaves unanswered, each entry with optional values the value handle must hold for it (`while`). Conf, outside the thread. A reading that only the policy keeps from settling counts as settled. |
 | **[render](render.md)** | `consequitur-render`: helpers that turn a reading into DOM, owning no markup: each line's facts, nodes kept by line id, the dry-run preview loop, the **band** (the line drawn from a slot to a line, or between two elements). |
 | **playground** | The sample application: a domain's thread written by hand, its reading inspected, its schema shown as code. It runs one domain at a time and has a picker for them. |
 | **case** | A domain's files in `cases/<domain>/`: its schema, its scenarios and, where it has one, its policy. The tests and the playground read the same files. |

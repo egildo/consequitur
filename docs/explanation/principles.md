@@ -12,7 +12,7 @@ is written: its id is the hash of its content and the previous id, computed once
 **From** the record that grew one field and one function per client meeting until nobody could
 say why it held what it held — and, for the third sentence, from SQL's null, which made an absent value unknown and never recovered ([decision](decisions/closed-world-reading.md)).
 
-## Configuration, not code
+## Conf, not code
 
 **Forbids** domain behaviour in code: a domain is a schema (gists, writers, rule bindings,
 goals, laws), and a schema is JSON. Code holds only the line's envelope, the rule kinds, the law
@@ -84,4 +84,5 @@ publish build is additive.
 [glossary](../reference/glossary.md) does not hold. A term is added by amending the glossary, when the
 existing ones cannot say what is needed.
 
-**From** the cost of a second name: every extra name is a second thing to explain.
+**From** the round that renamed «guards» to rules and «shell» out of the model: every extra name
+is a second thing to explain.
