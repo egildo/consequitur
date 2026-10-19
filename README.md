@@ -26,7 +26,7 @@ if (!result.refusal) state = result.state;
 offers(state.lines, 'user::mrossi', schema); // what this writer may post now
 ```
 
-The packages are [`consequitur`](packages/consequitur/README.md), [`consequitur-kdl`](packages/consequitur-kdl/README.md) (a schema written in KDL) and [`consequitur-render`](packages/consequitur-render/README.md) (a reading drawn into the DOM).
+The packages are [`consequitur`](packages/consequitur/README.md) ([reference](docs/reference/README.md)), [`consequitur-kdl`](packages/consequitur-kdl/README.md) (a schema written in KDL; [reference](docs/reference/kdl.md)) and [`consequitur-render`](packages/consequitur-render/README.md) (a reading drawn into the DOM; [reference](docs/reference/render.md)).
 
 ## The playground
 

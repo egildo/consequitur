@@ -54,7 +54,7 @@ behaviour: the vocabulary grows without the core learning a domain.
 ## Chosen dependencies
 
 **Forbids** a dependency for what a few lines of our own would do, and one whose transitive graph
-nobody has read. Each runtime dependency of a package is named in [architecture](how-it-works.md)
+nobody has read. Each runtime dependency of a package is named in [how it works](how-it-works.md)
 with what it does for us; the engine's reading stays pure whatever it depends on. Hashing uses
 the platform's WebCrypto.
 
