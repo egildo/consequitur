@@ -106,6 +106,7 @@ describe('a property written twice', () => {
     ['a where', 'gist a user {\n  revoke from=x {\n    where a=1 a=2\n  }\n}', '"a" is written twice on "where"', 3, 15],
     ['records', 'records join=a join=b', '"join" is written twice on "records"', 1, 16],
     ['a law', 'law keeps-set set=a set=b', '"set" is written twice on "law"', 1, 21],
+    ['a payload', 'gist a user {\n  when {\n    line gist=b {\n      payload k=1 k=2\n    }\n  }\n}', '"k" is written twice on "payload"', 4, 19],
   ])('%s', (_, text, message, line, column) => {
     expect(fromKdl(text).problems).toEqual([{ message, line, column }]);
   });
