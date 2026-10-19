@@ -2,9 +2,6 @@
 
 consequitur keeps a ledger of what was said, and deduces what follows.
 
-Status: settled. The engine, the render toolkit and the playground are built, with two domains, SIBAR's
-and an editorial review (see [plan.md](../project/plan.md) §4); nothing is published yet.
-
 ## What it is for
 
 Some software is mostly a conversation with consequences: an activity on a document, a
@@ -45,13 +42,13 @@ merged character by character. *Adding it back* means CRDTs or operational trans
 different problem.
 
 **Not a workflow engine with timers.** No clock inside: time enters as an argument or as a line.
-*Adding it back* means the reading of a thread is no longer a function of the thread.
+*Adding it back* means the reading of a thread is not a function of the thread.
 
 **Not a renderer.** It returns plain data; screens are the consumer's. The playground draws one
 way of doing it. *Adding it back* means markup and styling contracts in the core.
 
 **Not code in data.** A schema is JSON and names the rule kinds it uses; nothing in it is
-evaluated. *Adding it back* means a schema becomes an attack surface and can no longer be
+evaluated. *Adding it back* means a schema becomes an attack surface and cannot be
 reviewed as configuration.
 
 **Not general event sourcing.** You do not write reducers per event. Rules are declared, and the
@@ -61,4 +58,4 @@ code this library exists to remove.
 ## When this and the principles collide
 
 This document decides what consequitur is and what it is for; the [design principles](principles.md)
-decide how it is built. Neither is overridden by a plan, a spec or convenience.
+decide how it is built. Neither gives way to a plan, a spec or convenience.

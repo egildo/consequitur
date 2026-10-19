@@ -22,15 +22,13 @@ You need the lines of both threads and the schema each is read by (a `Source` is
 
    Look at `c.steps` (the lines to replay, labels prefixed `1:` and `2:`), `c.taken` (how many each source gave), and `c.from` (the two seals).
 
-2. **See whether the schemas conflict.** When the sources are read by one schema, `c.derived.same` is true and the new thread uses it: go to step 4. When they differ, `c.derived.conflicts` lists what disagrees. A conflict is a guard, gist, record, the opening or the authority that both state differently, or a law only one source has.
+2. **See whether the schemas conflict.** When the sources are read by one schema, `c.derived.same` is true and the new thread uses it: go to step 4. When they differ, `c.derived.conflicts` lists what disagrees. The [reference](../reference/consolidation.md#deriveschema) says what a conflict is, and which parts are added without a question.
 
    ```ts
    for (const [index, conflict] of c.derived.conflicts.entries()) {
      console.log(index, conflict.part, conflict.name); // 0 'guard' 'reviewer', 1 'one-sided-law' '{"law":"settles"}'
    }
    ```
-
-   Gists, guards, records and sets that only one source has are added without a question. A law forbids, so a law only one source has is asked.
 
 3. **Try the answers before you start.** `deriveSchema` is what the drill calls. Give it an answer for each conflict, by index, and a name for the new schema (lower kebab case, which it takes at version 1).
 

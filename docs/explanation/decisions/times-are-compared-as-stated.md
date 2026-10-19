@@ -1,6 +1,6 @@
 # Times are compared as stated, the clock only at the door
 
-Status: settled 2026-10-13 by Egildo's answers: the words live in `kdlet-guards`; `$now` in a gist's `when` only; an offset in whole days on dates, now; numbers too. Built in two rounds ([plan](../../project/plan.md) §4): kdlet's 0.3.0, then here: built in the round «Comparisons» ([conditions](../../project/specs/conditions.md) §8 says where it chose; `$now` is written `{ "$now": "instant" }`).
+Status: settled 2026-10-13 by Egildo's answers: the words live in `kdlet-guards`; `$now` in a gist's `when` only; an offset in whole days on dates; numbers too. Built in kdlet's 0.3.0 and then in the round «Comparisons» ([plan](../../project/plan.md) §4; [conditions](../../project/specs/conditions.md) §8 says where it chose, and that `$now` is written `{ "$now": "instant" }`).
 
 ## Context
 

@@ -23,7 +23,7 @@ const preview = await dryRun(state, draft, schema, now);
 
 const result = await post(state, draft, schema, now);
 if (!result.refusal) state = result.state;
-offers(state.lines, 'user::mrossi', schema); // what this writer may post now
+offers(state.lines, 'user::mrossi', schema); // what this writer may post on the thread as it stands
 ```
 
 The packages are [`consequitur`](packages/consequitur/README.md) ([reference](docs/reference/README.md)), [`consequitur-kdl`](packages/consequitur-kdl/README.md) (a schema written in KDL; [reference](docs/reference/kdl.md)) and [`consequitur-render`](packages/consequitur-render/README.md) (a reading drawn into the DOM; [reference](docs/reference/render.md)).
@@ -38,7 +38,7 @@ Five shelves in [`docs/`](docs/):
 
 - [Tutorial](docs/tutorial/your-first-thread.md): a lesson, your first thread.
 - [How-to guides](docs/how-to/README.md): directions to one goal each.
-- [Reference](docs/reference/README.md): the machinery as it is today, and the glossary of every name.
+- [Reference](docs/reference/README.md): the machinery as it is, and the glossary of every name.
 - [Explanation](docs/explanation/README.md): the vision, the principles, how it works, and the decisions with their reasons.
 - [Project](docs/project/README.md): the plan, the specs and the misfits; the working documents, kept as an archive.
 

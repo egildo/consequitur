@@ -1,6 +1,6 @@
 # The first line declares the thread
 
-Status: settled 2026-10-08 by Egildo's answers to the three questions below: refuse another version for now; keep the nonce; the name optional for now, built in the round «The first line declares the thread» ([plan](../../project/plan.md) §4). The third of the three decisions that change ids for ever. The second, [the id names its recipe](the-id-names-its-recipe.md), is settled and makes this one postponable: a later recipe, under a new name, could add what this one adds, and old ids would still verify. Doing it before publishing spares carrying two recipes for ever.
+Status: settled 2026-10-08 by Egildo's answers to the three questions below (refuse another version for now; keep the nonce; the name optional for now), built in the round «The first line declares the thread» ([plan](../../project/plan.md) §4). It is the third of the three decisions that change ids for ever; [the id names its recipe](the-id-names-its-recipe.md) makes it postponable, and doing it before publishing spares carrying two recipes.
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Design principles
 
-Status: settled. Each principle says what it forbids and where it comes from. The
+Each principle says what it forbids and where it comes from. The
 [vision](vision.md) decides what consequitur is and what it is for; these decide how it is built.
 
 ## The thread is the only truth
@@ -10,12 +10,12 @@ and the handles are a cache the thread can always rebuild. Forbids a line that c
 is written: its id is the hash of its content and the previous id, computed once and stored. Forbids a third truth value in the reading: what no line in force says is not so, since every change is a line; only a line not yet written, the draft a menu is drawn for, is unknown.
 
 **From** the record that grew one field and one function per client meeting until nobody could
-say why it held what it held — and, for the third sentence, from SQL's null, which made an absent value unknown and never recovered ([decision](decisions/closed-world-reading.md)). Amended 2026-10-06.
+say why it held what it held — and, for the third sentence, from SQL's null, which made an absent value unknown and never recovered ([decision](decisions/closed-world-reading.md)).
 
-## Conf, not code
+## Configuration, not code
 
-**Forbids** domain behaviour in code: a domain is a schema — gists, writers, rule bindings,
-goals, laws — and a schema is JSON. Code holds only the line's envelope, the rule kinds, the law
+**Forbids** domain behaviour in code: a domain is a schema (gists, writers, rule bindings,
+goals, laws), and a schema is JSON. Code holds only the line's envelope, the rule kinds, the law
 kinds, how a check matches a line, and the engine. Forbids special-casing a gist name in the
 engine; the one gist the engine knows is the opening gist, and the schema names it.
 
@@ -33,7 +33,7 @@ is refused whole. Forbids the reading from writing anything.
 **From** the reading being shared by the server and every client: two readers of one thread must
 agree, and a client must be able to read what it was given. The refusals, from [the chain is the
 order](decisions/the-chain-is-the-order.md) and [the first line declares the
-thread](decisions/the-first-line-declares-the-thread.md). Amended 2026-10-08.
+thread](decisions/the-first-line-declares-the-thread.md).
 
 ## The server decides, a client previews
 
@@ -60,7 +60,7 @@ the platform's WebCrypto.
 
 **From** a library meant to be audited before it decides who may do what — and from the
 [decision](decisions/chosen-dependencies.md) that a condition language shared with kdlet is worth
-more than a copy kept dependency-free. Amended 2026-10-05; it was «Zero dependencies».
+more than a copy kept dependency-free.
 
 ## Cases are the test truth
 
@@ -84,5 +84,4 @@ publish build is additive.
 [glossary](../reference/glossary.md) does not hold. A term is added by amending the glossary, when the
 existing ones cannot say what is needed.
 
-**From** the round that renamed «guards» to rules and «shell» out of the model: every extra name
-is a second thing to explain.
+**From** the cost of a second name: every extra name is a second thing to explain.

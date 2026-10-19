@@ -76,7 +76,7 @@ We see no refusal. The [dry run](../reference/glossary.md) says the post would a
 
 ## Step 4: post it
 
-Now post it for real.
+Post it for real.
 
 ```ts
 const opened = await post(state, start, schema, NOW, { nonce });
@@ -142,7 +142,7 @@ expect(goal?.outcome).toBe(last.added[1]?.id);
 
 We see the goal wait. It is a line like any other, and its `when` is met only when a `vote` by each of the two is in the thread: `met` is `false` after the goal is set, and still `false` after Ana votes, while `status` stays `voting` and `voters` holds `ana`.
 
-Then Bruno votes, and one post adds four lines: his vote, the goal's [outcome](../reference/glossary.md) `close_vote`, and a record for `voters` and one for `status`. The value handle now holds `status: 'closed'` and both voters. The goal is `met`, and its `outcome` is the id of the `close_vote` line it wrote. Nobody posted that line: the goal wrote it, once, as the writer `goal::` and the goal's id. See [goals](../reference/reading.md#goals).
+Then Bruno votes, and one post adds four lines: his vote, the goal's [outcome](../reference/glossary.md) `close_vote`, and a record for `voters` and one for `status`. The value handle holds `status: 'closed'` and both voters. The goal is `met`, and its `outcome` is the id of the `close_vote` line it wrote. Nobody posted that line: the goal wrote it, once, as the writer `goal::` and the goal's id. See [goals](../reference/reading.md#goals).
 
 ## Step 8: what we built
 

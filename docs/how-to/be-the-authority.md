@@ -87,12 +87,14 @@ You need a schema that reads without a problem (see [How to write a schema](writ
 
    `verify` is false for a line whose stored fields changed. `inOrder` throws when the thread has no first line, two, a fork, a gap or a cut, and when its first line declares another schema. The reading is `settled` when the handles you hold agree with the thread; a denunciation says where they do not.
 
-## Where a nonce matters
+## Give a nonce when two runs must agree
 
-Only a thread's first line declares a nonce, a value used once. `post` draws 16 random bytes for it when you give none, and that is right for a real thread: it is why two threads that open with the same draft at the same instant are two threads. Give one yourself when two runs must give the same ids:
+Leave the nonce out for a real thread: `post` draws one for the first line, so two threads opened with the same draft at the same instant stay two threads. Give one yourself when two runs must give the same ids, with `{ nonce }`:
 
-- a [dry run](../reference/glossary.md) and the post that follows it, on an empty thread: both with `{ nonce }`, and their `added` lines have the same ids;
-- a test, or a replay.
+- for a [dry run](../reference/glossary.md) and the post that follows it on an empty thread;
+- for a test or a replay.
+
+The nonce is part of the [declaration](../reference/thread.md#the-declaration).
 
 ```ts
 const nonce = crypto.randomUUID().replaceAll('-', ''); // any string; 32 hex characters here
@@ -103,7 +105,7 @@ const sent = await post(emptyState(schema), draft, schema, now, { nonce });
 
 ## Variations
 
-- **What a writer may post now.** `offers(lines, writer, schema)` lists the gists, for a menu.
+- **What a writer may post.** `offers(lines, writer, schema)` lists the gists, for a menu.
 - **Preview before sending.** `dryRun(state, draft, schema, now)` gives the same answer as `post` would, with `added`, `rounds` and every `verdicts` found, and changes nothing. See [How to preview a draft](preview-a-draft.md).
 - **A thread that is not settled.** `settle(state, schema, now, policy)` goes on where a bound stopped it; the next `post` does the same.
 

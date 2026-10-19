@@ -1,6 +1,6 @@
 # How it works
 
-Status: the shape of the code, its packages, its modules and its boundaries, with the reasons; what each export does is in the [reference](../reference/README.md), and why it is built so in the [principles](principles.md).
+This page gives the shape of the code, its packages, its modules and its boundaries, with the reasons. What each export does is in the [reference](../reference/README.md), and why it is built so in the [principles](principles.md).
 
 ## The packages
 
@@ -15,7 +15,7 @@ Status: the shape of the code, its packages, its modules and its boundaries, wit
 The engine has one runtime dependency, `kdlet-guards`: kdlet's condition language. It evaluates a
 condition node by node, with Kleene's three values where the host says a reference is not yet known, and
 gives the trace; consequitur registers its two words on it and resolves the references. Only
-`condition.ts` imports it; every other import stays inside `src/`. `test/thread.test.ts` reads every import and
+`condition.ts` imports it; every other import stays inside `src/`. A test reads every import and
 fails on one that leaves, but that one. A condition language shared with kdlet is worth more than a copy
 kept dependency-free ([chosen dependencies](decisions/chosen-dependencies.md)).
 
@@ -24,7 +24,7 @@ tests and the playground cannot drift apart.
 
 ## Publishing
 
-The three packages are built to a git-ignored `dist` by `tsc` alone (`pnpm run build:packages`; each package's `build` runs `scripts/build-package.mjs`, and `prepack` runs `build`): `tsconfig.build.json` at the root and one in each package emit per-file ESM and declarations with `rewriteRelativeImportExtensions`, and the script rewrites the `./x.ts` specifiers that remain in the `.d.ts` files. Development reads the sources: each `package.json` keeps `exports` at `./src/index.ts`, the playground and the tests resolve the workspace through it, and `pnpm typecheck` and `pnpm test` build nothing. `publishConfig` carries `exports`, `main` and `types` to `dist`, applied when the package is packed or published with `pnpm`; `files` is `["dist"]`, so a tarball holds the built files, the README, the licence and the manifest. The three versions move together.
+The three packages are built to a git-ignored `dist` by `tsc` alone, which emits per-file ESM and declarations with `rewriteRelativeImportExtensions`; a small script rewrites the `./x.ts` specifiers that remain in the declarations. Development reads the sources instead: each `package.json` keeps `exports` at `./src/index.ts`, so the playground and the tests resolve the workspace without a build. `publishConfig` points `exports`, `main` and `types` at `dist`, and `files` is `["dist"]`, so a tarball holds the built files, the README, the licence and the manifest. The three versions move together.
 
 ## The cases and their scenarios
 
@@ -128,7 +128,7 @@ consolidation.ts, consolidation-view.ts   the «Consolida» tab: a Bench of two 
 
 It is plain TypeScript and DOM, with `markdown-it` for the texts, Vite for its dev server (port 5588)
 and its build. It runs one domain at a time, chosen in the header; the rest of `src/` reads it through
-`domain()` and names no gist (`test/fence.test.ts`), and switching resets the thread. What a domain adds
+`domain()` and names no gist (a test holds it), and switching resets the thread. What a domain adds
 beyond data is two optional parts: `commands`, buttons for what the page does itself, playing the system
 around the thread (SIBAR signs and makes documents), and `documents`, what it knows beyond the thread.
 The screen is a deduction: `main.ts` holds one `PageState`; `update` makes the next and

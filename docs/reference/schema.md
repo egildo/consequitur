@@ -128,7 +128,7 @@ A binding names its rule and the payload keys it reads. Each kind reads its bind
 | `{ rule: 'value', keyFrom, from, where? }` | `value` | The [fill](glossary.md): the payload's value under `from` is held under the key the payload holds under `keyFrom`. |
 | `{ rule: 'collect-writer', key }` | `collect-writer` | The writer's id is in the list under `key`. |
 | `{ rule: 'join', set, from, required? }` | `join` | The names under `from`, a name or a list of names, are in the set. |
-| `{ rule: 'leave', set }` | `leave` | The writer's id is no longer expected in the set. |
+| `{ rule: 'leave', set }` | `leave` | The writer's id is not expected in the set. |
 | `{ rule: 'revoke', from, gists }` | mechanic | The line whose id is under `from` is out of force. |
 | `{ rule: 'goal' }` | mechanic | The line is a goal. |
 
@@ -136,7 +136,7 @@ A binding names its rule and the payload keys it reads. Each kind reads its bind
 
 A key of the value handle takes the value of the latest line in force that states it. A line whose payload lacks the key a binding reads states nothing. The four forms are exclusive: a binding has a `key` and exactly one of `from`, `value` and `collect`, or `keyFrom` and `from` and no `key`.
 
-- `required: true` refuses a draft whose payload lacks the key under `from` or `collect`. A [reference](conditions.md#references) to a value no line states yet counts as present.
+- `required: true` refuses a draft whose payload lacks the key under `from` or `collect`. A [reference](conditions.md#references) to a value no line states counts as present.
 - `collect` adds each value once, equal values compared by their canonical form. A key that held one value, from another binding, starts a new list.
 - `where` is an object of at least one key: the binding applies only to a line whose payload holds every key it names, with an equal value. A binding whose `where` does not match is not asked for its `required` either.
 - The fill has no `required`. Admission refuses it, as `invalid-payload`, when the payload holds something other than a string under `keyFrom`, when that string is a key some binding of the schema states (any binding with a `key`), or when the value under `from` holds a reference at any depth. The fill is judged as written: a reference in it is no key and no value. A fill whose `where` does not match is not asked.

@@ -6,7 +6,7 @@ This guide gets you a page that shows, while a person composes a line, what send
 
 ## Before you begin
 
-You need a page that holds a thread as a `ThreadState` (`state` below), the `schema`, and a function `readDraft()` that gives the `LineDraft` the form describes now, or `null` when it is closed. Install the packages:
+You need a page that holds a thread as a `ThreadState` (`state` below), the `schema`, and a function `readDraft()` that gives the `LineDraft` the form describes, or `null` when it is closed. Install the packages:
 
 ```sh
 npm install consequitur consequitur-render

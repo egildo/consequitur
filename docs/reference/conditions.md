@@ -158,7 +158,7 @@ interface Trace {
   foundIn?: LineId;
   /** A `line` node: the check as matched, each reference replaced; absent when a reference names a key the thread does not hold. */
   check?: Check;
-  /** The node can no longer hold: read only where warnings are. */
+  /** The node cannot hold: read only where warnings are. */
   lost?: true;
 }
 ```

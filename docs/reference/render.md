@@ -46,7 +46,7 @@ for (const facts of lineFacts(state.lines, reading, schema)) {
 type ReadingChange =
   /** A line newly in force, or newly out of force. */
   | { of: 'line'; key: LineId; change: 'in-force' | 'revoked' }
-  /** A goal newly read, newly met, met no more, or no longer in the reading. */
+  /** A goal newly read, newly met, unmet, or gone from the reading. */
   | { of: 'goal'; key: LineId; change: 'set' | 'met' | 'unmet' | 'gone' }
   /** A goal's `line` node that found its line, lost it, or became an orphan; `key` is from `keyOfCheck`. */
   | { of: 'check'; key: string; change: 'found' | 'lost' | 'orphan' }
@@ -110,7 +110,7 @@ What changes often and costs nothing to redraw, such as selected or lit, is a cl
 interface Previewer<D, A> {
   /** The draft changed (or closed, with null). */
   change(draft: D | null): void;
-  /** The answer on screen, and whether it answers the draft as it is now. */
+  /** The answer on screen, and whether it answers the draft as it is. */
   current(): { key: string; answer: A; fresh: boolean } | null;
   dispose(): void;
 }
@@ -122,7 +122,7 @@ function previewer<D, A>(spec: {
   run(draft: D): Promise<A>;
   /** Called with the answer to show, or null; `fresh` false while a newer draft waits. */
   show(answer: A | null, fresh: boolean): void;
-  /** Called when the run of the draft now on screen rejects. */
+  /** Called when the run of the draft on screen rejects. */
   onError?(error: unknown, draft: D): void;
 }): Previewer<D, A>;
 ```
@@ -166,7 +166,7 @@ interface Band {
   ): Promise<string | null>;
   /** Draws the line from one element to another (hover), or clears it. A drag owns the band: a hover leaves it alone. */
   point(from: HTMLElement | null, to: HTMLElement | null): void;
-  /** Draws again where the ends are now: the layer scrolled or an element moved. */
+  /** Draws again where the ends are: the layer scrolled or an element moved. */
   redraw(): void;
   /** Ends a drag in hand with null, then removes the drawing and the window listener. */
   dispose(): void;

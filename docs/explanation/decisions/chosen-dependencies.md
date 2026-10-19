@@ -1,7 +1,6 @@
 # Chosen dependencies
 
-Status: settled 2026-10-05 by Egildo («let's loosen our dependency policy in general»).
-Supersedes the principle «Zero dependencies».
+Status: settled 2026-10-05 by Egildo («let's loosen our dependency policy in general»); it supersedes the principle «Zero dependencies».
 
 ## Context
 

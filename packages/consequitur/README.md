@@ -25,7 +25,7 @@ const preview = await dryRun(state, draft, schema, now);
 
 const result = await post(state, draft, schema, now);
 if (!result.refusal) state = result.state;
-offers(state.lines, 'user::mrossi', schema); // what this writer may post now
+offers(state.lines, 'user::mrossi', schema); // what this writer may post on the thread as it stands
 ```
 
 ## What is in it

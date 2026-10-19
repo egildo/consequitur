@@ -1,6 +1,6 @@
 # Threads are consolidated, never merged
 
-Status: settled 2026-10-13 by Egildo: everything comes over, by replay; conflicts are resolved in a drill; the new thread's schema is derived from the sources'; built before publishing 0.1.0. The order of play, one source after the other, is Claude's lean, which Egildo's «it matches» took. Built in the round «Consolidation» ([plan](../../project/plan.md) §4); the playground's panel in the round «The drill in the playground». Amended in the build: a seal's `last` is the source's head, its last line in reading order, whether or not the replay took it, since a source usually ends on a line the engine wrote and a seal that skipped it could never be compared with the head. Amended 2026-10-13 by Egildo, after the build: a law only one source has is a question, not an addition (below).
+Status: settled 2026-10-13 by Egildo: everything comes over, by replay; conflicts are resolved in a drill; the new thread's schema is derived from the sources'; the order of play, one source after the other, was Claude's lean, which Egildo's «it matches» took. Built in the round «Consolidation» ([plan](../../project/plan.md) §4) before publishing 0.1.0, and the playground's panel in the round «The drill in the playground»; amended in the build, so that a seal's `last` is the source's head whether or not the replay took it, and by Egildo on 2026-10-13, after the build, so that a law only one source has is a question and not an addition (below).
 
 ## Context
 
