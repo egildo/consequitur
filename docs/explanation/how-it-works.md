@@ -33,6 +33,7 @@ cases/
   sibar-activity/          schema.json, schema.kdl, scenarios.json, policy.json
   editorial-review/        schema.json, schema.kdl, scenarios.json
   warehouse-arrival/       schema.json, schema.kdl, scenarios.json
+  release/                 schema.json, schema.kdl, scenarios.json
 ```
 
 A [scenario](../reference/scenarios.md) is a domain's story as data: steps posted to an empty thread. The player
