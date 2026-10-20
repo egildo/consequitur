@@ -4,6 +4,14 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- [Expected lines](docs/reference/schema.md#expected-lines): a gist schema may hold an `expect`, the kin the thread expects a line of the gist from and the condition under `while` for as long as it does, for example a publication while the approved tag is not the published one. The reading denounces each as `{ sort: 'line', gist, kin }`, after every other denunciation, and lists it in `owed`. The engine never writes it: `answer` leaves it, the thread stays settled, and the law `settles` does not refuse the line that made it expected. [`dryRun`](docs/reference/posting.md#dryrun) shows it before a line is sent. `consequitur-kdl` reads and writes `expect kin=<kin> { <condition> }`, and `consequitur-render`'s [`keyOf`](docs/reference/render.md) keys it by the gist and the kin, so `changes` says when it is raised and answered. See [how to answer the lines the thread expects of you](docs/how-to/be-the-authority.md#answer-the-lines-the-thread-expects-of-you).
+
+### Changed
+
+- The `Denunciation` type has a new member of the `line` sort, `{ sort: 'line', gist, kin }`. TypeScript code that reads `writer`, `line` or `payload` on a `line` denunciation must narrow first, with `'kin' in d` or `'writer' in d`.
+
 ## [0.2.1] — 2026-10-19
 
 ### Changed
