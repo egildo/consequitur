@@ -93,6 +93,8 @@ export interface Expectations {
   goals: GoalReading[];
   /** The lines the goals still owe, goal by goal: the outcome, then the warning. */
   missing: Denunciation[];
+  /** The lines the thread expects from a kin, in the order of the schema's gists. */
+  owed: Denunciation[];
 }
 
 /**
@@ -195,7 +197,14 @@ export function expectations(lines: EventLine[], schema: Schema): Expectations {
     if (!written) missing.push({ sort: 'line', gist: warning, writer, line: goal.line.id, payload: { path } });
   }
 
-  return { standing, accumulators, handles, read: resolved, values, holes, goals: goalReadings, missing };
+  // the lines a gist's `expect` asks of a kin, its `while` read as a goal's `when` is; the first schema of a gist is the one read
+  const owed: Denunciation[] = gists.flatMap((gist, i) => {
+    if (gist.expect === undefined || gists.findIndex((g) => g.gist === gist.gist) !== i) return [];
+    const due = conditionHolds(gist.expect.while, { handles, lines: resolved, guards: schema.guards }) === true;
+    return due ? [{ sort: 'line' as const, gist: gist.gist, kin: gist.expect.kin }] : [];
+  });
+
+  return { standing, accumulators, handles, read: resolved, values, holes, goals: goalReadings, missing, owed };
 }
 
 /**
@@ -236,6 +245,8 @@ export function consequitur(lines: EventLine[], handles: Handles, schema: Schema
   for (const kind of schema.kit.handles) {
     denunciations.push(...kind.compare(expected.accumulators.get(kind.kind), has(handles, kind.kind) ? handles[kind.kind] : null));
   }
+  // last: a post adds no line for them, so they stand outside the order of the lines it adds
+  denunciations.push(...expected.owed);
 
   return {
     inForce: expected.standing.inForce.map((l) => l.id),
@@ -244,6 +255,7 @@ export function consequitur(lines: EventLine[], handles: Handles, schema: Schema
     holes: expected.holes,
     goals: expected.goals,
     denunciations,
-    settled: denunciations.length === 0,
+    // one a kin answers leaves the thread settled: the engine never writes its line
+    settled: denunciations.every((d) => 'kin' in d),
   };
 }

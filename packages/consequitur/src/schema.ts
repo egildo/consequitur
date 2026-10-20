@@ -43,13 +43,25 @@ function bindingProblem(binding: unknown, kit: Kit, head: SchemaHead): string | 
   return typeof read === 'string' ? read : undefined;
 }
 
+/**
+ * The first thing wrong with a gist's `expect`, or undefined. Its condition is a goal's: it reads no writer, draft
+ * or instant, through a guard either. Whether the gist is a record or the opening is the head's to say.
+ */
+function expectProblem(value: unknown, writers: string[], head: SchemaHead): string | undefined {
+  if (!isObject(value) || Object.keys(value).length !== 2 || !('kin' in value) || !('while' in value)) return 'it must have exactly the keys kin and while.';
+  if (value.kin === 'goal') return 'the kin goal cannot be expected: the engine writes a goal\'s lines.';
+  if (typeof value.kin !== 'string' || !writers.includes(value.kin)) return `the kin ${JSON.stringify(value.kin) ?? 'nothing'} is not among the gist's writers.`;
+  const problem = conditionProblem(value.while, head, false);
+  return problem === undefined ? undefined : `while: ${problem}`;
+}
+
 /** The first thing wrong with one element, as an English sentence, or undefined when it passes. */
 function gistProblem(element: unknown, names: Array<string | undefined>, at: number, kit: Kit, head: SchemaHead): string | undefined {
   const label = typeof names[at] === 'string' ? `gist "${names[at]}"` : `element ${at}`;
   if (!isObject(element)) return `${label}: not an object.`;
   const keys = Object.keys(element);
-  if (!['gist', 'writers', 'rules'].every((k) => keys.includes(k)) || keys.some((k) => !['gist', 'writers', 'rules', 'when'].includes(k))) {
-    return `${label}: must have the keys gist, writers and rules, and may have when, and no other.`;
+  if (!['gist', 'writers', 'rules'].every((k) => keys.includes(k)) || keys.some((k) => !['gist', 'writers', 'rules', 'when', 'expect'].includes(k))) {
+    return `${label}: must have the keys gist, writers and rules, and may have when and expect, and no other.`;
   }
   if (typeof element.gist !== 'string' || !GIST_NAME.test(element.gist)) {
     return `${label}: the gist name must be lower snake case, at most 32 characters, starting with a letter.`;
@@ -60,6 +72,10 @@ function gistProblem(element: unknown, names: Array<string | undefined>, at: num
   if ('when' in element) {
     const problem = conditionProblem(element.when, head, true);
     if (problem !== undefined) return `${label}: when: ${problem}`;
+  }
+  if ('expect' in element) {
+    const problem = expectProblem(element.expect, element.writers, head);
+    if (problem !== undefined) return `${label}: expect: ${problem}`;
   }
 
   for (const [i, binding] of element.rules.entries()) {
@@ -178,7 +194,10 @@ function fitProblems(head: SchemaHead, gists: GistSchema[]): string[] {
     else if (role === 'warning' ? !gist.writers.includes('goal') : !gist.writers.includes(kin)) {
       problems.push(`The record "${role}" is the gist "${name}", which does not list the kin ${role === 'warning' ? 'goal' : kin} among its writers.`);
     }
+    if (gist?.expect !== undefined) problems.push(`The record "${role}" is the gist "${name}", which has an expect: the engine writes a record.`);
   }
+  const opening = gists.find((g) => g.gist === head.opening);
+  if (opening?.expect !== undefined) problems.push(`The opening gist "${head.opening}" has an expect: a second opening line is refused.`);
   return problems;
 }
 

@@ -49,6 +49,16 @@ export interface GistSchema {
   rules: RuleBinding[];
   /** When it may be written, read with the writer and the draft; a gist with none may be written at any point of a thread. */
   when?: Condition;
+  /** Who the thread expects a line of this gist from, and while what holds. */
+  expect?: Expect;
+}
+
+/** A line the thread expects from a kin while its condition holds: read as a goal's `when` is, and denounced with the kin that answers it. */
+export interface Expect {
+  /** The kin that writes the line: one of the gist's writers, never `goal`. */
+  kin: string;
+  /** The condition, which reads no `$writer`, `$draft` or `$now`. */
+  while: Condition;
 }
 
 /** What a writer may post to a thread as it stands. */
@@ -143,6 +153,8 @@ export type Denunciation =
   | HandleDenunciation
   /** A line a goal owes the thread: its outcome once met, or a warning. `line` is the goal; `payload` is what the line carries. */
   | { sort: 'line'; gist: string; writer: Writer; line: LineId; payload: Payload }
+  /** A line the thread expects from a kin, while the gist's `expect` holds. The kin writes it; the engine never does. */
+  | { sort: 'line'; gist: string; kin: string }
   /** The opening rule: exactly one line of the opening gist in force. Nothing can reconcile it. */
   | { sort: 'thread'; rule: 'one-opening'; found: number };
 
@@ -187,6 +199,7 @@ export interface Reading {
   holes: Hole[];
   goals: GoalReading[];
   denunciations: Denunciation[];
+  /** No denunciation is left that the engine answers: one that names a `kin` is that kin's. */
   settled: boolean;
 }
 
@@ -286,7 +299,7 @@ export interface SchemaHead {
   records: Record<string, string>;
   /** The kins whose lines the laws judge. */
   judged: string[];
-  /** The named guards: conditions a `when`, a goal or a law uses by name, `{ "guard": name }`. */
+  /** The named guards: conditions a `when`, an `expect`, a goal or a law uses by name, `{ "guard": name }`. */
   guards: Record<string, Condition>;
 }
 

@@ -71,6 +71,15 @@ describe('keyOf', () => {
     expect(keyOf({ sort: 'handle', kind: 'value', key: 'a:b', expected: 1 })).not.toBe(keyOf({ sort: 'handle', kind: 'value:a', key: 'b', expected: 1 }));
     expect(keyOf({ sort: 'thread', rule: 'one-opening', found: 0 })).toBe(keyOf({ sort: 'thread', rule: 'one-opening', found: 2 }));
   });
+
+  it('keys a line a kin answers by the gist and the kin, apart from a line a goal owes', () => {
+    const expected = (gist: string, kin: string) => keyOf({ sort: 'line', gist, kin });
+    expect(expected('published', 'system')).toBe(expected('published', 'system'));
+    expect(expected('published', 'system')).not.toBe(expected('published', 'user'));
+    expect(expected('published', 'system')).not.toBe(expected('signed', 'system'));
+    expect(expected('a:b', 'c')).not.toBe(expected('a', 'b:c'));
+    expect(expected('published', 'system')).not.toBe(keyOf({ sort: 'line', gist: 'published', writer: 'goal::ab', line: 'ab', payload: {} }));
+  });
 });
 
 describe('keyOfCheck', () => {
@@ -205,6 +214,24 @@ describe('changes', () => {
     expect(changes(stale, reading)).toEqual(expect.arrayContaining([...keys.map((key) => ({ of: 'denunciation', key, change: 'answered' })), { of: 'settled', change: 'settled' }]));
     expect(only(changes(stale, reading), 'denunciation')).toHaveLength(keys.length);
     expect(changes(reading, stale)).toEqual(expect.arrayContaining([...keys.map((key) => ({ of: 'denunciation', key, change: 'raised' })), { of: 'settled', change: 'unsettled' }]));
+  });
+
+  it('says a line expected of a kin raised when its condition holds and answered when the kin writes it, the thread settled all the while', async () => {
+    // SIBAR's schema with the stage expected of a person while the activity is open and has none
+    const stage = { all: [{ is: { $value: 'status' }, values: ['open'] }, { not: { has: { $value: 'stage' } } }] };
+    const schema: Schema = { ...SIBAR, gists: SIBAR.gists.map((g) => (g.gist === 'stage' ? { ...g, expect: { kin: 'user', while: stage } } : g)) };
+    const posting = async (state: ThreadState, draft: LineDraft) => {
+      const out = await post(state, draft, schema, NOW, { policy });
+      expect(out.refusal).toBeUndefined();
+      return out;
+    };
+    const opened = await posting(emptyState(schema), mrossi('create', { name: 'Richiesta parere', assignTo: ['mrossi'] }));
+    const key = keyOf({ sort: 'line', gist: 'stage', kin: 'user' });
+    expect(only(changes(consequitur([], emptyState(schema).handles, schema), opened.reading), 'denunciation')).toContainEqual({ of: 'denunciation', key, change: 'raised' });
+    const staged = await posting(opened.state, mrossi('stage', { stage: 'bozza' }));
+    expect(only(changes(opened.reading, staged.reading), 'denunciation')).toEqual([{ of: 'denunciation', key, change: 'answered' }]);
+    expect(only(changes(opened.reading, staged.reading), 'settled')).toEqual([]);
+    expect([opened, staged].map((r) => r.reading.settled)).toEqual([true, true]);
   });
 
   it('says the opening rule answered by the thread denunciation, which has a key of its own', async () => {

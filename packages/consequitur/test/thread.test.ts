@@ -911,7 +911,7 @@ describe('consequitur', () => {
       ]);
       const reading = read(lines, hold({ z: 1, a: 1 }, ['z', 'a']));
       expect(reading.denunciations.map((d) => (d.sort === 'handle' ? d.kind : d.sort))).toEqual(['thread', 'line', 'line', 'value', 'value', 'set', 'set']);
-      expect(reading.denunciations.filter((d) => d.sort === 'line').map((d) => d.line)).toEqual([lines[1].id, lines[0].id]);
+      expect(reading.denunciations.flatMap((d) => (d.sort === 'line' && 'writer' in d ? [d.line] : []))).toEqual([lines[1].id, lines[0].id]);
       expect(ofKind(reading, 'value').map((d) => d.key)).toEqual(['a', 'z']);
       expect(ofKind(reading, 'set').map((d) => d.member)).toEqual(['a', 'z']);
     });
@@ -1828,7 +1828,7 @@ describe('posting to a thread', () => {
           ]);
           expect(lines[1].id).toBe(b);
           const reading = consequitur(lines, hold({}, []), PLAIN);
-          expect(reading.denunciations.map((d) => (d.sort === 'line' ? `line ${d.gist} ${JSON.stringify(d.payload)}` : labelOf(d)))).toEqual([
+          expect(reading.denunciations.map((d) => (d.sort === 'line' && 'writer' in d ? `line ${d.gist} ${JSON.stringify(d.payload)}` : labelOf(d)))).toEqual([
             'line goal_warning {"path":"0"}',
             'line closed {}',
             'value name',

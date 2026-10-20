@@ -26,6 +26,8 @@ export type ReadingChange =
  */
 export function keyOf(denunciation: Denunciation): string {
   if (denunciation.sort === 'handle') return `handle:${canonical([denunciation.kind, denunciation.key, denunciation.member ?? null])}`;
+  // a line a kin answers is keyed by the gist and the kin, canonical, so it never reads as a goal's line id
+  if (denunciation.sort === 'line' && 'kin' in denunciation) return `line:${canonical([denunciation.gist, denunciation.kin])}`;
   if (denunciation.sort === 'line') return `line:${denunciation.line}:${denunciation.gist}:${canonical(denunciation.payload)}`;
   return `thread:${denunciation.rule}`;
 }

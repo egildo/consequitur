@@ -26,6 +26,7 @@ import type {
   Seal,
   ThreadState,
   Verdict,
+  Writer,
 } from './types.ts';
 import { has, isObject, isRecord, kinOf } from './util.ts';
 
@@ -165,6 +166,8 @@ export function reconcile(reading: Reading, handles: Handles, schema: Schema): {
   const drafts: LineDraft[] = [];
 
   for (const d of reading.denunciations) {
+    // a line a kin is expected to write is that kin's, never the engine's
+    if ('kin' in d) continue;
     if (d.sort === 'line') {
       drafts.push({ gist: d.gist, writer: d.writer, payload: d.payload });
     } else if (d.sort === 'handle') {
@@ -198,15 +201,16 @@ function left(policy: Policy, d: Denunciation, handles: Handles): boolean {
 
 /**
  * The denunciations the authority answers: all but those of the thread, which
- * nothing can reconcile, and those the policy leaves.
+ * nothing can reconcile, those that name a kin, which that kin answers by writing
+ * the line itself, and those the policy leaves.
  */
 export function answer(reading: Reading, handles: Handles, policy: Policy = []): Denunciation[] {
-  return reading.denunciations.filter((d) => d.sort !== 'thread' && !left(policy, d, handles));
+  return reading.denunciations.filter((d) => d.sort !== 'thread' && !('kin' in d) && !left(policy, d, handles));
 }
 
-/** A reading whose only denunciations are the ones the policy leaves counts as settled. */
+/** A reading whose only denunciations are the ones the policy leaves and the ones a kin answers counts as settled. */
 function counted(reading: Reading, handles: Handles, policy: Policy): Reading {
-  return { ...reading, settled: reading.denunciations.every((d) => left(policy, d, handles)) };
+  return { ...reading, settled: reading.denunciations.every((d) => 'kin' in d || left(policy, d, handles)) };
 }
 
 /**
@@ -219,7 +223,7 @@ function counted(reading: Reading, handles: Handles, policy: Policy): Reading {
 function nextRound(reading: Reading, handles: Handles, policy: Policy, lines: EventLine[], schema: Schema): Denunciation[] {
   const answered = answer(reading, handles, policy);
   const position = new Map(inOrder(lines).map((l, i) => [l.id, i] as const));
-  const outcomes = answered.filter((d): d is Extract<Denunciation, { sort: 'line' }> => d.sort === 'line' && d.gist !== schema.records.warning);
+  const outcomes = answered.filter((d): d is Extract<Denunciation, { writer: Writer }> => d.sort === 'line' && 'writer' in d && d.gist !== schema.records.warning);
   const [first] = [...outcomes].sort((a, b) => position.get(a.line)! - position.get(b.line)!);
   const waiting = new Set<Denunciation>(outcomes.filter((d) => d !== first));
   return answered.filter((d) => !waiting.has(d));

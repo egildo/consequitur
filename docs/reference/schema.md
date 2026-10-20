@@ -70,7 +70,7 @@ The problems come in three groups, and a head with a problem is reported alone:
 
 1. the head's own faults, and a key the schema may not have;
 2. each gist schema and each law that does not read;
-3. how the head fits the gists: an opening gist or a record gist with no schema, a record gist with rules, a record gist whose writers do not fit.
+3. how the head fits the gists: an opening gist or a record gist with no schema, a record gist with rules, a record gist whose writers do not fit, an opening gist or a record gist with an `expect`.
 
 The schema keeps the kit, since the reading, admission and the laws ask it.
 
