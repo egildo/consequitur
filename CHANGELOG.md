@@ -4,6 +4,10 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- [The release](cases/release/) is a case: one thread per package across its releases, a tag made, built, approved and published, a failed publication retried, and a retraction that puts the release before it back out. Its publication is an [expected line](docs/reference/schema.md#expected-lines) of the kin `system`, from the approval until it is posted, and not again once retracted; its scenarios play two releases, the failure, the retraction and five refusals.
+
 ## [0.3.0] — 2026-10-20
 
 ### Added
