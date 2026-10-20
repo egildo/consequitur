@@ -4,6 +4,8 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-20
+
 ### Added
 
 - [Expected lines](docs/reference/schema.md#expected-lines): a gist schema may hold an `expect`, the kin the thread expects a line of the gist from and the condition under `while` for as long as it does, for example a publication while the approved tag is not the published one. The reading denounces each as `{ sort: 'line', gist, kin }`, after every other denunciation, and lists it in `owed`. The engine never writes it: `answer` leaves it, the thread stays settled, and the law `settles` does not refuse the line that made it expected. [`dryRun`](docs/reference/posting.md#dryrun) shows it before a line is sent. `consequitur-kdl` reads and writes `expect kin=<kin> { <condition> }`, and `consequitur-render`'s [`keyOf`](docs/reference/render.md) keys it by the gist and the kin, so `changes` says when it is raised and answered. See [how to answer the lines the thread expects of you](docs/how-to/be-the-authority.md#answer-the-lines-the-thread-expects-of-you).
@@ -56,7 +58,8 @@ The first release.
 - `consequitur-render`: [`lineFacts`, `changes`, `keyed`, `previewer` and `band`](docs/reference/render.md) turn a reading into DOM, with no markup and no style of their own.
 - ESM packages for Node 20 and later, with their types.
 
-[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.2.1...main
+[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.3.0...main
+[0.3.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.3.0
 [0.2.1]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.1
 [0.2.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.0
 [0.1.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.1.0
