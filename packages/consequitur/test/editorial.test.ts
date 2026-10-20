@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   admit,
+  answer,
   BASE_KIT,
   emptyState,
   lockedBy,
@@ -17,6 +18,8 @@ import {
   readScenarios,
   readSchema,
   consequitur,
+  dryRun,
+  type Denunciation,
   type EventLine,
   type Json,
   type Labels,
@@ -255,6 +258,59 @@ describe('the editorial review: «left alone»', () => {
     // the author is the only member of the team, and the law is about the reviewers while in review
     expect(await t.say(draft('aconti', 'leave_team', {}))).toBeUndefined();
     expect(t.members('team')).toEqual([]);
+  });
+});
+
+describe('the editorial review: the approval it expects', () => {
+  const APPROVAL: Denunciation = { sort: 'line', gist: 'approve', kin: 'user' };
+
+  /** Each step's label, with whether the reading after it expects an approval; the thread settled after each. */
+  async function expected(id: string): Promise<Array<[string, boolean]>> {
+    const t = thread();
+    const seen: Array<[string, boolean]> = [];
+    await t.play(stepsOf(id), ({ step }) => {
+      const reading = t.reading();
+      const owed = reading.denunciations.filter((d) => 'kin' in d);
+      expect(owed).toEqual(owed.length === 0 ? [] : [APPROVAL]);
+      expect(reading.settled).toBe(true);
+      expect(answer(reading, t.state.handles)).toEqual([]);
+      seen.push([step.label ?? step.gist, owed.length > 0]);
+    });
+    return seen;
+  }
+
+  it('«approval revoked»: raised by the request, answered by an approval, raised again when it is revoked, answered by the other reviewer', async () => {
+    expect(await expected('approval-revoked')).toEqual([
+      ['submit', false],
+      ['request', true],
+      ['bgalli-v1', false],
+      ['bgalli-revokes', true],
+      // the author is a user, but not a reviewer: admission refuses the line, and it is still expected
+      ['aconti-approves', true],
+      ['cneri-v1', false],
+    ]);
+  });
+
+  it('«published»: raised again when a new version is on the table, and gone once the goal publishes it', async () => {
+    expect(await expected('published')).toEqual([
+      ['submit', false],
+      ['request', true],
+      ['goal', true],
+      ['bgalli-v1', false],
+      ['changes', false],
+      ['v2', true],
+      ['bgalli-v2', false],
+      ['cneri-v2', false],
+    ]);
+  });
+
+  it('a dry run of the request shows the approval it makes expected, before it is sent', async () => {
+    const t = thread();
+    await t.play(until('approval-revoked', 'submit'));
+    const run = await dryRun(t.state, draft('aconti', 'request_review', { reviewers: ['bgalli', 'cneri'] }), SCHEMA, NOW);
+    expect(run.refusal).toBeUndefined();
+    expect(run.reading.denunciations).toEqual([APPROVAL]);
+    expect(run.reading.settled).toBe(true);
   });
 });
 

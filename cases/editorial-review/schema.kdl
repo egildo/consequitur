@@ -53,6 +53,16 @@ gist approve user {
     when {
         guard reviewing
     }
+    expect kin=user {
+        all {
+            is (value)status in_review
+            not {
+                line gist=approve {
+                    payload version=(value)version
+                }
+            }
+        }
+    }
 }
 gist approve_revoke user {
     revoke from=target {

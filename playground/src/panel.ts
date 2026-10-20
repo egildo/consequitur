@@ -13,7 +13,7 @@ import type { Derived } from './deduce.ts';
 import { domain, membersIn, valueIn } from './domain.ts';
 import { chip, h } from './dom.ts';
 import { HEAD_CHIP, LAWS_CHIP, type InspectorTab, type PageState } from './state.ts';
-import { gistLabel, lineLabel, memberSentence, metadataLabel, metadataValue, uiIndex, uiOf, userName, warningGist, writerName } from './ui-schema.ts';
+import { gistLabel, KIN_WORDS, lineLabel, memberSentence, metadataLabel, metadataValue, uiIndex, uiOf, userName, warningGist, writerName } from './ui-schema.ts';
 
 function denunciationSentence(d: Denunciation, lines: EventLine[]): string {
   switch (d.sort) {
@@ -27,6 +27,8 @@ function denunciationSentence(d: Denunciation, lines: EventLine[]): string {
       return `${metadataLabel(d.key)}: atteso ${said('expected' in d, d.expected)}, trovato ${said('found' in d, d.found)}`;
     }
     case 'line':
+      // a line a kin answers is that kin's to write: the page waits for it
+      if ('kin' in d) return `Si attende la riga «${gistLabel(d.gist)}» da un ${KIN_WORDS[d.kin] ?? d.kin}`;
       return d.gist === warningGist() ? 'Un traguardo deve avvisare che una condizione non può più avverarsi' : `Il traguardo attende la riga «${gistLabel(d.gist)}»`;
     case 'thread':
       return domain().words.opening.replace('{found}', String(d.found));
@@ -92,11 +94,11 @@ export function createPanel(root: HTMLElement, handlers: PanelHandlers) {
     const { thread, reading } = state;
     const { lines, handles } = thread;
     const answered = state.answered.flat();
-    // what the authority answers; the rest, but for the thread's own, its policy leaves
+    // what the authority answers; the rest, but for the thread's own and those a kin answers, its policy leaves
     const { words, sets, policy = [] } = domain();
     const owed = new Set(answer(reading, handles, policy));
     const sentence = (d: Denunciation) =>
-      h('li', null, denunciationSentence(d, lines), d.sort !== 'thread' && !owed.has(d) && h('span', { class: 'denunciation-note' }, ' · lasciata senza risposta'));
+      h('li', null, denunciationSentence(d, lines), d.sort !== 'thread' && !('kin' in d) && !owed.has(d) && h('span', { class: 'denunciation-note' }, ' · lasciata senza risposta'));
 
     const name = valueIn(handles, words.nameKey);
     const others = Object.entries(handles.value as Record<string, Json>).filter(([key]) => key !== words.nameKey);

@@ -53,7 +53,16 @@
       "gist": "approve",
       "writers": ["user"],
       "rules": [{ "rule": "collect-writer", "key": "approvals" }],
-      "when": { "guard": "reviewing" }
+      "when": { "guard": "reviewing" },
+      "expect": {
+        "kin": "user",
+        "while": {
+          "all": [
+            { "is": { "$value": "status" }, "values": ["in_review"] },
+            { "not": { "line": { "gist": "approve", "payload": { "version": { "$value": "version" } } } } }
+          ]
+        }
+      }
     },
     {
       "gist": "approve_revoke",

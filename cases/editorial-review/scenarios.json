@@ -36,5 +36,17 @@
       {"label": "bgalli-leaves", "writer": "user::bgalli", "gist": "leave_team", "payload": {}},
       {"label": "cneri-leaves", "writer": "user::cneri", "gist": "leave_team", "payload": {}, "refused": "law"}
     ]
+  },
+  {
+    "id": "approval-revoked",
+    "title": "The review expects an approval of the version on the table; a reviewer's approval answers it, revoked it is expected again, and the other reviewer's answers it",
+    "steps": [
+      {"label": "submit", "writer": "user::aconti", "gist": "submit", "payload": {"title": "Le biblioteche civiche nel 2030", "version": "v1", "authors": ["aconti"], "editor": "drusso"}},
+      {"label": "request", "writer": "user::aconti", "gist": "request_review", "payload": {"reviewers": ["bgalli", "cneri"]}},
+      {"label": "bgalli-v1", "writer": "user::bgalli", "gist": "approve", "payload": {"version": "v1"}},
+      {"label": "bgalli-revokes", "writer": "user::bgalli", "gist": "approve_revoke", "payload": {"target": {"$line": "bgalli-v1"}}},
+      {"label": "aconti-approves", "writer": "user::aconti", "gist": "approve", "payload": {"version": "v1"}, "refused": "not-now"},
+      {"label": "cneri-v1", "writer": "user::cneri", "gist": "approve", "payload": {"version": "v1"}}
+    ]
   }
 ]
