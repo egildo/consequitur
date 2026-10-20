@@ -4,6 +4,8 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-10-20
+
 ### Added
 
 - [The release](cases/release/) is a case: one thread per package across its releases, a tag made, built, approved and published, a failed publication retried, and a retraction that puts the release before it back out. Its publication is an [expected line](docs/reference/schema.md#expected-lines) of the kin `system`, from the approval until it is posted, and not again once retracted; its scenarios play two releases, the failure, the retraction and five refusals.
@@ -62,7 +64,8 @@ The first release.
 - `consequitur-render`: [`lineFacts`, `changes`, `keyed`, `previewer` and `band`](docs/reference/render.md) turn a reading into DOM, with no markup and no style of their own.
 - ESM packages for Node 20 and later, with their types.
 
-[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.3.0...main
+[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.3.1...main
+[0.3.1]: https://codeberg.org/egildo/consequitur/releases/tag/v0.3.1
 [0.3.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.3.0
 [0.2.1]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.1
 [0.2.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.0
