@@ -98,10 +98,10 @@ A value stated through a reference serves no other reference. Where no line hold
 A gist whose schema holds an [`expect`](schema.md#expected-lines) is expected while the condition under its `while` holds: the thread expects a line of the gist from a writer of the kin `expect` names. The condition is read as a goal's is, against what the thread expects and the lines in force, each with its references replaced. Each gist so expected is one entry of `owed`, and one denunciation of the reading:
 
 ```ts
-{ sort: 'line', gist: 'published', kin: 'system', line: 'sha256:…' }
+{ sort: 'line', gist: 'published', kin: 'system' }
 ```
 
-`line` is the line that made the gist expected: the latest line in force, in reading order, among the lines the condition reads. Those are, for each `$value` key, the line that states the value; for each `$set`, the lines that joined its present members; for each `line` node, the lines in force it matches; through a guard too. A condition that reads no line names the opening line. Its timestamp tells a host since when the line has been expected, at the latest: a line that changes what the condition reads without changing whether it holds names a later line.
+The denunciation names no line and no age: the reading has no clock, and a host that needs to know how long the line has been expected keeps the instant it first saw the denunciation.
 
 The denunciation carries no payload. The kin reads what it needs to do the work from `expected`, and writes the line; the line changes what the condition reads, and the next reading no longer denounces it. If the condition still holds after the line, the gist is still expected.
 
@@ -171,13 +171,13 @@ type Denunciation =
   | HandleDenunciation
   /** A line a goal owes the thread: its outcome once met, or a warning. `line` is the goal. */
   | { sort: 'line'; gist: string; writer: Writer; line: LineId; payload: Payload }
-  /** A line the thread expects from a kin, which that kin answers. `line` made it expected. */
-  | { sort: 'line'; gist: string; kin: string; line: LineId }
+  /** A line the thread expects from a kin, which that kin answers. */
+  | { sort: 'line'; gist: string; kin: string }
   /** The opening rule: exactly one line of the opening gist in force. Nothing can reconcile it. */
   | { sort: 'thread'; rule: 'one-opening'; found: number };
 ```
 
-A denunciation is one difference between what the thread expects and what is. A denunciation that names a `kin` is that kin's to answer; every other is the engine's, or nobody's. They come in a fixed order:
+A denunciation is one difference between what the thread expects and what is. They come in a fixed order:
 
 1. `thread`: the opening rule, when the thread does not hold exactly one line of the opening gist in force. `found` is how many it holds.
 2. `line`: the lines the goals owe, by goal name, each goal's outcome before its warning.

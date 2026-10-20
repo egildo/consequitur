@@ -119,18 +119,18 @@ A gist whose schema has an [`expect`](../reference/schema.md#expected-lines) is 
    const { lines, handles } = await store.load(threadId);
    const reading = consequitur(lines, handles, schema);
    const mine = reading.denunciations.filter((d): d is Expected => 'kin' in d && d.kin === 'system');
-   // [{ sort: 'line', gist: 'published', kin: 'system', line: 'sha256:…' }]
+   // [{ sort: 'line', gist: 'published', kin: 'system' }]
    ```
 
    The denunciation names the gist, not its payload. Take what the work needs from `reading.expected`, as the condition read it.
 
-3. **Do the work so that twice is once.** The worker may stop after the work and before the line is posted; the next reading denounces the same line, and the work runs again. Make it idempotent: key it by what it acts on, a tag for a publication, or by the thread, the gist and `line`, which stay the same while nothing the condition reads changes.
+3. **Do the work so that twice is once.** The worker may stop after the work and before the line is posted; the next reading denounces the same line, and the work runs again. Make it idempotent: key it by what it acts on, a tag for a publication, read from `reading.expected`.
 
 4. **Post the line, as your kin, through steps 3 to 5 above.** Give it the writer of your kin that does the work, `system::tabularium` for example, and store what the post adds. The line is admitted as any line is, so its gist's `when` must hold: a refusal here means the schema expects a line it does not allow, which is the schema's fault, not the worker's.
 
 5. **Post a failure, if the schema has a gist for it.** The line is still expected after a failure, so a retry needs nothing new: the next reading finds it. A line such as `publish_failed` keeps on the thread that the work was tried and why it failed.
 
-Nothing in this needs a table of messages beside the thread: what is expected is a reading of the lines you stored in one transaction, so the thread is your outbox. How long a line has been expected, the engine does not say, since it reads no clock: the timestamp of the line the denunciation names is when it became expected, at the latest, and lateness is yours to judge.
+How long a line has been expected, the engine does not say, since it reads no clock: keep the instant you first saw the denunciation, and lateness is yours to judge.
 
 ## Variations
 

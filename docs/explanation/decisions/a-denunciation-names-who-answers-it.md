@@ -1,6 +1,6 @@
 # A denunciation names who answers it
 
-Status: settled 2026-10-19 by Egildo, in the conversation on the release workflow: an expected line holds while its condition does, is expected of a kin, may fail by a line, carries no deadline, and is not a goal; it takes no word of its own, since it is an expectation, denounced, and the denunciation names who answers it; the binding is `expect`; the one who answers is a kin, with no name or plug of its own. The line a denunciation names was Claude's lean, which Egildo's «settled» took. To be built in the round «Expected lines» ([plan](../../project/plan.md) §4).
+Status: settled 2026-10-19 by Egildo, in the conversation on the release workflow: an expected line holds while its condition does, is expected of a kin, may fail by a line, carries no deadline, and is not a goal; it takes no word of its own, since it is an expectation, denounced, and the denunciation names who answers it; the binding is `expect`; the one who answers is a kin, with no name or plug of its own. The line a denunciation names was Claude's lean, which Egildo's «settled» took, and which the amendment of 2026-10-20 drops. To be built in the round «Expected lines» ([plan](../../project/plan.md) §4).
 
 ## Context
 
@@ -22,7 +22,7 @@ The canon, from memory and not re-read for this decision:
 
 ## Decision
 
-**A gist may be expected.** A gist schema may hold one `expect`: the kin that writes the line, `kin`, required, and a condition, `while`. The thread expects a line of the gist from that kin for as long as the condition holds. The kin must be one of the gist's writers and not `goal`, and the gist may not be a record gist: the engine writes those. A gist that several kins may write names the one expected; the others may still write it. `expect` is a mechanic, as `when` is, read by the engine, not a rule kind.
+**A gist may be expected.** A gist schema may hold one `expect`: the kin that writes the line, `kin`, required, and a condition, `while`. The thread expects a line of the gist from that kin for as long as the condition holds. The kin must be one of the gist's writers and not `goal`, and the gist may not be a record gist, since the engine writes those, nor the opening gist, since a second opening line is refused as unreconcilable. A gist that several kins may write names the one expected; the others may still write it. `expect` is a mechanic, as `when` is, read by the engine, not a rule kind.
 
 ```json
 { "gist": "published", "writers": ["system"],
@@ -71,14 +71,14 @@ type Denunciation =
   | HandleDenunciation
   /** A line a goal owes the thread: its outcome once met, or a warning. The engine writes it. `line` is the goal. */
   | { sort: 'line'; gist: string; writer: Writer; line: LineId; payload: Payload }
-  /** A line the thread expects from a kin, while the gist's `expect` holds. The kin writes it. `line` made it expected. */
-  | { sort: 'line'; gist: string; kin: string; line: LineId }
+  /** A line the thread expects from a kin, while the gist's `expect` holds. The kin writes it. */
+  | { sort: 'line'; gist: string; kin: string }
   | { sort: 'thread'; rule: 'one-opening'; found: number };
 ```
 
 They come last in the order of denunciations, after the handles', in the order of the schema's gists: the order is the order of the lines a post adds, and a post adds none of these.
 
-**`line` is the line that made it expected:** the latest line in force, in reading order, among the lines the condition reads. For each `$value` key, the line that states the value; for each `$set`, the lines that joined its present members; for each `line` node, the lines in force it matches; through a guard too. A condition that reads no line names the opening line.
+**It names no line.** The first text of this decision named the line that made it expected, the latest line in force among those the condition reads, so that a host could read an age from its timestamp. The amendment of 2026-10-20 drops it: the age was only a lower bound, the host that needs the age keeps the instant it first saw the denunciation, the idempotency key is what the work acts on, and the render key is the gist and the kin. Tracing which lines a condition read, through `not` branches and guards, was the largest and least defined piece of the build, for a number nobody could rely on.
 
 **The engine never answers one.** `answer` leaves it, so `reconcile` does not write it and `settle` does not count it. **`settled` keeps its meaning: nothing is left that the engine answers.** A thread that expects a publication is settled, so the law `settles` does not refuse the approval that made it expected. The kin does the work in the world, then posts the line, through admission like any line, and the denunciation clears because the line changes what the condition reads.
 
@@ -86,7 +86,7 @@ They come last in the order of denunciations, after the handles', in the order o
 
 **A failure is an optional line.** A schema that wants to keep failures gives the host a gist for them, here `publish_failed`, and the host writes it when the work fails. The expectation stands while its condition holds, so a retry needs nothing new: the next reading denounces the same line again. The engine cannot promise that an effect happens once; the host makes it so (below).
 
-**No deadline in the engine.** The reading has no clock ([times are compared as stated](times-are-compared-as-stated.md)). The denunciation names the line that made it, and that line carries the instant it was stamped at, so the host computes the age with its own clock, and decides what is late. A deadline the domain states is a value and a line, as the editorial review's `deadline_passed` already is.
+**No deadline and no age in the engine.** The reading has no clock ([times are compared as stated](times-are-compared-as-stated.md)). A host that needs to know how long a line has been expected keeps the instant it first saw the denunciation, with its own clock, and decides what is late. A deadline the domain states is a value and a line, as the editorial review's `deadline_passed` already is.
 
 **Goals stay as they are.** A goal is a line a person posts, in one thread; it fires once; its outcome is the engine's, written by `goal::…`. An expected gist is declared by the schema, for every thread it reads; it stands for as long as its condition holds; it is answered by a kin, after the act.
 
@@ -96,10 +96,10 @@ The thread at the moment of the gap: `opened`, `tagged` R2.0, `built` R2.0, `app
 
 ```json
 "settled": true,
-"denunciations": [{ "sort": "line", "gist": "published", "kin": "system", "line": "sha256:…the approved line" }]
+"denunciations": [{ "sort": "line", "gist": "published", "kin": "system" }]
 ```
 
-`system::tabularium` reads it, uploads R2.0, and posts `published`. The denunciation clears, since `approved` and `published` now agree. Had the upload failed, it would post `publish_failed` instead, and the denunciation would stand, its `line` still the approval, so the next attempt knows how long the line has been expected.
+`system::tabularium` reads it, uploads R2.0, and posts `published`. The denunciation clears, since `approved` and `published` now agree. Had the upload failed, it would post `publish_failed` instead, and the denunciation would stand, so the next reading finds the work still to do.
 
 The draft's own condition needed its third child. With only the first two, `has (value)approved` and `not { is (value)approved (value)published }`, a retraction brings the expectation back: revoking the publication of R2.1 puts `published` back to R2.0, while R2.1 is still approved, so the thread expects R2.1 again, the release just taken back. The `retracted` gist now carries the tag it takes out (its `when` checks `is (draft)tag (value)published`), and the condition excludes an approved tag that was retracted. This was played against the engine, with the condition as a guard: it holds after each approval and after a failure, and nowhere else, the retraction included. It is the price of level-triggering, met on the first schema.
 
@@ -109,9 +109,9 @@ The draft's own condition needed its third child. With only the first two, `has 
 
 **The denunciation says what is expected, not how.** It carries no payload. The kin reads what it needs, here the approved tag and the target, from the reading's `expected`, as it would to do the work.
 
-**The line is a lower bound of the age.** A line that changes what the condition reads without changing whether it holds moves `line` later: an approver added, where the condition reads the approvers, makes the expectation look younger than it is. The exact rule, the first line after which the condition has held without a break, needs a reading of every earlier stretch of the thread, a cost that grows with the square of its length; a host that needs the exact age keeps the instant it first saw the denunciation, since it has a clock.
+**The age is the host's.** The exact rule, the first line after which the condition has held without a break, needs a reading of every earlier stretch of the thread, a cost that grows with the square of its length; and a line named as a bound moves when a line changes what the condition reads without changing whether it holds. So the host keeps the instant it first saw the denunciation, since it has a clock.
 
-**Permission and expectation are separate.** The engine does not prove that the gist's `when` holds wherever its `expect` does; in general it cannot. A line expected and refused by admission cannot be paid; the scenarios of the case that uses it pin the two together.
+**Permission and expectation are separate.** The engine does not prove that the gist's `when` holds wherever its `expect` does; in general it cannot. The one case it can see from the schema alone, an `expect` on the opening gist, it refuses. A line expected and refused by admission cannot be paid; the scenarios of the case that uses it pin the two together.
 
 **A line expected of a person is a to-do.** The kin may be `user`. Then the reading lists what a person is expected to write, and the application chases it, as it chases an open hole.
 
@@ -119,7 +119,7 @@ The draft's own condition needed its third child. With only the first two, `has 
 
 ## Doing the work once
 
-The host follows the transactional outbox with an idempotent consumer, and the thread is the outbox. The denunciation is a reading of lines stored in the same transaction as the post that made it, so the expectation and the state commit together, with no table of messages beside them. A worker reads the denunciations its kin answers, acts, and posts the line. An effect done and not yet posted, because the worker stopped in between, is done again on the next reading, so the effect must be idempotent: a publication keyed by its tag, or by the thread, the gist and the denunciation's `line`, which stays the same while nothing the condition reads changes. This belongs in the how-to, [be the authority](../../how-to/be-the-authority.md), as a section of its own.
+The host follows the transactional outbox with an idempotent consumer, and the thread is the outbox. The denunciation is a reading of lines stored in the same transaction as the post that made it, so the expectation and the state commit together, with no table of messages beside them. A worker reads the denunciations its kin answers, acts, and posts the line. An effect done and not yet posted, because the worker stopped in between, is done again on the next reading, so the effect must be idempotent: a publication keyed by its tag. This belongs in the how-to, [be the authority](../../how-to/be-the-authority.md), as a section of its own.
 
 ## What lost, and why
 
@@ -137,9 +137,9 @@ Each exclusion in the [vision](../vision.md) names what adding it back would cos
 - **No once-only.** The engine cannot promise that the world is changed once; the kin's effect must be idempotent.
 - **A denunciation no longer means «the engine will answer this».** A host that answers every denunciation it reads must now read `kin`. The `line` sort has two shapes, and TypeScript makes a host that reads `writer` or `payload` on it narrow first.
 - **One more condition per expected gist in every reading**, as dear as a goal's.
-- **The age is a lower bound**, as the nuance says.
+- **No age**, as the nuance says: the host keeps it.
 - **`expect` is a mechanic's name**, so a kit may not register a rule kind of that name.
 
 ## Consequences
 
-`GistSchema` gains `expect?: { kin: string; while: Condition }`; `readSchema` names a problem for an `expect` whose kin the gist does not list, a kin `goal`, a record gist, and a condition that reads `$draft`, `$now` or `$writer`. `Denunciation` gains the second `line` shape; the reading lists it last; `answer` leaves it, and `settled`, `reconcile` and `settle` follow from that; a dry run shows it, so the person sees, before sending, that an approval makes a publication expected. `consequitur-render`'s `keyOf` gives it a key, and `changes` then says when it is raised and answered. `consequitur-kdl` reads and writes `expect` with its condition in the body. The glossary's **denunciation** gains the line a kin is expected to write, and **mechanic** gains `expect`; **expectation** already says «or that a line should exist»; the vision's first section says that the reading also says what others must do; the reference's reading and posting pages follow; the authority's how-to gains the section on doing the work once. A case shows it: the release, or an `expect` added to one of the three cases.
+`GistSchema` gains `expect?: { kin: string; while: Condition }`; `readSchema` names a problem for an `expect` whose kin the gist does not list, a kin `goal`, a record gist, the opening gist, and a condition that reads `$draft`, `$now` or `$writer`. `Denunciation` gains the second `line` shape; the reading lists it last; `answer` leaves it, and `settled`, `reconcile` and `settle` follow from that; a dry run shows it, so the person sees, before sending, that an approval makes a publication expected. `consequitur-render`'s `keyOf` gives it a key, and `changes` then says when it is raised and answered. `consequitur-kdl` reads and writes `expect` with its condition in the body. The glossary's **denunciation** gains the line a kin is expected to write, and **mechanic** gains `expect`; **expectation** already says «or that a line should exist»; the vision's first section says that the reading also says what others must do; the reference's reading and posting pages follow; the authority's how-to gains the section on doing the work once. A case shows it: the release, or an `expect` added to one of the three cases.

@@ -242,5 +242,4 @@ choice.
 The reading is level-triggered, as Kubernetes' controllers are: an expected line is denounced for as long as
 its condition holds, not once when it starts to. A worker that stops loses nothing, since the next reading
 denounces the same line. It may also act twice: the work was done and the line not yet posted when it
-stopped. So the work must be idempotent, keyed by what it acts on, or by the thread, the gist and the line
-the denunciation names.
+stopped. So the work must be idempotent, keyed by what it acts on.
