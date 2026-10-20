@@ -241,7 +241,7 @@ describe('holing a scenario', () => {
 
 describe('reading a scenarios file', () => {
   it('reads the cases\' files', () => {
-    for (const domain of ['sibar-activity', 'editorial-review']) {
+    for (const domain of ['sibar-activity', 'editorial-review', 'release']) {
       const scenarios = readScenarios(readFileSync(casePath(domain, 'scenarios.json'), 'utf8'));
       expect(scenarios.length).toBeGreaterThan(0);
       expect(new Set(scenarios.map((s) => s.id)).size).toBe(scenarios.length);

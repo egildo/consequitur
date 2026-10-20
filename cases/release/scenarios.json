@@ -1,0 +1,61 @@
+[
+  {
+    "id": "two-releases",
+    "title": "Two releases of one package on one thread: each tag is made, built, approved and published, and the publication is expected from the approval until it is posted",
+    "steps": [
+      {"label": "open", "writer": "user::mrossi", "gist": "opened", "payload": {"package": "consequitur", "approvers": ["mrossi", "lbianchi"]}},
+      {"label": "tag-r1", "writer": "system::git", "gist": "tagged", "payload": {"tag": "R1.0"}},
+      {"label": "build-r1", "writer": "system::mac", "gist": "built", "payload": {"tag": "R1.0", "outputs": {"consequitur-1.0.0.tgz": "sha256:4f1c0a"}}},
+      {"label": "approve-r1", "writer": "user::lbianchi", "gist": "approved", "payload": {"tag": "R1.0"}},
+      {"label": "publish-r1", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R1.0"}},
+      {"label": "tag-r2", "writer": "system::git", "gist": "tagged", "payload": {"tag": "R2.0"}},
+      {"label": "build-r2", "writer": "system::gitlab", "gist": "built", "payload": {"tag": "R2.0", "outputs": {"consequitur-2.0.0.tgz": "sha256:9b7e21"}}},
+      {"label": "approve-r2", "writer": "user::mrossi", "gist": "approved", "payload": {"tag": "R2.0"}},
+      {"label": "publish-r2", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R2.0"}}
+    ]
+  },
+  {
+    "id": "failed-and-retried",
+    "title": "A publication fails: the failure is a line, the publication is still expected, and the retry that succeeds answers it",
+    "steps": [
+      {"label": "open", "writer": "user::mrossi", "gist": "opened", "payload": {"package": "consequitur", "approvers": ["mrossi", "lbianchi"]}},
+      {"label": "tag-r1", "writer": "system::git", "gist": "tagged", "payload": {"tag": "R1.0"}},
+      {"label": "build-r1", "writer": "system::mac", "gist": "built", "payload": {"tag": "R1.0", "outputs": {"consequitur-1.0.0.tgz": "sha256:4f1c0a"}}},
+      {"label": "approve-r1", "writer": "user::lbianchi", "gist": "approved", "payload": {"tag": "R1.0"}},
+      {"label": "failed-r1", "writer": "system::tabularium", "gist": "publish_failed", "payload": {"tag": "R1.0", "why": "the registry did not answer"}},
+      {"label": "publish-r1", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R1.0"}}
+    ]
+  },
+  {
+    "id": "retracted",
+    "title": "R2.0 is published and retracted: what is out is R1.0 again, and the publication of R2.0, still approved, is not expected again",
+    "steps": [
+      {"label": "open", "writer": "user::mrossi", "gist": "opened", "payload": {"package": "consequitur", "approvers": ["mrossi", "lbianchi"]}},
+      {"label": "tag-r1", "writer": "system::git", "gist": "tagged", "payload": {"tag": "R1.0"}},
+      {"label": "build-r1", "writer": "system::mac", "gist": "built", "payload": {"tag": "R1.0", "outputs": {"consequitur-1.0.0.tgz": "sha256:4f1c0a"}}},
+      {"label": "approve-r1", "writer": "user::lbianchi", "gist": "approved", "payload": {"tag": "R1.0"}},
+      {"label": "publish-r1", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R1.0"}},
+      {"label": "tag-r2", "writer": "system::git", "gist": "tagged", "payload": {"tag": "R2.0"}},
+      {"label": "build-r2", "writer": "system::gitlab", "gist": "built", "payload": {"tag": "R2.0", "outputs": {"consequitur-2.0.0.tgz": "sha256:9b7e21"}}},
+      {"label": "approve-r2", "writer": "user::mrossi", "gist": "approved", "payload": {"tag": "R2.0"}},
+      {"label": "publish-r2", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R2.0"}},
+      {"label": "retract-r2", "writer": "user::lbianchi", "gist": "retracted", "payload": {"tag": "R2.0", "target": {"$line": "publish-r2"}}}
+    ]
+  },
+  {
+    "id": "refused",
+    "title": "The five refusals: a tag approved before it is built, a publication of a tag not approved, an approval by someone not an approver, a publication by a writer other than tabularium, and a retraction of a tag not published",
+    "steps": [
+      {"label": "open", "writer": "user::mrossi", "gist": "opened", "payload": {"package": "consequitur", "approvers": ["mrossi", "lbianchi"]}},
+      {"label": "tag-r1", "writer": "system::git", "gist": "tagged", "payload": {"tag": "R1.0"}},
+      {"label": "approved-unbuilt", "writer": "user::lbianchi", "gist": "approved", "payload": {"tag": "R1.0"}, "refused": "not-now"},
+      {"label": "build-r1", "writer": "system::mac", "gist": "built", "payload": {"tag": "R1.0", "outputs": {"consequitur-1.0.0.tgz": "sha256:4f1c0a"}}},
+      {"label": "published-unapproved", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R1.0"}, "refused": "not-now"},
+      {"label": "approved-by-other", "writer": "user::cneri", "gist": "approved", "payload": {"tag": "R1.0"}, "refused": "not-now"},
+      {"label": "approve-r1", "writer": "user::lbianchi", "gist": "approved", "payload": {"tag": "R1.0"}},
+      {"label": "published-by-other", "writer": "system::git", "gist": "published", "payload": {"tag": "R1.0"}, "refused": "not-now"},
+      {"label": "publish-r1", "writer": "system::tabularium", "gist": "published", "payload": {"tag": "R1.0"}},
+      {"label": "retracted-unpublished", "writer": "user::lbianchi", "gist": "retracted", "payload": {"tag": "R2.0", "target": {"$line": "publish-r1"}}, "refused": "not-now"}
+    ]
+  }
+]

@@ -9,7 +9,7 @@ import { BASE_KIT, canonical, readSchema, type Json } from '../src/index.ts';
 import { schemaJson } from '../src/schema.ts';
 import { RECORD_GISTS, SIBAR, custom } from './helpers.ts';
 
-const CASES = ['sibar-activity', 'editorial-review', 'warehouse-arrival'];
+const CASES = ['sibar-activity', 'editorial-review', 'warehouse-arrival', 'release'];
 
 /** A case as its file holds it. */
 const caseJson = (name: string): { [key: string]: Json } =>

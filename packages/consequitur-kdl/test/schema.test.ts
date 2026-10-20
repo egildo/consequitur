@@ -11,7 +11,7 @@ import { fromKdl, toKdl } from '../src/index.ts';
 const casePath = (domain: string, file: string) => join(import.meta.dirname, '..', '..', '..', 'cases', domain, file);
 
 describe('the cases', () => {
-  for (const domain of ['sibar-activity', 'editorial-review', 'warehouse-arrival']) {
+  for (const domain of ['sibar-activity', 'editorial-review', 'warehouse-arrival', 'release']) {
     const json = JSON.parse(readFileSync(casePath(domain, 'schema.json'), 'utf8')) as Record<string, Json>;
     const kdl = readFileSync(casePath(domain, 'schema.kdl'), 'utf8');
 

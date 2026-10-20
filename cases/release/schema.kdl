@@ -1,0 +1,86 @@
+name release
+version 1
+opening opened
+authority system::release
+sets approvers
+records join=joined leave=left value=value_set
+judged user
+guard approver {
+    is (writer)id (set)approvers
+}
+guard tabularium {
+    is (writer)id tabularium
+}
+gist opened user {
+    join from=approvers required=#true set=approvers
+}
+gist tagged system {
+    value from=tag key=tag required=#true
+    when {
+        is (writer)id git
+    }
+}
+gist built system {
+    value from=tag key=built required=#true
+    when {
+        all {
+            is (writer)id mac gitlab
+            is (draft)tag (value)tag
+        }
+    }
+}
+gist approved user {
+    value from=tag key=approved required=#true
+    when {
+        all {
+            guard approver
+            is (draft)tag (value)built
+        }
+    }
+}
+gist published system {
+    value from=tag key=published required=#true
+    value collect=tag key=history required=#true
+    when {
+        all {
+            guard tabularium
+            is (draft)tag (value)approved
+        }
+    }
+    expect kin=system {
+        all {
+            has (value)approved
+            not {
+                is (value)approved (value)published
+            }
+            not {
+                line gist=retracted {
+                    payload tag=(value)approved
+                }
+            }
+        }
+    }
+}
+gist publish_failed system {
+    when {
+        all {
+            guard tabularium
+            is (draft)tag (value)approved
+        }
+    }
+}
+gist retracted user {
+    revoke from=target {
+        gists published
+    }
+    when {
+        all {
+            guard approver
+            is (draft)tag (value)published
+        }
+    }
+}
+gist value_set system
+gist joined system
+gist left system
+law settles strength=refuse

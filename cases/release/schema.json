@@ -1,0 +1,78 @@
+{
+  "name": "release",
+  "version": 1,
+  "opening": "opened",
+  "authority": "system::release",
+  "sets": ["approvers"],
+  "records": { "value": "value_set", "join": "joined", "leave": "left" },
+  "judged": ["user"],
+  "guards": {
+    "approver": { "is": { "$writer": "id" }, "values": [{ "$set": "approvers" }] },
+    "tabularium": { "is": { "$writer": "id" }, "values": ["tabularium"] }
+  },
+  "gists": [
+    {
+      "gist": "opened",
+      "writers": ["user"],
+      "rules": [{ "rule": "join", "set": "approvers", "from": "approvers", "required": true }]
+    },
+    {
+      "gist": "tagged",
+      "writers": ["system"],
+      "rules": [{ "rule": "value", "key": "tag", "from": "tag", "required": true }],
+      "when": { "is": { "$writer": "id" }, "values": ["git"] }
+    },
+    {
+      "gist": "built",
+      "writers": ["system"],
+      "rules": [{ "rule": "value", "key": "built", "from": "tag", "required": true }],
+      "when": {
+        "all": [
+          { "is": { "$writer": "id" }, "values": ["mac", "gitlab"] },
+          { "is": { "$draft": "tag" }, "values": [{ "$value": "tag" }] }
+        ]
+      }
+    },
+    {
+      "gist": "approved",
+      "writers": ["user"],
+      "rules": [{ "rule": "value", "key": "approved", "from": "tag", "required": true }],
+      "when": { "all": [{ "guard": "approver" }, { "is": { "$draft": "tag" }, "values": [{ "$value": "built" }] }] }
+    },
+    {
+      "gist": "published",
+      "writers": ["system"],
+      "rules": [
+        { "rule": "value", "key": "published", "from": "tag", "required": true },
+        { "rule": "value", "key": "history", "collect": "tag", "required": true }
+      ],
+      "when": { "all": [{ "guard": "tabularium" }, { "is": { "$draft": "tag" }, "values": [{ "$value": "approved" }] }] },
+      "expect": {
+        "kin": "system",
+        "while": {
+          "all": [
+            { "has": { "$value": "approved" } },
+            { "not": { "is": { "$value": "approved" }, "values": [{ "$value": "published" }] } },
+            { "not": { "line": { "gist": "retracted", "payload": { "tag": { "$value": "approved" } } } } }
+          ]
+        }
+      }
+    },
+    {
+      "gist": "publish_failed",
+      "writers": ["system"],
+      "rules": [],
+      "when": { "all": [{ "guard": "tabularium" }, { "is": { "$draft": "tag" }, "values": [{ "$value": "approved" }] }] }
+    },
+    {
+      "gist": "retracted",
+      "writers": ["user"],
+      "rules": [{ "rule": "revoke", "from": "target", "gists": ["published"] }],
+      "when": { "all": [{ "guard": "approver" }, { "is": { "$draft": "tag" }, "values": [{ "$value": "published" }] }] }
+    },
+    { "gist": "value_set", "writers": ["system"], "rules": [] },
+    { "gist": "joined", "writers": ["system"], "rules": [] },
+    { "gist": "left", "writers": ["system"], "rules": [] }
+  ],
+  "laws": [{ "law": "settles", "strength": "refuse" }]
+}
