@@ -280,6 +280,20 @@ function bindingNode(binding: Record<string, Json>, head: string, condition?: st
 // The schema
 // ---------------------------------------------------------------------------
 
+/** A gist's `expect`: its one property, `kin`, and its body, the condition read as its `while`. */
+function readExpect(sink: Sink, node: Node, gist: Record<string, Json>): void {
+  if ('expect' in gist) {
+    problem(sink, '"expect" is written twice', node);
+    return;
+  }
+  for (const entry of entriesOf(node).args) problem(sink, '"expect" takes kin=<kin> and a condition in its body, and nothing else', entry);
+  const { kin, ...others } = propsOf(sink, node, '"expect"');
+  for (const key of Object.keys(others)) problem(sink, `"expect" takes kin, not "${key}"`, node);
+  if (typeof kin !== 'string') problem(sink, '"expect" takes kin=<kin>, a word', node);
+  const condition = readCondition(sink, node);
+  if (typeof kin === 'string' && condition !== undefined) gist.expect = { kin, while: condition as unknown as Json };
+}
+
 const TOP = ['name', 'version', 'opening', 'authority', 'sets', 'records', 'judged', 'guard', 'gist', 'law'];
 
 /**
@@ -338,7 +352,8 @@ export function fromKdl(text: string): { json: Record<string, Json>; problems: P
       const gist: Record<string, Json> = { gist: first ?? '', writers: rest, rules: [] };
       const rules: Json[] = [];
       for (const child of node.children?.nodes ?? []) {
-        if (child.getName() !== 'when') rules.push(readBinding(sink, child, 'rule'));
+        if (child.getName() === 'expect') readExpect(sink, child, gist);
+        else if (child.getName() !== 'when') rules.push(readBinding(sink, child, 'rule'));
         else if ('when' in gist) problem(sink, '"when" is written twice', child);
         else if (child.hasArguments() || child.hasProperties()) problem(sink, '"when" takes a condition in its body, and nothing else', child);
         else {
@@ -400,6 +415,11 @@ export function toKdl(json: Record<string, Json>): string {
     for (const writer of Array.isArray(entry.writers) ? entry.writers : []) node.addArgument(String(writer));
     for (const rule of Array.isArray(entry.rules) ? entry.rules : []) node.appendNode(bindingNode(rule as Record<string, Json>, 'rule'));
     if (entry.when !== undefined) node.appendNode(conditionNode('when', entry.when as unknown as Condition));
+    if (typeof entry.expect === 'object' && entry.expect !== null && !Array.isArray(entry.expect)) {
+      const expected = conditionNode('expect', entry.expect.while as unknown as Condition);
+      expected.setProperty('kin', String(entry.expect.kin));
+      node.appendNode(expected);
+    }
     put(node);
   }
   for (const law of Array.isArray(json.laws) ? json.laws : []) {

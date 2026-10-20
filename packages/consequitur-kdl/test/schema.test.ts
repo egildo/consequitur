@@ -144,6 +144,89 @@ describe('what the reader refuses', () => {
   });
 });
 
+describe('an expect', () => {
+  const head = ['opening open', 'authority system::host', 'records value=value_set join=joined leave=left', 'gist value_set system', 'gist joined system', 'gist left system'];
+  /** A schema of the head, an opening gist and the gists given, as KDL. */
+  const text = (...gists: string[]) => [...head, 'gist open user {\n    value from=tag key=approved\n}', ...gists].join('\n');
+  /** The lines before the gist a test writes. */
+  const before = head.length + 3;
+  const published = (expectation: string, writers = 'system user') => `gist published ${writers} {\n    value from=tag key=published\n${expectation}\n}`;
+  const releasing = { all: [{ has: { $value: 'approved' } }, { not: { is: { $value: 'approved' }, values: [{ $value: 'published' }] } }] };
+
+  it('reads its kin as a property and its body as the condition under while, several nodes as all of them', () => {
+    const { json, problems } = fromKdl(text(published('    expect kin=system {\n        has (value)approved\n        not {\n            is (value)approved (value)published\n        }\n    }')));
+    expect(problems).toEqual([]);
+    expect((json.gists as Array<Record<string, Json>>)[4]).toEqual({
+      gist: 'published',
+      writers: ['system', 'user'],
+      rules: [{ rule: 'value', from: 'tag', key: 'published' }],
+      expect: { kin: 'system', while: releasing },
+    });
+    expect(readSchema(json, BASE_KIT).problems).toEqual([]);
+  });
+
+  it('comes back as it went, after the when, its kin a property and its condition the body', () => {
+    const gist = { gist: 'published', writers: ['system'], rules: [], when: { has: { $draft: 'tag' } }, expect: { kin: 'system', while: releasing } };
+    const written = toKdl({ gists: [gist as unknown as Json] });
+    expect(written).toBe(
+      [
+        'gist published system {',
+        '    when {',
+        '        has (draft)tag',
+        '    }',
+        '    expect kin=system {',
+        '        all {',
+        '            has (value)approved',
+        '            not {',
+        '                is (value)approved (value)published',
+        '            }',
+        '        }',
+        '    }',
+        '}',
+        '',
+      ].join('\n'),
+    );
+    expect(fromKdl(written)).toEqual({ json: { gists: [gist] }, problems: [] });
+  });
+
+  it.each([
+    ['written twice', '    expect kin=system {\n        has (value)approved\n    }\n    expect kin=system {\n        has (value)approved\n    }', '"expect" is written twice', 6, 5],
+    ['with an argument', '    expect system kin=system {\n        has (value)approved\n    }', '"expect" takes kin=<kin> and a condition in its body, and nothing else', 3, 12],
+    ['with another property', '    expect kin=system after=built {\n        has (value)approved\n    }', '"expect" takes kin, not "after"', 3, 5],
+    ['with no kin', '    expect {\n        has (value)approved\n    }', '"expect" takes kin=<kin>, a word', 3, 5],
+    ['with its kin written twice', '    expect kin=system kin=user {\n        has (value)approved\n    }', '"kin" is written twice on "expect"', 3, 23],
+    ['with a kin that is not a word', '    expect kin=3 {\n        has (value)approved\n    }', '"expect" takes kin=<kin>, a word', 3, 5],
+    ['with no condition', '    expect kin=system', '"expect" holds a condition in its body', 3, 5],
+  ])('%s is a problem, at its line and column', (_, expectation, message, line, column) => {
+    expect(fromKdl(text(published(expectation))).problems).toEqual([{ message, line: line + before, column }]);
+  });
+
+  it.each([
+    ['a kin the writers do not list', published('    expect kin=mac {\n        has (value)approved\n    }'), 'gist "published": expect: the kin "mac" is not among the gist\'s writers.'],
+    ['the kin goal', published('    expect kin=goal {\n        has (value)approved\n    }', 'goal system'), 'gist "published": expect: the kin goal cannot be expected: the engine writes a goal\'s lines.'],
+    ['a while that reads the writer', published('    expect kin=system {\n        is (writer)id tabularium\n    }'), 'gist "published": expect: while: $writer may stand only in a when.'],
+    ['a while that reads the draft', published('    expect kin=system {\n        has (draft)tag\n    }'), 'gist "published": expect: while: $draft may stand only in a when.'],
+    ['a while that reads the instant', published('    expect kin=system {\n        after (now)instant "2026-10-20T00:00:00.000Z"\n    }'), 'gist "published": expect: while: $now may stand only in a when.'],
+    ['a while that reads the writer through a guard', `guard mine {\n    is (writer)kin system\n}\n${published('    expect kin=system {\n        guard mine\n    }')}`, 'gist "published": expect: while: $writer may stand only in a when.'],
+  ])('%s reads, and readSchema names it as it names it in JSON', (_, gist, message) => {
+    const { json, problems } = fromKdl(text(gist));
+    expect(problems).toEqual([]);
+    expect(readSchema(json, BASE_KIT).problems).toEqual([message]);
+  });
+
+  it('on a record gist or the opening gist reads, and readSchema names it', () => {
+    const on = (gist: string) => fromKdl([...head.slice(0, 3), 'gist joined system', 'gist left system', `${gist} {\n    expect kin=${gist.endsWith('user') ? 'user' : 'system'} {\n        has (value)approved\n    }\n}`].join('\n'));
+    const record = on('gist value_set system');
+    expect(record.problems).toEqual([]);
+    const opening = fromKdl(text().replace('gist open user {', 'gist open user {\n    expect kin=user {\n        has (value)approved\n    }'));
+    expect(opening.problems).toEqual([]);
+    expect(readSchema({ ...record.json, gists: [...(record.json.gists as Json[]), { gist: 'open', writers: ['user'], rules: [] }] }, BASE_KIT).problems).toEqual([
+      'The record "value" is the gist "value_set", which has an expect: the engine writes a record.',
+    ]);
+    expect(readSchema(opening.json, BASE_KIT).problems).toEqual(['The opening gist "open" has an expect: a second opening line is refused.']);
+  });
+});
+
 describe('what the writer refuses', () => {
   it('a value inside a value of a binding, and a list in a check\'s payload, with a RangeError', () => {
     expect(() => toKdl({ gists: [{ gist: 'a', writers: ['user'], rules: [{ rule: 'value', key: 'k', value: { deep: [1] } }] }] })).toThrow(RangeError);
