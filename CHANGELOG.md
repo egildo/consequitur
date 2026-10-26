@@ -4,6 +4,12 @@ All notable changes to consequitur are written here, in the form of [Keep a Chan
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-10-26
+
+### Changed
+
+- The three packages are now published by a workflow that runs when a release tag reaches the GitHub mirror, with npm trusted publishing. Their code is unchanged.
+
 ## [0.3.1] — 2026-10-20
 
 ### Added
@@ -64,7 +70,8 @@ The first release.
 - `consequitur-render`: [`lineFacts`, `changes`, `keyed`, `previewer` and `band`](docs/reference/render.md) turn a reading into DOM, with no markup and no style of their own.
 - ESM packages for Node 20 and later, with their types.
 
-[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.3.1...main
+[Unreleased]: https://codeberg.org/egildo/consequitur/compare/v0.3.2...main
+[0.3.2]: https://codeberg.org/egildo/consequitur/releases/tag/v0.3.2
 [0.3.1]: https://codeberg.org/egildo/consequitur/releases/tag/v0.3.1
 [0.3.0]: https://codeberg.org/egildo/consequitur/releases/tag/v0.3.0
 [0.2.1]: https://codeberg.org/egildo/consequitur/releases/tag/v0.2.1
