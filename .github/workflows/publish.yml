@@ -1,6 +1,7 @@
 # Runs on the GitHub mirror when Codeberg pushes a release tag (vX.Y.Z).
 # Publishes every package whose version is not yet on npm, by trusted
-# publishing (OIDC): no npm token is stored anywhere. Re-run it to retry.
+# publishing (OIDC): no npm token is stored anywhere. Re-run it to retry.# Provenance is off: npm requires package.json's repository to be the repository
+# that built the package, and that is Codeberg while the build runs on GitHub.
 name: publish
 
 on:
@@ -37,5 +38,5 @@ jobs:
               echo "$name@$version is already on npm"
             else
               tarball=$(pnpm pack --pack-destination "$RUNNER_TEMP" | tail -1)
-              npm publish "$tarball" --access public
+              npm publish "$tarball" --access public --provenance=false
             fi'
